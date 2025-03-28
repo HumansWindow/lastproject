@@ -1,0 +1,15 @@
+
+// This is a patch for main.ts to fix cookie-parser import
+// To apply this patch, run: node apply-main-patch.js
+import 'reflect-metadata';
+import { NestFactory } from '@nestjs/core';
+import { AppModule } from './app.module';
+import { ConfigService } from '@nestjs/config';
+import * as dotenv from 'dotenv';
+import { Logger, ValidationPipe } from '@nestjs/common';
+import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+// Fix: Import cookie-parser properly
+import cookieParser from 'cookie-parser';
+import helmet from 'helmet';
+
+// Rest of main.ts...

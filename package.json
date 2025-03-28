@@ -1,0 +1,51 @@
+{
+  "name": "alive-human",
+  "version": "1.0.0",
+  "private": true,
+  "workspaces": [
+    "backend",
+    "frontend",
+    "admin",
+    "mobile",
+    "shared/*"
+  ],
+  "scripts": {
+    "backend": "yarn workspace backend",
+    "frontend": "yarn workspace frontend",
+    "admin": "yarn workspace admin",
+    "mobile": "yarn workspace mobile",
+    "dev": "concurrently \"yarn backend dev\" \"yarn frontend dev\" \"yarn admin dev\"",
+    "build": "yarn workspaces run build",
+    "test": "yarn workspaces run test",
+    "test:coverage": "yarn workspaces run test:cov",
+    "postinstall": "echo 'Installation completed successfully!'"
+  },
+  "devDependencies": {
+    "@typescript-eslint/eslint-plugin": "5.62.0",
+    "@typescript-eslint/parser": "5.62.0",
+    "concurrently": "^7.6.0",
+    "eslint": "8.56.0",
+    "typescript": "^5.3.3",
+    "chai": "^4.3.7"
+  },
+  "resolutions": {
+    "glob": "^10.3.10",
+    "rimraf": "^5.0.5",
+    "@typescript-eslint/eslint-plugin": "5.62.0",
+    "@typescript-eslint/parser": "5.62.0",
+    "@typescript-eslint/type-utils": "5.62.0",
+    "@typescript-eslint/utils": "5.62.0",
+    "eslint": "8.56.0",
+    "typescript": "^5.3.3",
+    "memfs": "^4.7.7",
+    "loglevel": "^1.8.1",
+    "progress": "^2.0.3",
+    "@eslint/config-array": "^0.19.2",
+    "@eslint/object-schema": "^2.1.6",
+    "@mapbox/node-pre-gyp": "^1.0.11"
+  },
+  "overrides": {
+    "@eslint/config-array": "^0.19.2",
+    "@eslint/object-schema": "^2.1.6"
+  }
+}

@@ -1,0 +1,25 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noImplicitAny": false,
+    "strictNullChecks": false,
+    "skipLibCheck": true,
+    "strictBindCallApply": false,
+    "noImplicitThis": false,
+    "allowJs": true,
+    "esModuleInterop": true,
+    "noUnusedLocals": false,
+    "noUnusedParameters": false,
+    "noFallthroughCasesInSwitch": false,
+    "noPropertyAccessFromIndexSignature": false,
+    "noImplicitReturns": false,
+    "types": ["jest", "node"]
+  },
+  "include": [
+    "src/**/*",
+    "test/**/*",
+    "src/__tests__/**/*.ts",
+    "src/@types/**/*.ts"
+  ],
+  "exclude": ["node_modules", "dist"]
+}

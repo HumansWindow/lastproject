@@ -1,0 +1,8 @@
+/home/alivegod/Desktop/LastProject/
+├── backend/          # NestJS backend
+├── frontend/         # Next.js web application (alivehuman.com)
+├── admin/            # Admin panel (app.alivehuman.com/admin)
+├── mobile/           # React Native for iOS and Android
+├── shared/           # Shared libraries and types
+├── docker/           # Docker configuration files
+└── package.json      # Root package.json for workspaces

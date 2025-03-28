@@ -1,0 +1,155 @@
+# AliveHuman Backend Startup Guide
+
+## Quick Start Options
+
+### Memory-Safe Development Mode (Recommended)
+# Uses optimized memory settings and finds available port automatically
+npm run start:memory-safe
+
+### Standard Development Mode
+# Auto-reloads on file changes but may have memory issues on long runs
+npm run start:dev
+
+### Production Mode
+# Optimized for production environments
+npm run start:prod
+
+## Detailed Instructions
+
+### Method 1: Memory-Safe Development (Recommended)
+# This method provides the best stability for development
+cd /home/alivegod/Desktop/LastProject/backend
+./start-memory-safe.sh
+
+### Method 2: Standard Development Flow
+cd /home/alivegod/Desktop/LastProject/backend
+npm run build
+npm run start:dev
+
+### Method 3: Full Fresh Setup
+# Complete process from scratch (when dependencies might be outdated)
+cd /home/alivegod/Desktop/LastProject/backend
+./fix-deps.sh
+npm run build
+node patches/fix-schedule-explorer.js
+npm run start:local
+
+## Environment Setup
+
+### Database Setup
+# Make sure PostgreSQL is running
+sudo service postgresql start
+
+# Create database if not exists
+psql -U postgres -c "CREATE DATABASE \"Alive-Db\" WITH ENCODING 'UTF8';"
+psql -U postgres -c "CREATE USER Aliveadmin WITH PASSWORD 'new_password';"
+psql -U postgres -c "GRANT ALL PRIVILEGES ON DATABASE \"Alive-Db\" TO Aliveadmin;
+
+### Configuration
+# Make sure you have the correct .env file with these essential variables:
+# - DATABASE_URL=postgres://Aliveadmin:new_password@localhost:5432/Alive-Db
+# - JWT_SECRET=your_jwt_secret
+# - PORT=3001
+
+## Database Migration Management
+
+### Run Migrations
+# Apply all pending migrations to the database
+npm run migration:run
+
+### Create Migration
+# Create a new migration file
+npm run migration:create -- -n YourMigrationName
+
+### Revert Migration
+# Revert the most recent migration
+npm run migration:revert
+
+## Troubleshooting
+
+### Port Already in Use
+# If port 3001 is already in use:
+# 1. The memory-safe script will automatically find an available port
+# 2. Manually kill the process using port 3001:
+lsof -ti :3001 | xargs kill -9
+# 3. Start again with npm run start:dev or ./start-memory-safe.sh
+
+### Memory Issues
+# If you experience "JavaScript heap out of memory" errors:
+# 1. Use memory-safe script: ./start-memory-safe.sh
+# 2. Or set NODE_OPTIONS manually:
+export NODE_OPTIONS="--max-old-space-size=4096"
+npm run start:dev
+
+### Module Not Found Errors
+# If you encounter module not found errors:
+npm cache clean --force
+rm -rf node_modules dist
+npm install
+npm run build
+npm run start:dev
+
+### Database Connection Issues
+# Check PostgreSQL is running:
+sudo service postgresql status
+
+# Verify connection string in .env:
+cat .env | grep DATABASE_URL
+
+# Ensure database exists:
+psql -U postgres -c "\l" | grep Alive-Db
+
+### TypeORM Entity Issues
+# If entity changes are not reflected in the database:
+# 1. Make sure synchronize is set to true in development
+# 2. Generate and run migrations for production
+
+## Advanced Commands
+
+### Clean Start
+# Complete reset and fresh start
+rm -rf node_modules dist
+npm cache clean --force
+npm install
+npm run build
+npm run start:dev
+
+### Production Deployment
+# For production deployment, use:
+npm run build
+NODE_ENV=production npm run start:prod
+
+### Monitoring & Debugging
+# Run with Node.js inspector
+npm run start:debug
+
+# Monitor memory usage
+./start-memory-safe.sh | grep "Memory Usage"
+
+## Environment Configuration
+
+### Development
+# - Hot reload enabled
+# - Database synchronization enabled
+# - Detailed error messages
+# - Memory monitoring active
+
+### Production
+# - Optimized for performance
+# - No auto-sync of database (use migrations)
+# - Minimal error details in responses
+# - Rate limiting enabled
+# - Security headers enforced
+
+## Docker Support
+
+### Run with Docker Compose
+# Start the complete stack with Docker
+cd /home/alivegod/Desktop/LastProject
+docker-compose up -d
+
+### Build Docker Image Only
+docker build -t alivehuman-backend -f docker/backend/Dockerfile .
+
+### Run Backend Container Only
+docker run -p 3001:3001 --env-file .env alivehuman-backend
