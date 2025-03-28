@@ -1,0 +1,2 @@
+--max-old-space-size=4096
+--expose-gc

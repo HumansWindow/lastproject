@@ -1,51 +1,61 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { Interval } from '@nestjs/schedule';
+import { Cron, CronExpression } from '@nestjs/schedule';
 
 @Injectable()
 export class MemoryMonitorService {
   private readonly logger = new Logger(MemoryMonitorService.name);
-  private lastMemoryUsage = 0;
-  private memoryIncreaseCount = 0;
-  private gcRunCount = 0;
-  
-  // Check every 2 minutes instead of every minute to reduce overhead
-  @Interval(120000)
-  checkMemoryUsage() {
+  private memoryUsageHistory: { timestamp: number; heapUsed: number }[] = [];
+  private readonly historyLimit = 10;
+  private readonly significantGrowthThreshold = 1.5; // 50% growth between checks
+
+  @Cron(CronExpression.EVERY_MINUTE)
+  handleMemoryMonitoring() {
     const memoryUsage = process.memoryUsage();
     const heapUsedMB = Math.round(memoryUsage.heapUsed / 1024 / 1024);
     const heapTotalMB = Math.round(memoryUsage.heapTotal / 1024 / 1024);
-    const rssMemoryMB = Math.round(memoryUsage.rss / 1024 / 1024);
+    const rssMB = Math.round(memoryUsage.rss / 1024 / 1024);
+
+    this.logger.debug(`Memory Usage - Heap: ${heapUsedMB}MB/${heapTotalMB}MB, RSS: ${rssMB}MB`);
+
+    // Store history for leak detection
+    this.memoryUsageHistory.push({
+      timestamp: Date.now(),
+      heapUsed: memoryUsage.heapUsed,
+    });
     
-    // Only log every other check to reduce console output
-    if (this.gcRunCount % 2 === 0) {
-      this.logger.debug(`Memory Usage - Heap: ${heapUsedMB}MB/${heapTotalMB}MB, RSS: ${rssMemoryMB}MB`);
+    // Keep history limited
+    if (this.memoryUsageHistory.length > this.historyLimit) {
+      this.memoryUsageHistory.shift();
     }
-    
-    // Check for memory leaks
-    if (heapUsedMB > this.lastMemoryUsage) {
-      this.memoryIncreaseCount++;
-      
-      // If memory usage increases for 3 consecutive checks, log a warning
-      if (this.memoryIncreaseCount >= 3) {
-        this.logger.warn(`Potential memory leak detected! Heap usage has been increasing: ${heapUsedMB}MB`);
-        
-        // Force garbage collection if available and memory is high
-        if (heapUsedMB > 1000 && global.gc) {
-          this.logger.log('Forcing garbage collection to free memory');
-          try {
-            global.gc();
-            this.gcRunCount++;
-          } catch (error) {
-            this.logger.error(`Error running garbage collection: ${error.message}`);
-          }
-        }
-        
-        this.memoryIncreaseCount = 0;
+
+    // Check for significant memory growth that could indicate a leak
+    this.checkForMemoryLeaks();
+
+    // Force garbage collection when memory usage is high
+    if (heapUsedMB > heapTotalMB * 0.8) {
+      this.logger.warn('High memory usage detected, suggesting manual garbage collection');
+      // Note: We can't force GC directly in standard Node.js, but we can suggest it
+      if (global.gc) {
+        this.logger.log('Running garbage collection');
+        global.gc();
       }
-    } else {
-      this.memoryIncreaseCount = 0;
     }
+  }
+
+  private checkForMemoryLeaks() {
+    if (this.memoryUsageHistory.length < 2) return;
+
+    const oldest = this.memoryUsageHistory[0];
+    const newest = this.memoryUsageHistory[this.memoryUsageHistory.length - 1];
     
-    this.lastMemoryUsage = heapUsedMB;
+    // Check if memory has consistently grown
+    if (this.memoryUsageHistory.every((entry, i) => 
+      i === 0 || entry.heapUsed >= this.memoryUsageHistory[i-1].heapUsed)) {
+        
+      const growthRatio = newest.heapUsed / oldest.heapUsed;
+      if (growthRatio > this.significantGrowthThreshold) {
+        this.logger.warn(`Possible memory leak detected! Memory grew by ${Math.round((growthRatio - 1) * 100)}% in the last ${this.historyLimit} minutes.`);
+      }
+    }
   }
 }

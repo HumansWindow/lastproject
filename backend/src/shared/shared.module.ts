@@ -1,10 +1,11 @@
 import { Module, Global } from '@nestjs/common';
 import { DeviceDetectorService } from './services/device-detector.service';
 import { BcryptService } from './services/bcrypt.service';
+import { MemoryMonitorService } from './services/memory-monitor.service';
 
 @Global() // Make this module global so its providers are available everywhere
 @Module({
-  providers: [DeviceDetectorService, BcryptService],
+  providers: [DeviceDetectorService, BcryptService, MemoryMonitorService],
   exports: [DeviceDetectorService, BcryptService],
 })
 export class SharedModule {}

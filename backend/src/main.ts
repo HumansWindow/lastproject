@@ -12,6 +12,8 @@ import helmet from 'helmet';
 // Load environment variables before any other imports
 dotenv.config();
 
+const logger = new Logger('Bootstrap');
+
 async function bootstrap() {
   // Increase Node.js memory limit to prevent out of memory errors
   // Set NODE_OPTIONS if not already set
@@ -19,7 +21,6 @@ async function bootstrap() {
     process.env.NODE_OPTIONS = `${process.env.NODE_OPTIONS || ''} --max-old-space-size=4096`;
   }
   
-  const logger = new Logger('Bootstrap');
   // Create the NestJS application
   const app = await NestFactory.create(AppModule, {
     logger: ['error', 'warn', 'log', 'debug', 'verbose'],
@@ -141,6 +142,18 @@ async function bootstrap() {
     throw new Error(`Could not find an available port after ${maxRetries} attempts`);
   }
 }
+
+// Handle uncaught exceptions
+process.on('uncaughtException', (error) => {
+  logger.error(`Uncaught Exception: ${error.message}`, error.stack);
+  // Give time for logs to be written before exiting
+  setTimeout(() => process.exit(1), 1000);
+});
+
+// Handle unhandled promise rejections
+process.on('unhandledRejection', (reason, promise) => {
+  logger.error(`Unhandled Rejection at: ${promise}, reason: ${reason}`);
+});
 
 bootstrap().catch(err => {
   console.error('Failed to start application:', err);
