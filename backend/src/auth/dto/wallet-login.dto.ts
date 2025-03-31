@@ -15,6 +15,7 @@ export class WalletLoginDto {
     example: 'Sign this message to authenticate with AliveHuman: 1714308000000',
   })
   @IsString()
+  @IsNotEmpty()
   message: string;
 
   @ApiProperty({
@@ -22,6 +23,7 @@ export class WalletLoginDto {
     example: '0x5f7a0a4b2c3...',
   })
   @IsString()
+  @IsNotEmpty()
   signature: string;
   
   @ApiProperty({

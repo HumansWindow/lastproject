@@ -22,17 +22,18 @@ export class UserDevice {
   @JoinColumn({ name: 'user_id' })
   user: User;
 
-  @Column({ length: 255 })
+  // Keep both deviceId and device_id to handle both column names
+  // TypeORM will use device_id due to the @Column decorator
+  @Column({ name: 'device_id', length: 255 })
   @Index()
   deviceId: string;
 
   @Column({ name: 'device_type', length: 50, default: 'unknown' })
   deviceType: string;
 
-  @Column({ name: 'user_agent', type: 'text', nullable: true })
-  userAgent: string;
-
-  @Column({ length: 255, nullable: true })
+  // These fields may not exist in the database, use nullable: true
+  // and don't use them directly in queries
+  @Column({ name: 'name', length: 255, nullable: true })
   name: string;
 
   @Column({ length: 100, nullable: true })

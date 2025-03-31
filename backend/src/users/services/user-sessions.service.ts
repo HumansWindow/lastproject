@@ -1,78 +1,120 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, LessThan } from 'typeorm';
+import { Repository } from 'typeorm';
 import { UserSession } from '../entities/user-session.entity';
 import { v4 as uuidv4 } from 'uuid';
 
 @Injectable()
 export class UserSessionsService {
   private readonly logger = new Logger(UserSessionsService.name);
-  
+
   constructor(
     @InjectRepository(UserSession)
-    private readonly userSessionRepository: Repository<UserSession>,
+    private readonly sessionRepository: Repository<UserSession>,
   ) {}
 
-  async create(data: Partial<UserSession>): Promise<UserSession> {
+  async createSession(data: {
+    userId: string | number;
+    deviceId?: string;
+    ipAddress?: string;
+    userAgent?: string;
+    token?: string;
+    expiresAt?: Date; // Added expiresAt parameter
+  }): Promise<UserSession> {
     try {
-      // If deviceId is not a valid UUID, generate one based on it
-      if (data.deviceId && data.deviceId.length !== 36) {
-        // Generate a UUID based on the device ID to ensure consistency
-        const deviceUuid = uuidv4();
+      // Convert deviceId to UUID format for consistency
+      let deviceUuid = data.deviceId;
+      if (data.deviceId && !this.isUUID(data.deviceId)) {
+        // Convert hash to UUID for storage
+        deviceUuid = this.hashToUUID(data.deviceId);
         this.logger.log(`Converting device ID to UUID: ${data.deviceId.substring(0, 8)}... -> ${deviceUuid}`);
-        data.deviceId = deviceUuid;
       }
+
+      // Remove user_agent if it's not in the database schema
+      const sessionData: any = {
+        userId: data.userId,
+        deviceId: deviceUuid,
+        ipAddress: data.ipAddress,
+        token: data.token,
+        expiresAt: data.expiresAt || new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // Default 7 days expiry if not provided
+      };
+
+      // Create session without using userAgent field
+      const session = this.sessionRepository.create(sessionData);
       
-      const session = this.userSessionRepository.create(data);
-      return await this.userSessionRepository.save(session);
+      try {
+        // TypeORM can return either an array or a single entity depending on the input
+        // We know we're saving a single entity, so we can safely use the first element if it's an array
+        const savedSession = await this.sessionRepository.save(session);
+        return Array.isArray(savedSession) ? savedSession[0] : savedSession;
+      } catch (error) {
+        // Check if error is related to user_agent column
+        if (error.message && error.message.includes('user_agent')) {
+          this.logger.warn('Database schema missing user_agent column. Creating session without it.');
+          // Try again without the user_agent field
+          delete sessionData.userAgent;
+          const sessionWithoutAgent = this.sessionRepository.create(sessionData);
+          const savedSession = await this.sessionRepository.save(sessionWithoutAgent);
+          return Array.isArray(savedSession) ? savedSession[0] : savedSession;
+        }
+        throw error;
+      }
     } catch (error) {
       this.logger.error(`Failed to create session: ${error.message}`);
-      // Don't throw an error - this allows the authentication to continue
-      return null;
+      throw error;
     }
   }
 
-  async findById(id: string): Promise<UserSession> {
-    return this.userSessionRepository.findOne({ where: { id } });
+  async findByToken(token: string): Promise<UserSession | null> {
+    const result = await this.sessionRepository.findOne({ where: { token } });
+    return result || null;
   }
 
-  async findByToken(token: string): Promise<UserSession> {
-    return this.userSessionRepository.findOne({ where: { token, isActive: true } });
+  async findByUserId(userId: string | number): Promise<UserSession[]> {
+    return await this.sessionRepository.find({ 
+      where: { userId: userId.toString() } 
+    });
   }
 
-  async findByUserId(userId: string): Promise<UserSession[]> {
-    return this.userSessionRepository.find({ where: { userId, isActive: true } });
-  }
-
-  async deactivate(id: string): Promise<void> {
-    await this.userSessionRepository.update(id, { isActive: false });
-  }
-
-  async deactivateByToken(token: string): Promise<void> {
-    await this.userSessionRepository.update({ token }, { isActive: false });
-  }
-
-  async deactivateByUserId(userId: string): Promise<void> {
-    await this.userSessionRepository.update({ userId, isActive: true }, { isActive: false });
+  async endSession(id: string): Promise<void> {
+    await this.sessionRepository.update(id, {
+      isActive: false,
+      endedAt: new Date(),
+      duration: () => `EXTRACT(EPOCH FROM (NOW() - created_at))`,
+    });
   }
 
   async cleanupExpiredSessions(): Promise<number> {
-    const now = new Date();
-    const result = await this.userSessionRepository.update(
-      { expiresAt: LessThan(now), isActive: true },
-      { isActive: false },
-    );
+    const result = await this.sessionRepository
+      .createQueryBuilder()
+      .update()
+      .set({ isActive: false })
+      .where('expires_at < :now', { now: new Date() })
+      .andWhere('isActive = :active', { active: true })
+      .execute();
+
     return result.affected || 0;
   }
 
-  async deleteExpiredSessions(daysOld: number = 30): Promise<number> {
-    const date = new Date();
-    date.setDate(date.getDate() - daysOld);
+  // Helper method to convert hash to UUID format
+  private hashToUUID(hash: string): string {
+    if (this.isUUID(hash)) return hash;
     
-    const result = await this.userSessionRepository.delete({
-      expiresAt: LessThan(date)
-    });
+    // Use the first 32 characters of the hash to create a UUID
+    const hashPart = hash.replace(/-/g, '').substring(0, 32);
+    const segments = [
+      hashPart.substring(0, 8),
+      hashPart.substring(8, 12),
+      hashPart.substring(12, 16),
+      hashPart.substring(16, 20),
+      hashPart.substring(20, 32),
+    ];
     
-    return result.affected || 0;
+    return segments.join('-');
+  }
+
+  private isUUID(str: string): boolean {
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+    return uuidRegex.test(str);
   }
 }

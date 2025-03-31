@@ -1,52 +1,40 @@
+# Multi-Chain Deployment Guide for SHAHI Coin
 
-# Prompt for Detailed Deployment Guide
-"I need a complete guide for deploying my upgradeable ERC20 contract SHAHICoin.sol to an Ethereum network using Hardhat. The contract uses OpenZeppelin's UUPS proxy pattern and has staking and minting functionality. Please include:
+I need a comprehensive guide for deploying my SHAHI Coin smart contract to multiple blockchain networks. The contract is an upgradeable ERC20 token using OpenZeppelin's UUPS proxy pattern and includes advanced features like website-based minting, staking, and token restrictions.
 
-Setting up a Hardhat project for deployment
-Required dependencies and configurations
-Step-by-step deployment scripts for both implementation and proxy
-How to verify the contract on Etherscan
-How to extract the ABI and update my backend configuration
-Security best practices for handling private keys during deployment"
-# SHAHI Token Smart Contract Deployment Guide
+## Requirements
 
-This document provides step-by-step instructions for deploying the SHAHICoin.sol smart contract to Ethereum or compatible networks.
+Please provide a detailed step-by-step deployment guide that covers:
 
-## Prerequisites
+### Development Environment Setup
+- Setting up a Hardhat project for multi-chain deployment
+- Required dependencies and configurations
+- Environment variables and security best practices
 
-1. Node.js and npm installed
-2. Ethereum wallet with sufficient ETH for gas fees
-3. Access to an Ethereum RPC endpoint (Infura, Alchemy, or your own node)
+### Contract Preparation
+- How to properly structure SHAHIStorage.sol for upgradeable patterns
+- Testing strategies before deployment
+- Gas optimization recommendations for high-cost functions
 
-## Setup Environment
+### Deployment Process
+- Step-by-step deployment scripts for both implementation and proxy contracts
+- Initializing the contract with proper parameters
+- Contract verification on block explorers
 
-1. Create a deployment directory:
+### Multi-Chain Strategy
+- Detailed process for deploying to Ethereum, Polygon, and BNB Chain (Phase 1)
+- Bridge setup between chains for token interoperability
+- Framework for future deployment to Solana and TON (Phase 2)
 
-```bash
-mkdir -p ~/Desktop/LastProject/contract-deployment
-cd ~/Desktop/LastProject/contract-deployment
-npm init -y
+### Post-Deployment
+- ABI extraction for frontend/backend integration
+- How to perform and verify contract upgrades
+- Managing admin functions securely across multiple chains
+
+### Security Considerations
+- Best practices for handling private keys during deployment
+- Setting up multi-signature wallets for admin functions
+- Monitoring and maintenance procedures
+
+I want to ensure our deployment is secure, gas-efficient, and properly set up for all intended chains while maintaining the unique features of our token ecosystem.
 ```
-
-2. Install required dependencies:
-
-```bash
-npm install @openzeppelin/contracts @openzeppelin/contracts-upgradeable 
-npm install hardhat @nomiclabs/hardhat-ethers @openzeppelin/hardhat-upgrades
-npm install dotenv ethers@5.7.2
-```
-
-3. Initialize Hardhat:
-
-```bash
-npx hardhat init
-# Choose "Create a JavaScript project"
-```
-
-4. Create a `.env` file to store sensitive data:
-
-```bash
-touch .env
-```
-
-Add the following to the `.env` file:

@@ -1,6 +1,20 @@
 # suggestion hot wallet secure 
 # Step-by-Step Security Implementation Plan for the Hot Wallet System
+update the admin hot  wallet information 
+alivegod@pop-os:~/Desktop/LastProjectendpoint/LastProject$ node backend/extract-wallet-key.js
+===== Trust Wallet Private Key Extractor =====
+This tool will extract the private key from your Trust Wallet mnemonic
+WARNING: Only use this on a secure device!
+         Never share your mnemonic phrase with anyone!
 
+Enter your 12-word mnemonic phrase: soda canvas hill stick duty middle rubber crew trumpet bone crane response
+
+🔑 Wallet Information:
+Address:     0xD2D53A3E16cf5dd2634Dd376bDc7CE81bD0F76Ff
+Private Key: 0x17ddb4b4d5cab22d7abc3ee011b22d2aff70d3178ab4cd8d7a6554bc24c341bd
+
+Do you want to save this as the admin wallet in your .env file? (y/n): y
+❌ Error: path.resolve is not a function . in env file and any where else , and can we make sure this 12 worlds and that we use in #file:cli-tools.mjs , is same , ? and this is the correct hot wallet ? 
 ## Immediate Next Steps
 
 ### 1. Integration with Main Application Authentication

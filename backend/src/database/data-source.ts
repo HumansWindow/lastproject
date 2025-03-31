@@ -1,23 +1,31 @@
 import { DataSource } from 'typeorm';
-import { ConfigService } from '@nestjs/config';
 import * as dotenv from 'dotenv';
+import * as path from 'path';
+import * as fs from 'fs';
+
+// Ensure dotenv is loaded
+const envPath = path.resolve(process.cwd(), '.env');
+if (fs.existsSync(envPath)) {
+  console.log(`Loading environment from ${envPath}`);
+  dotenv.config({ path: envPath });
+} else {
+  console.warn('No .env file found, using default environment variables');
+  dotenv.config();
+}
 
 // Load environment variables
-dotenv.config();
-
-// Initialize ConfigService for environment variables
-const configService = new ConfigService();
+const isProduction = process.env.NODE_ENV === 'production';
 
 export const AppDataSource = new DataSource({
   type: 'postgres',
-  host: configService.get('DB_HOST') || 'localhost',
-  port: parseInt(configService.get('DB_PORT') || '5432'),
-  username: configService.get('DB_USERNAME') || 'Aliveadmin',
-  password: configService.get('DB_PASSWORD') || 'password',
-  database: configService.get('DB_DATABASE') || 'Alive-Db',
+  host: process.env.DB_HOST || 'localhost',
+  port: parseInt(process.env.DB_PORT || '5432', 10),
+  username: process.env.DB_USERNAME || 'Aliveadmin',
+  password: process.env.DB_PASSWORD || 'new_password',
+  database: process.env.DB_DATABASE || 'Alive-Db',
   entities: [__dirname + '/../**/*.entity{.ts,.js}'],
   migrations: [__dirname + '/../migrations/*{.ts,.js}'],
-  synchronize: false,
-  logging: configService.get('DB_LOGGING') === 'true',
-  ssl: configService.get('DB_SSL') === 'true',
+  synchronize: false, // NEVER set to true in production!
+  logging: process.env.DB_LOGGING === 'true',
+  ssl: process.env.DB_SSL === 'true' ? { rejectUnauthorized: false } : false,
 });

@@ -4,6 +4,105 @@ This document provides a comprehensive explanation of the backend architecture, 
 
 ## Backend Architecture (NestJS)
 
+### Directory Structure
+
+```
+backend/
+├── config/                    # Configuration files for different environments
+├── patches/                   # Custom patches for dependencies
+├── scripts/                   # Utility scripts for deployment and maintenance
+├── src/
+│   ├── app.module.ts          # Root module of the application
+│   ├── main.ts                # Entry point of the application
+│   ├── auth/                  # Authentication module
+│   │   ├── auth.module.ts     # Authentication module configuration
+│   │   ├── auth.service.ts    # Authentication business logic
+│   │   ├── auth.controller.ts # Authentication REST endpoints
+│   │   ├── controllers/       # Additional controllers (wallet-auth, etc)
+│   │   ├── dto/               # Data transfer objects for auth requests/responses
+│   │   ├── entities/          # Database entities for auth (refresh tokens, etc)
+│   │   ├── guards/            # Authentication guards (JWT, roles, ws-auth)
+│   │   ├── interfaces/        # TypeScript interfaces for auth data
+│   │   └── strategies/        # Passport auth strategies (local, jwt, wallet)
+│   ├── blockchain/            # Blockchain integration module
+│   │   ├── blockchain.module.ts # Blockchain module configuration
+│   │   ├── blockchain.service.ts # Core blockchain service
+│   │   ├── contracts/         # Smart contract files and ABIs
+│   │   ├── controllers/       # REST endpoints for blockchain operations
+│   │   ├── dto/               # Data transfer objects for blockchain requests
+│   │   ├── gateways/          # WebSocket gateways for real-time events
+│   │   ├── hotwallet/         # Hot wallet implementation
+│   │   │   ├── index.js       # Main entry point for the hot wallet
+│   │   │   ├── WalletManager.js # Wallet generation and management
+│   │   │   ├── services/      # Specialized services (balance, transaction, etc)
+│   │   │   ├── handlers/      # Chain-specific handlers
+│   │   │   └── utils/         # Utility functions for the wallet
+│   │   ├── interfaces/        # TypeScript interfaces for blockchain data
+│   │   ├── services/          # Specialized blockchain services
+│   │   │   ├── shahi-token.service.ts # SHAHI token service
+│   │   │   ├── merkle.service.ts      # Merkle tree service
+│   │   │   └── minting.service.ts     # Token minting service
+│   │   └── tasks/             # Scheduled tasks for blockchain operations
+│   ├── mail/                  # Email service module
+│   │   ├── mail.module.ts     # Mail module configuration
+│   │   ├── mail.service.ts    # Email sending service
+│   │   └── templates/         # Email templates
+│   ├── migrations/            # TypeORM database migrations
+│   ├── nft/                   # NFT module
+│   │   ├── nft.module.ts      # NFT module configuration
+│   │   ├── nft.service.ts     # NFT business logic
+│   │   ├── nft.controller.ts  # NFT REST endpoints
+│   │   ├── entities/          # NFT database entities
+│   │   └── services/          # Specialized NFT services
+│   ├── referral/              # Referral system module
+│   │   ├── referral.module.ts # Referral module configuration
+│   │   ├── referral.service.ts # Referral business logic
+│   │   ├── referral.controller.ts # Referral REST endpoints
+│   │   └── entities/          # Referral database entities
+│   ├── shared/                # Shared utilities and services
+│   │   ├── shared.module.ts   # Shared module configuration
+│   │   ├── services/          # Common services used across modules
+│   │   │   ├── device-detector.service.ts # Device detection service
+│   │   │   └── bcrypt.service.ts # Password hashing service
+│   │   ├── guards/            # Common guards used across modules
+│   │   ├── interceptors/      # HTTP interceptors
+│   │   ├── filters/           # Exception filters for error handling
+│   │   ├── decorators/        # Custom decorators
+│   │   └── utils/             # Utility functions
+│   ├── users/                 # User management module
+│   │   ├── users.module.ts    # User module configuration
+│   │   ├── users.service.ts   # User business logic
+│   │   ├── users.controller.ts # User REST endpoints
+│   │   ├── entities/          # User-related database entities
+│   │   │   ├── user.entity.ts # User entity
+│   │   │   ├── user-device.entity.ts # User device entity
+│   │   │   └── user-session.entity.ts # User session entity
+│   │   ├── dto/               # Data transfer objects for user operations
+│   │   └── services/          # User-related services
+│   │       ├── user-devices.service.ts # Device management service
+│   │       └── user-sessions.service.ts # Session management service
+│   ├── wallets/               # Wallet management module
+│   │   ├── wallets.module.ts  # Wallet module configuration
+│   │   ├── wallets.service.ts # Wallet business logic
+│   │   ├── wallets.controller.ts # Wallet REST endpoints
+│   │   └── entities/          # Wallet-related database entities
+│   └── __tests__/             # Test directory
+│       ├── setup.ts           # Test setup and configuration
+│       ├── test.module.ts     # Test module configuration
+│       ├── api.spec.ts        # API integration tests
+│       ├── auth/              # Authentication tests
+│       ├── blockchain/        # Blockchain tests
+│       ├── integration.spec.ts # End-to-end tests
+│       └── minimal.spec.ts    # Minimal test suite
+├── dist/                      # Compiled JavaScript output
+├── node_modules/              # Node.js dependencies
+├── package.json               # Project metadata and dependencies
+├── tsconfig.json              # TypeScript configuration
+├── tsconfig.build.json        # TypeScript build configuration
+├── nest-cli.json              # NestJS CLI configuration
+└── jest.config.js             # Jest testing configuration
+```
+
 ## SHAHI Coin Minting System
 
 ### System Overview

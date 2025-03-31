@@ -31,9 +31,20 @@ import { MemoryMonitorService } from '../shared/services/memory-monitor.service'
         password: configService.get('DB_PASSWORD'),
         database: configService.get('DB_DATABASE'),
         entities: [__dirname + '/../**/*.entity{.ts,.js}'],
-        synchronize: configService.get('NODE_ENV') === 'development',
+        synchronize: false, // Disable schema synchronization
         logging: configService.get('DB_LOGGING') === 'true',
         ssl: configService.get('DB_SSL') === 'true',
+        migrationsRun: false, // Disable migrations auto-run  
+        dropSchema: false, // Never drop schema
+        keepConnectionAlive: true,
+        schema: 'public',
+        entitySkipConstructor: true,
+        // Skip schema sync and validation
+        extra: {
+          max: 10, // connection pool settings
+          skipSchemaSync: true,
+          skipTableCreation: true
+        }
       }),
     }),
     EventEmitterModule.forRoot(),

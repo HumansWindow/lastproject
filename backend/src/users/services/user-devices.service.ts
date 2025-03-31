@@ -1,6 +1,6 @@
-import { Injectable, NotFoundException, ForbiddenException, Logger } from '@nestjs/common';
+import { Injectable, Logger, ForbiddenException, NotFoundException, InternalServerErrorException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, In } from 'typeorm';
 import { UserDevice } from '../entities/user-device.entity';
 import { ConfigService } from '@nestjs/config';
 
@@ -51,10 +51,8 @@ export class UserDevicesService {
   async findByDeviceId(deviceId: string): Promise<UserDevice[]> {
     try {
       const devices = await this.userDeviceRepository.find({
-        where: { deviceId }
+        where: { deviceId: deviceId },
       });
-      
-      this.logger.log(`Found ${devices.length} devices with ID ${deviceId.substring(0, 8)}...`);
       return devices;
     } catch (error) {
       this.logger.error(`Error finding device by deviceId: ${error.message}`);
@@ -62,14 +60,19 @@ export class UserDevicesService {
     }
   }
 
-  async findByUserIdAndDeviceId(userId: string, deviceId: string): Promise<UserDevice | null> {
+  async findByUserIdAndDeviceId(userId: string | number, deviceId: string): Promise<UserDevice | null> {
     try {
-      return await this.userDeviceRepository.findOne({
-        where: { userId, deviceId },
+      const device = await this.userDeviceRepository.findOne({
+        where: {
+          userId: userId.toString(),
+          deviceId: deviceId,
+        },
       });
+      
+      return device || null;
     } catch (error) {
       this.logger.error(`Error finding device by userId and deviceId: ${error.message}`);
-      throw error;
+      return null;
     }
   }
 
@@ -94,79 +97,90 @@ export class UserDevicesService {
   }
 
   async delete(id: string): Promise<void> {
-    await this.userDeviceRepository.delete(id);
+    try {
+      const device = await this.userDeviceRepository.findOne({ where: { id } });
+      if (!device) {
+        throw new NotFoundException(`Device with ID ${id} not found`);
+      }
+      
+      await this.userDeviceRepository.delete(id);
+    } catch (error) {
+      if (error instanceof NotFoundException) {
+        throw error;
+      }
+      this.logger.error(`Failed to delete device: ${error.message}`);
+      throw new InternalServerErrorException('Failed to delete device');
+    }
   }
 
-  async registerDevice(userId: string, deviceId: string, deviceInfo: any): Promise<UserDevice> {
-    // Always log the registration attempt with detailed info
+  async registerDevice(userId: string | number, deviceId: string, deviceInfo: any): Promise<UserDevice> {
     this.logger.log(`Device registration attempt - UserId: ${userId}, DeviceId: ${deviceId.substring(0, 8)}...`);
     
-    // Check if we're in development/test mode or explicitly configured to skip device check
-    const isDevelopmentMode = this.configService.get<string>('NODE_ENV') === 'development';
-    const isTestMode = this.configService.get<string>('NODE_ENV') === 'test';
-    const skipDeviceCheck = isDevelopmentMode || 
-                          isTestMode || 
-                          this.configService.get<string>('SKIP_DEVICE_CHECK') === 'true';
+    try {
+      // Check for existing devices with this ID
+      let devices;
+      try {
+        devices = await this.findByDeviceId(deviceId);
+      } catch (error) {
+        this.logger.error(`Error querying for existing devices: ${error.message}`);
+        devices = [];
+      }
 
-    // First, find any existing devices with this device ID
-    const existingDevices = await this.findByDeviceId(deviceId);
-    
-    if (existingDevices.length > 0) {
-      // Log all found devices for debugging purposes
-      existingDevices.forEach(device => {
-        this.logger.log(`Found existing device: DeviceID: ${deviceId.substring(0, 8)}..., UserId: ${device.userId}`);
+      // If device already exists for this user, update it
+      const userDevice = devices.find(device => device.userId?.toString() === userId?.toString());
+      if (userDevice) {
+        // Update last seen and visit count
+        userDevice.lastSeen = new Date();
+        userDevice.lastSeenAt = new Date();
+        userDevice.visitCount += 1;
+        userDevice.isActive = true;
+        
+        // Update device info if provided
+        if (deviceInfo) {
+          if (deviceInfo.deviceType) userDevice.deviceType = deviceInfo.deviceType;
+          if (deviceInfo.platform) userDevice.platform = deviceInfo.platform;
+          if (deviceInfo.os) userDevice.os = deviceInfo.os;
+          if (deviceInfo.osVersion) userDevice.osVersion = deviceInfo.osVersion;
+          if (deviceInfo.browser) userDevice.browser = deviceInfo.browser;
+          if (deviceInfo.browserVersion) userDevice.browserVersion = deviceInfo.browserVersion;
+          if (deviceInfo.lastIpAddress) userDevice.lastIpAddress = deviceInfo.lastIpAddress;
+        }
+        
+        await this.userDeviceRepository.save(userDevice);
+        this.logger.log(`Updated existing device record for userId: ${userId}`);
+        return userDevice;
+      }
+      
+      // Create new device record
+      this.logger.log(`Creating new device record for user ${userId}`);
+
+      const newDevice = this.userDeviceRepository.create({
+        userId: userId.toString(),
+        deviceId: deviceId,
+        deviceType: deviceInfo?.deviceType || 'unknown',
+        name: deviceInfo?.deviceName || deviceInfo?.name || 'Unknown device',
+        platform: deviceInfo?.platform || 'unknown',
+        os: deviceInfo?.os || 'unknown',
+        osVersion: deviceInfo?.osVersion || 'unknown',
+        browser: deviceInfo?.browser || 'unknown',
+        browserVersion: deviceInfo?.browserVersion || 'unknown',
+        lastIpAddress: deviceInfo?.lastIpAddress || null,
+        isActive: true,
+        visitCount: 1,
+        firstSeen: new Date(),
+        lastSeen: new Date(),
       });
       
-      // Check if any device is associated with another user ID
-      const otherUserDevice = existingDevices.find(device => device.userId !== userId && device.userId !== null);
-      
-      if (otherUserDevice) {
-        this.logger.warn(`Device ${deviceId.substring(0, 8)}... is already associated with user ${otherUserDevice.userId}`);
-        
-        if (!skipDeviceCheck) {
-          // Production behavior: Throw an error
-          throw new ForbiddenException('This device has already been registered with another wallet address');
-        } else {
-          this.logger.warn(`Device check bypassed in ${this.configService.get<string>('NODE_ENV')} environment for userId: ${userId}`);
-        }
-      }
-      
-      // If device exists but belongs to the same user, just update it
-      const userDevice = existingDevices.find(device => device.userId === userId);
-      if (userDevice) {
-        this.logger.log(`Updating existing device for user ${userId}`);
-        userDevice.lastSeen = new Date();
-        userDevice.visitCount = (userDevice.visitCount || 0) + 1;
-        return this.userDeviceRepository.save(userDevice);
-      }
+      return await this.userDeviceRepository.save(newDevice);
+    } catch (error) {
+      this.logger.error(`Failed to register device: ${error.message}`);
+      throw new InternalServerErrorException('Failed to register device');
     }
-    
-    // If no blocking conditions were found, create a new device record
-    this.logger.log(`Creating new device record for user ${userId}`);
-    const device = this.userDeviceRepository.create({
-      userId,
-      deviceId,
-      deviceType: deviceInfo.deviceType || 'unknown',
-      name: deviceInfo.deviceName || 'unknown',
-      platform: deviceInfo.platform || 'unknown',
-      os: deviceInfo.os || 'unknown',
-      osVersion: deviceInfo.osVersion || 'unknown',
-      browser: deviceInfo.browser || 'unknown',
-      browserVersion: deviceInfo.browserVersion || 'unknown',
-      userAgent: deviceInfo.userAgent || 'unknown',
-      firstSeen: new Date(),
-      lastSeen: new Date(),
-      visitCount: 1,
-      isActive: true,
-    });
-    
-    return this.userDeviceRepository.save(device);
   }
 
   async removeDevice(deviceId: string, userId: string): Promise<void> {
-    const device = await this.userDeviceRepository.findOne({ 
-      where: { deviceId, userId } 
-    });
+    const devices = await this.findByDeviceId(deviceId);
+    const device = devices.find(d => d.userId === userId);
     
     if (!device) {
       throw new NotFoundException('Device not found');
@@ -178,7 +192,10 @@ export class UserDevicesService {
   // Check if this device can be used with this wallet address
   async validateDeviceWalletPairing(deviceId: string, walletAddress: string, userId?: string): Promise<boolean> {
     // Always log the validation attempt
-    this.logger.log(`Validating device-wallet pairing - DeviceId: ${deviceId.substring(0, 8)}..., WalletAddress: ${walletAddress}`);
+    this.logger.log(`Validating device-wallet pairing - DeviceId: ${deviceId.substring(0, 8)}..., WalletAddress: ${walletAddress.substring(0, 8)}...`);
+    
+    // Normalize wallet address for comparison (convert to lowercase)
+    const normalizedWalletAddress = walletAddress.toLowerCase();
     
     // Skip check if configured to do so
     const skipDeviceCheck = this.configService.get<string>('SKIP_DEVICE_CHECK') === 'true' ||
@@ -190,24 +207,92 @@ export class UserDevicesService {
       return true;
     }
     
-    const existingDevices = await this.findByDeviceId(deviceId);
-    
-    // If no devices found, this is a new device, so it's valid
-    if (existingDevices.length === 0) {
-      return true;
-    }
-    
-    // If we have a userId, check if device belongs to this user
-    if (userId) {
-      const belongsToUser = existingDevices.some(device => device.userId === userId);
-      if (belongsToUser) {
+    try {
+      const existingDevices = await this.findByDeviceId(deviceId);
+      
+      // If no devices found, this is a new device, so it's valid
+      if (!existingDevices || existingDevices.length === 0) {
+        this.logger.log(`New device ${deviceId.substring(0, 8)}... - no previous wallet associations`);
         return true;
       }
+      
+      // First check if this is the same user reconnecting with their device
+      if (userId) {
+        const userOwnDevice = existingDevices.find(device => device.userId === userId);
+        if (userOwnDevice) {
+          // If the user is reconnecting to their own device, check the wallet address
+          if (userOwnDevice.walletAddresses) {
+            try {
+              const walletAddresses = JSON.parse(userOwnDevice.walletAddresses);
+              // Check if the wallet is already associated with this device for this user
+              if (walletAddresses.includes(normalizedWalletAddress)) {
+                this.logger.log(`User ${userId} reconnecting with existing wallet ${walletAddress.substring(0, 8)}...`);
+                return true;
+              }
+              
+              // If the user has other wallets on this device but not this one,
+              // it breaks our one-wallet-per-device policy
+              if (walletAddresses.length > 0) {
+                this.logger.warn(`User ${userId} attempting to use a new wallet ${walletAddress.substring(0, 8)}... on device ${deviceId.substring(0, 8)}...`);
+                this.logger.warn(`Device already has wallets: ${walletAddresses.join(', ')}`);
+                return false;
+              }
+            } catch (error) {
+              this.logger.error(`Error parsing wallet addresses: ${error.message}`);
+            }
+          }
+        }
+      }
+      
+      // Now check all devices with this ID (including other users' devices)
+      for (const device of existingDevices) {
+        // Skip devices belonging to this user (we already checked them above)
+        if (userId && device.userId === userId) {
+          continue;
+        }
+        
+        // If this device belongs to another user or has wallet addresses
+        if (device.walletAddresses) {
+          try {
+            const walletAddresses = JSON.parse(device.walletAddresses);
+            
+            // If the device has any wallets, block new associations
+            // This enforces the one-device-one-wallet policy
+            if (walletAddresses.length > 0) {
+              // Only allow if this exact wallet is already associated
+              if (walletAddresses.includes(normalizedWalletAddress)) {
+                // This means the wallet is trying to reconnect from the same device
+                // Could happen if user cleared browser data
+                this.logger.log(`Wallet ${walletAddress.substring(0, 8)}... reconnecting from existing device ${deviceId.substring(0, 8)}...`);
+                return true;
+              } else {
+                // Different wallet trying to use the same device - BLOCKED
+                this.logger.warn(`Device ${deviceId.substring(0, 8)}... is already bound to different wallet(s): ${walletAddresses.map(w => w.substring(0, 8)+'...').join(', ')}`);
+                return false;
+              }
+            }
+          } catch (error) {
+            this.logger.error(`Error parsing wallet addresses for device: ${error.message}`);
+          }
+        }
+        
+        // If device belongs to another user but doesn't have wallets yet, block it
+        // This prevents device sharing between different users
+        if (device.userId && (!userId || device.userId !== userId)) {
+          this.logger.warn(`Device ${deviceId.substring(0, 8)}... belongs to user ${device.userId}, not ${userId || 'new user'}`);
+          return false;
+        }
+      }
+      
+      // If we reach here, the device doesn't have conflicting wallet associations
+      this.logger.log(`Device-wallet pairing validated for ${walletAddress.substring(0, 8)}... on device ${deviceId.substring(0, 8)}...`);
+      return true;
+      
+    } catch (error) {
+      this.logger.error(`Error validating device-wallet pairing: ${error.message}`);
+      // In case of error, we should refuse the pairing to be safe
+      return false;
     }
-    
-    // Otherwise, device is already registered to someone else
-    this.logger.warn(`Device ${deviceId.substring(0, 8)}... is already registered to another user`);
-    return false;
   }
 
   /**

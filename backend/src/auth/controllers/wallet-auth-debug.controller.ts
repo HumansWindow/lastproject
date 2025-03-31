@@ -102,4 +102,15 @@ export class WalletAuthDebugController {
       };
     }
   }
+
+  @Get('health-check')
+  @ApiOperation({ summary: 'Simple health check for wallet auth endpoints' })
+  async healthCheck() {
+    return {
+      status: 'ok',
+      timestamp: new Date().toISOString(),
+      service: 'wallet-auth-debug',
+      message: 'Wallet auth debug endpoints are working!'
+    };
+  }
 }

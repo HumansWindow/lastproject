@@ -139,34 +139,81 @@ export class UsersService {
     // Normalize the address to lowercase
     const normalizedAddress = walletAddress.toLowerCase();
     
-    // First try to find user by the direct walletAddress field
-    let user = await this.userRepository.findOne({
-      where: { walletAddress: normalizedAddress },
-      relations: ['wallets']
-    });
-    
-    if (user) {
-      this.logger.log(`Found user by direct walletAddress: ${user.id}`);
-      return user;
-    }
-    
-    // If not found, try to find via wallet relationship
     try {
-      // Look up a wallet with this address
-      const wallet = await this.walletRepository.findOne({
-        where: { address: normalizedAddress },
-        relations: ['user']
-      });
+      // First try to find user by the direct walletAddress field
+      // Use a simpler query that doesn't rely on all columns
+      const user = await this.userRepository
+        .createQueryBuilder('user')
+        .where('LOWER(user.walletAddress) = LOWER(:address)', { address: normalizedAddress })
+        .getOne();
+      
+      if (user) {
+        this.logger.log(`Found user by direct walletAddress: ${user.id}`);
+        return user;
+      }
+      
+      // If not found, try to find via wallet relationship
+      const wallet = await this.walletRepository
+        .createQueryBuilder('wallet')
+        .leftJoinAndSelect('wallet.user', 'user')
+        .where('LOWER(wallet.address) = LOWER(:address)', { address: normalizedAddress })
+        .getOne();
       
       if (wallet?.user) {
         this.logger.log(`Found user through wallet relationship: ${wallet.user.id}`);
         return wallet.user;
       }
     } catch (error) {
-      this.logger.error(`Error finding wallet: ${error.message}`);
+      this.logger.error(`Error finding user by wallet address: ${error.message}`, error.stack);
     }
     
     this.logger.log(`No user found for wallet address: ${normalizedAddress}`);
     return null;
+  }
+
+  /**
+   * Create a new user from a wallet address
+   * @param data Object containing wallet address and optional email
+   * @returns The newly created user
+   */
+  async createWalletUser(data: {
+    walletAddress: string;
+    email?: string | null;
+    isVerified?: boolean;
+  }): Promise<User> {
+    try {
+      // Generate a random password for the wallet user
+      const randomPassword = require('crypto').randomBytes(20).toString('hex');
+      const hashedPassword = await this.bcryptService.hash(randomPassword);
+
+      // Create a new user with wallet address
+      const user = this.userRepository.create({
+        email: data.email || null,
+        password: hashedPassword,
+        isVerified: data.isVerified !== undefined ? data.isVerified : true, // Wallet users are typically verified by default
+        role: UserRole.USER,
+        walletAddress: data.walletAddress.toLowerCase(), // Normalize to lowercase
+      });
+
+      // Save the user
+      const savedUser = await this.userRepository.save(user);
+      this.logger.log(`Created new wallet user: ${savedUser.id} with wallet: ${data.walletAddress}`);
+
+      // Create a wallet record linked to the user
+      const wallet = this.walletRepository.create({
+        address: data.walletAddress.toLowerCase(),
+        userId: savedUser.id,
+        chain: 'ETH', // Default to Ethereum
+        isActive: true,
+      });
+
+      await this.walletRepository.save(wallet);
+      this.logger.log(`Created wallet record for user: ${savedUser.id}`);
+
+      return savedUser;
+    } catch (error) {
+      this.logger.error(`Failed to create wallet user: ${error.message}`, error.stack);
+      throw new InternalServerErrorException('Failed to create user account');
+    }
   }
 }

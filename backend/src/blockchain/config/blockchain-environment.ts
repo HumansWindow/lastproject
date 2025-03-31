@@ -13,20 +13,9 @@ if (fs.existsSync(blockchainEnvPath)) {
   dotenv.config({ path: blockchainEnvPath });
 }
 
-export const DEFAULT_RPC_URLS = {
-  ETH_RPC_URL: 'https://mainnet.infura.io/v3/b9980d193a9e496e92e948e0f01ad7c4',
-  BNB_RPC_URL: 'https://bnb-mainnet.g.alchemy.com/v2/fdUf1-b7ks8jGGBzQyurl1RM9o5ITrey',
-  SOL_RPC_URL: 'https://mainnet.helius-rpc.com/?api-key=77ab1854-d2c4-4c8b-a682-dc32234ad17f',
-  MATIC_RPC_URL: 'https://polygon-mainnet.infura.io/v3/b9980d193a9e496e92e948e0f01ad7c4',
-  // Also provide WebSocket URLs where applicable
-  ETH_WS_URL: 'wss://mainnet.infura.io/ws/v3/b9980d193a9e496e92e948e0f01ad7c4',
-  MATIC_WS_URL: 'wss://polygon-mainnet.infura.io/ws/v3/b9980d193a9e496e92e948e0f01ad7c4',
-};
-
-// Export a single static reference to prevent multiple configurations
-let GLOBAL_CONFIG: BlockchainConfig | null = null;
-
-// Export the BlockchainConfig interface so it can be imported elsewhere
+/**
+ * Interface defining blockchain configuration properties
+ */
 export interface BlockchainConfig {
   ETH_RPC_URL: string;
   BNB_RPC_URL: string;
@@ -36,18 +25,32 @@ export interface BlockchainConfig {
   BNB?: string;
   SOL?: string;
   MATIC?: string;
-  encryptPrivateKeys?: boolean;
-  encryptionKey?: string;
   TOKEN_CONTRACT_ADDRESS?: string;
+  encryptPrivateKeys?: boolean;
   [key: string]: any; // Allow for additional properties
 }
+
+export const DEFAULT_RPC_URLS = {
+  ETH_RPC_URL: 'https://mainnet.infura.io/v3/b9980d193a9e496e92e948e0f01ad7c4',
+  BNB_RPC_URL: 'https://bnb-mainnet.g.alchemy.com/v2/fdUf1-b7ks8jGGBzQyurl1RM9o5ITrey',
+  SOL_RPC_URL: 'https://mainnet.helius-rpc.com/?api-key=77ab1854-d2c4-4c8b-a682-dc32234ad17f',
+  MATIC_RPC_URL: 'https://polygon-mainnet.infura.io/v3/b9980d193a9e496e92e948e0f01ad7c4',
+  // Also provide WebSocket URLs where applicable
+  ETH_WS_URL: 'wss://mainnet.infura.io/ws/v3/b9980d193a9e496e92e948e0f01ad7c4',
+  MATIC_WS_URL: 'wss://polygon-mainnet.infura.io/ws/v3/b9980d193a9e496e92e948e0f01ad7c4',
+  // Default token contract address (for development environments only)
+  TOKEN_CONTRACT_ADDRESS: '0x742d35Cc6634C0532925a3b844Bc454e4438f44e', // Replace with a valid test contract
+};
+
+// Export a single static reference to prevent multiple configurations
+let GLOBAL_CONFIG: BlockchainConfig | null = null;
 
 /**
  * Creates a complete blockchain configuration object with all required properties
  * @param config Optional partial configuration that will override defaults
  * @returns Complete configuration with all required properties
  */
-export function createBlockchainConfig(config?: Partial<BlockchainConfig>): BlockchainConfig {
+export function createBlockchainConfig(config?: Record<string, any>): BlockchainConfig {
   // If config is already created and no new config is provided, return the global config
   if (GLOBAL_CONFIG && !config) {
     return GLOBAL_CONFIG;
@@ -60,7 +63,8 @@ export function createBlockchainConfig(config?: Partial<BlockchainConfig>): Bloc
     ETH_RPC_URL: process.env.ETH_RPC_URL,
     BNB_RPC_URL: process.env.BNB_RPC_URL, 
     SOL_RPC_URL: process.env.SOL_RPC_URL,
-    MATIC_RPC_URL: process.env.MATIC_RPC_URL
+    MATIC_RPC_URL: process.env.MATIC_RPC_URL,
+    TOKEN_CONTRACT_ADDRESS: process.env.TOKEN_CONTRACT_ADDRESS
   };
   
   // Start with defaults
@@ -69,14 +73,15 @@ export function createBlockchainConfig(config?: Partial<BlockchainConfig>): Bloc
     BNB_RPC_URL: envConfig.BNB_RPC_URL || DEFAULT_RPC_URLS.BNB_RPC_URL,
     SOL_RPC_URL: envConfig.SOL_RPC_URL || DEFAULT_RPC_URLS.SOL_RPC_URL,
     MATIC_RPC_URL: envConfig.MATIC_RPC_URL || DEFAULT_RPC_URLS.MATIC_RPC_URL,
+    // Token contract address
+    TOKEN_CONTRACT_ADDRESS: envConfig.TOKEN_CONTRACT_ADDRESS || DEFAULT_RPC_URLS.TOKEN_CONTRACT_ADDRESS,
     // Shorthand versions
     ETH: envConfig.ETH_RPC_URL || DEFAULT_RPC_URLS.ETH_RPC_URL,
     BNB: envConfig.BNB_RPC_URL || DEFAULT_RPC_URLS.BNB_RPC_URL,
     SOL: envConfig.SOL_RPC_URL || DEFAULT_RPC_URLS.SOL_RPC_URL,
     MATIC: envConfig.MATIC_RPC_URL || DEFAULT_RPC_URLS.MATIC_RPC_URL,
     // Other common properties
-    encryptPrivateKeys: false,
-    TOKEN_CONTRACT_ADDRESS: process.env.TOKEN_CONTRACT_ADDRESS || ''
+    encryptPrivateKeys: false
   };
   
   // Override with input config values if present
@@ -100,7 +105,7 @@ export function createBlockchainConfig(config?: Partial<BlockchainConfig>): Bloc
     result.MATIC = result.MATIC_RPC_URL;
   }
   
-  // Add TOKEN_CONTRACT_ADDRESS from config if available
+  // Set token contract address
   if (safeConfig.TOKEN_CONTRACT_ADDRESS) {
     result.TOKEN_CONTRACT_ADDRESS = safeConfig.TOKEN_CONTRACT_ADDRESS;
   }

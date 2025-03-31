@@ -3,7 +3,7 @@
 import readline from 'readline';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import HotWallet from './index.js';
+import HotWallet from './index.ts'; // Fixed import from .js to .ts
 import bip39 from 'bip39';
 import { generateKey } from './utils/encryption.ts';
 import dotenv from 'dotenv';

@@ -37,6 +37,8 @@ import { UserSessionsService } from '../users/services/user-sessions.service';
 import { RefreshToken } from './entities/refresh-token.entity';
 import { BcryptService } from '../shared/services/bcrypt.service';
 import { ShahiTokenService } from '../blockchain/services/shahi-token.service';
+import { UserDevice } from '../users/entities/user-device.entity';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 
 @Injectable()
 export class AuthService {
@@ -49,6 +51,8 @@ export class AuthService {
     private readonly walletRepository: Repository<Wallet>,
     @InjectRepository(RefreshToken)
     private readonly refreshTokenRepository: Repository<RefreshToken>,
+    @InjectRepository(UserDevice)
+    private readonly userDeviceRepository: Repository<UserDevice>,
     private readonly jwtService: JwtService,
     private readonly usersService: UsersService,
     @Inject(forwardRef(() => ReferralService))
@@ -62,6 +66,7 @@ export class AuthService {
     private readonly bcryptService: BcryptService,
     @Inject(forwardRef(() => ShahiTokenService))
     private readonly shahiTokenService: ShahiTokenService,
+    private readonly eventEmitter: EventEmitter2
   ) {}
 
   async validateUser(email: string, password: string): Promise<any> {
@@ -142,7 +147,6 @@ export class AuthService {
         userId: user.id,
         deviceId,
         deviceType: deviceInfo.deviceType,
-        userAgent,
         name: deviceInfo.deviceName,
         platform: deviceInfo.platform,
         os: deviceInfo.os,
@@ -157,13 +161,13 @@ export class AuthService {
     const tokens = await this.getTokens(user.id);
     
     // Create session
-    await this.userSessionsService.create({
+    await this.userSessionsService.createSession({
       userId: user.id,
       deviceId,
       token: tokens.refreshToken,
       ipAddress,
       userAgent,
-      expiresAt: new Date(Date.now() + this.getRefreshTokenExpiresInMs()),
+      expiresAt: new Date(Date.now() + this.getRefreshTokenExpiresInMs())
     });
     
     return this.generateToken(user);
@@ -392,14 +396,28 @@ export class AuthService {
         this.mintTokensForNewUser(normalizedAddress);
       }
   
-      // Update or create device record
+      // Update or create device record with wallet address
       try {
         const deviceInfo = this.deviceDetectorService.detect(userAgent);
-        await this.userDevicesService.registerDevice(user.id, deviceId, {
+        const device = await this.userDevicesService.registerDevice(user.id, deviceId, {
           ...deviceInfo,
           userAgent: userAgent || 'unknown',
           lastIpAddress: ipAddress,
         });
+        
+        // Add wallet address to device record
+        if (device && device.id) {
+          // Update existing device to register wallet address
+          const existingDevice = await this.userDeviceRepository.findOne({ 
+            where: { id: device.id } 
+          });
+          
+          if (existingDevice) {
+            await existingDevice.addWalletAddress(normalizedAddress);
+            await this.userDeviceRepository.save(existingDevice);
+            this.logger.log(`Added wallet address to device record: Device ${deviceId.substring(0, 8)}..., Wallet: ${normalizedAddress}`);
+          }
+        }
       } catch (error) {
         // Log device error but continue login flow
         // Only if this is not a ForbiddenException - in that case, we want to stop
@@ -413,13 +431,13 @@ export class AuthService {
       try {
         const tokens = await this.getTokens(user.id);
         
-        await this.userSessionsService.create({
+        await this.userSessionsService.createSession({
           userId: user.id,
           deviceId,
           token: tokens.refreshToken,
           ipAddress,
           userAgent: userAgent || 'unknown',
-          expiresAt: new Date(Date.now() + this.getRefreshTokenExpiresInMs()),
+          expiresAt: new Date(Date.now() + this.getRefreshTokenExpiresInMs())
         }).catch(error => {
           this.logger.error(`Error creating session: ${error.message}`);
           // Continue even if session creation fails
@@ -942,5 +960,166 @@ export class AuthService {
       this.logger.warn(`Failed to mint SHAHI tokens after ${maxRetries} attempts. Adding to retry queue.`);
       // this.mintingQueueService.addToQueue(walletAddress);
     }
+  }
+
+  async validateWalletLogin(walletAddress: string, req: Request): Promise<any> {
+    this.logger.log(`Wallet login attempt for address: ${walletAddress}`);
+
+    // Generate a device ID from the request
+    const deviceId = this.deviceDetectorService.generateDeviceId(
+      req,
+      this.getIpAddress(req),
+    );
+
+    // Find the user by wallet address
+    const user = await this.usersService.findByWalletAddress(walletAddress);
+
+    if (!user) {
+      this.logger.log(`Creating new user and wallet for address: ${walletAddress}`);
+      
+      // First check if this device is already paired with a different wallet
+      const isValidPairing = await this.userDevicesService.validateDeviceWalletPairing(
+        deviceId, 
+        walletAddress
+      );
+
+      if (!isValidPairing) {
+        throw new ForbiddenException(
+          'This device is already registered with another wallet address. For security reasons, one device can only be used with one wallet.'
+        );
+      }
+
+      // Create a new user with wallet address
+      const newUser = await this.usersService.createWalletUser({
+        walletAddress,
+        isVerified: true, // Wallet users are verified by default
+      });
+
+      try {
+        // Mint initial SHAHI tokens for the new user
+        await this.mintTokensForNewUser(walletAddress);
+      } catch (error) {
+        this.logger.warn(`Failed to mint SHAHI for new user ${walletAddress}`);
+      }
+
+      // Try to register device but don't fail if it errors
+      try {
+        await this.userDevicesService.registerDevice(
+          newUser.id,
+          deviceId,
+          {
+            ...this.deviceDetectorService.detect(req),
+            lastIpAddress: this.getIpAddress(req),
+          },
+        );
+
+        // Add wallet address to the device record
+        const device = await this.userDevicesService.findByUserIdAndDeviceId(
+          newUser.id,
+          deviceId
+        );
+        
+        if (device) {
+          await device.addWalletAddress(walletAddress);
+          await this.userDevicesService.update(device.id, device);
+        }
+      } catch (error) {
+        this.logger.error(`Non-critical error managing device data: ${error.message}`);
+      }
+
+      // Create a session
+      try {
+        await this.userSessionsService.createSession({
+          userId: newUser.id,
+          deviceId,
+          ipAddress: this.getIpAddress(req),
+          userAgent: req.headers['user-agent'] as string,
+          expiresAt: new Date(Date.now() + this.getRefreshTokenExpiresInMs())
+        });
+      } catch (error) {
+        this.logger.error(`Error creating session: ${error.message}`);
+      }
+
+      return newUser;
+    }
+
+    // Existing user - Check if this device can be used with this wallet
+    const isValidPairing = await this.userDevicesService.validateDeviceWalletPairing(
+      deviceId, 
+      walletAddress,
+      user.id
+    );
+
+    if (!isValidPairing) {
+      throw new ForbiddenException(
+        'This device is registered with a different wallet address. For security reasons, one device can only be used with one wallet.'
+      );
+    }
+
+    // Update user's last login - use custom fields instead of UpdateUserDto
+    await this.userRepository.update(user.id, {
+      lastLoginAt: new Date(),
+      lastLoginIp: this.getIpAddress(req),
+    });
+
+    // Try to register device but don't fail if it errors
+    try {
+      const device = await this.userDevicesService.registerDevice(
+        user.id,
+        deviceId,
+        {
+          ...this.deviceDetectorService.detect(req),
+          lastIpAddress: this.getIpAddress(req),
+        },
+      );
+
+      // Add wallet address to the device record if it exists
+      if (device) {
+        await device.addWalletAddress(walletAddress);
+        await this.userDevicesService.update(device.id, device);
+      }
+    } catch (error) {
+      this.logger.error(`Non-critical error managing device data: ${error.message}`);
+    }
+
+    // Create a session
+    try {
+      await this.userSessionsService.createSession({
+        userId: user.id,
+        deviceId,
+        ipAddress: this.getIpAddress(req),
+        userAgent: req.headers['user-agent'] as string,
+        expiresAt: new Date(Date.now() + this.getRefreshTokenExpiresInMs())
+      });
+    } catch (error) {
+      this.logger.error(`Error creating session: ${error.message}`);
+    }
+
+    return user;
+  }
+
+  // Helper method to mint SHAHI for new users
+  async mintFirstTimeShahiForUser(walletAddress: string): Promise<void> {
+    let attempts = 0;
+    const maxAttempts = 3;
+    
+    while (attempts < maxAttempts) {
+      attempts++;
+      this.logger.log(`Attempt ${attempts} to mint 1 SHAHI for new user: ${walletAddress}`);
+      
+      try {
+        await this.shahiTokenService.mintForNewUser(walletAddress);
+        // If minting is successful, return
+        return;
+      } catch (error) {
+        this.logger.warn(`Failed to mint SHAHI for new user ${walletAddress}`);
+        
+        // Wait a short time before retrying
+        await new Promise(resolve => setTimeout(resolve, 2000));
+      }
+    }
+    
+    this.logger.warn(`Failed to mint SHAHI tokens after ${maxAttempts} attempts. Adding to retry queue.`);
+    // Could add to a queue for retry later
   }
 }

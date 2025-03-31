@@ -1,55 +1,49 @@
-import {
-  Entity,
-  Column,
-  PrimaryGeneratedColumn,
+import { 
+  Entity, 
+  Column, 
+  PrimaryGeneratedColumn, 
   CreateDateColumn,
   ManyToOne,
-  JoinColumn,
-  Index,
+  JoinColumn
 } from 'typeorm';
 import { User } from './user.entity';
 import { UserDevice } from './user-device.entity';
 
-@Entity({ name: 'user_sessions' })
+@Entity('user_sessions')
 export class UserSession {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
   @Column({ name: 'user_id' })
-  @Index()
   userId: string;
 
-  @Column({ name: 'device_id', nullable: true })
-  deviceId?: string;
-
-  @Column()
-  token: string;
-
-  @Column({ name: 'ip_address', nullable: true })
-  ipAddress: string;
-
-  @Column({ name: 'user_agent', length: 1000, nullable: true })
-  userAgent?: string;
-
-  @Column({ name: 'expires_at', type: 'timestamp', nullable: true })
-  expiresAt?: Date;
-
-  @Column({ default: true })
-  isActive: boolean;
-
-  @Column({ nullable: true })
-  endedAt?: Date;
-
-  @Column({ nullable: true, type: 'integer' })
-  duration?: number; // Store duration in seconds instead of interval
-
-  @ManyToOne(() => User, (user) => user.sessions, { onDelete: 'CASCADE' })
+  @ManyToOne(() => User, user => user.sessions, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'user_id' })
   user: User;
 
-  @ManyToOne(() => UserDevice, { nullable: true })
-  @JoinColumn({ name: 'device_id' })
-  device?: UserDevice;
+  @Column({ name: 'device_id', length: 255, nullable: true })
+  deviceId: string;
+
+  @Column({ length: 500, nullable: true })
+  token: string;
+
+  @Column({ name: 'ip_address', length: 100, nullable: true })
+  ipAddress: string;
+  
+  @Column({ name: 'user_agent', type: 'text', nullable: true })
+  userAgent: string;
+
+  @Column({ name: 'expires_at', type: 'timestamp', nullable: true })
+  expiresAt: Date;
+
+  @Column({ name: 'is_active', default: true })
+  isActive: boolean;
+
+  @Column({ name: 'endedAt', type: 'timestamp', nullable: true })
+  endedAt: Date;
+
+  @Column({ type: 'int', nullable: true })
+  duration: number;
 
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;

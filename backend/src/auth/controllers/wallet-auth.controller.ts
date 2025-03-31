@@ -44,11 +44,10 @@ export class WalletAuthController {
   @ApiResponse({ status: 401, description: 'Invalid signature' })
   async authenticate(@Body() walletLoginDto: WalletLoginDto, @Req() req: Request) {
     // Log the entire request for detailed debugging
-    this.logger.log(`Authentication request headers: ${JSON.stringify(req.headers)}`);
-    this.logger.log(`Authentication request body: ${JSON.stringify(walletLoginDto)}`);
+    this.logger.log(`Authentication request received from IP: ${req.ip}`);
     
     // Log the authentication request details
-    this.logger.log(`Authentication request details: ${JSON.stringify({
+    this.logger.log(`Authentication request details:`, {
       address: walletLoginDto.address,
       messageExists: !!walletLoginDto.message,
       messageLength: walletLoginDto.message?.length || 0,
@@ -57,7 +56,7 @@ export class WalletAuthController {
       signatureLength: walletLoginDto.signature?.length || 0,
       signaturePreview: walletLoginDto.signature?.substring(0, 20) || '',
       emailExists: !!walletLoginDto.email
-    })}`);
+    });
     
     try {
       // 1. Validate required fields
@@ -103,7 +102,7 @@ export class WalletAuthController {
       }
       
       // Log detailed error for troubleshooting
-      this.logger.error(`Detailed error: ${JSON.stringify(error)}`);
+      this.logger.error(`Detailed error:`, error);
       throw error;
     }
   }

@@ -33,3 +33,21 @@ package-lock.json
 
 # Jest types
 !node_modules/@types/jest
+
+# Generated files
+*.tsbuildinfo
+tsconfig.build.tsbuildinfo
+
+# Cache and temporary files
+.cache/
+.temp/
+coverage/
+
+# Database dumps and large data files
+*.dump
+*.sql.gz
+*.bak
+
+# Local development
+/local
+/tmp
