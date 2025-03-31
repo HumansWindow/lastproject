@@ -9,6 +9,11 @@
 node_modules
 **/node_modules
 
+# Specific large binary files
+**/next-swc.linux-x64-musl.node
+**/next-swc.linux-x64-gnu.node
+**/*.node
+
 # Build folders
 **/dist
 **/build
@@ -51,3 +56,5 @@ OldSystem/wallet
 # Optional: Large media files (adjust as needed)
 **/*.mp4
 **/*.mov
+**/*.avi
+**
