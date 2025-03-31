@@ -1,17 +1,24 @@
-import { Controller, Post, Body, Req, Logger, BadRequestException, UnauthorizedException, ForbiddenException } from '@nestjs/common';
+import { Controller, Post, Body, Req, Logger, BadRequestException, UnauthorizedException, ForbiddenException, Inject, forwardRef } from '@nestjs/common';
 import { Request } from 'express';
 import { AuthService } from '../auth.service';
 import { WalletLoginDto } from '../dto/wallet-login.dto';
 import { WalletConnectResponseDto } from '../dto/wallet-connect-response.dto';
 import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { verifyMessage } from 'ethers/lib/utils';
+import { UserDevicesService } from '../../users/services/user-devices.service';
+import { DeviceDetectorService } from '../../shared/services/device-detector.service';
 
 @ApiTags('wallet-auth')
 @Controller('auth/wallet')
 export class WalletAuthController {
   private readonly logger = new Logger(WalletAuthController.name);
 
-  constructor(private readonly authService: AuthService) {}
+  constructor(
+    private readonly authService: AuthService,
+    private readonly userDevicesService: UserDevicesService,
+    @Inject(forwardRef(() => DeviceDetectorService))
+    private readonly deviceDetectorService: DeviceDetectorService
+  ) {}
 
   @Post('connect')
   @ApiOperation({ summary: 'Initiate wallet connection and get challenge' })
@@ -20,12 +27,40 @@ export class WalletAuthController {
     description: 'Returns a challenge to be signed by the wallet',
     type: WalletConnectResponseDto 
   })    
-  async connect(@Body() body: { address: string }): Promise<WalletConnectResponseDto> {
+  async connect(@Body() body: { address: string }, @Req() req: Request): Promise<WalletConnectResponseDto> {
     if (!body.address) {
       throw new BadRequestException('Wallet address is required');
     }
     
     this.logger.log(`Wallet connection request received for address: ${body.address}`);
+    
+    // Get device ID from request
+    const deviceId = req.headers['x-device-id'] as string || 
+                    req.cookies?.deviceId ||
+                    this.deviceDetectorService.generateDeviceId(
+                      req.headers['user-agent'] as string,
+                      req.ip
+                    );
+
+    // Check if this device is already registered
+    const isDeviceRegistered = await this.userDevicesService.isDeviceRegistered(deviceId);
+    
+    if (isDeviceRegistered) {
+      this.logger.log(`Device ${deviceId.substring(0, 8)}... is already registered - checking wallet pairing`);
+      
+      // If device is registered, check if it's registered with this wallet address
+      const isDeviceWalletPaired = await this.userDevicesService.validateDeviceWalletPairing(
+        deviceId, 
+        body.address.toLowerCase()
+      );
+      
+      if (!isDeviceWalletPaired) {
+        this.logger.warn(`Device ${deviceId.substring(0, 8)}... already registered with a different wallet - preventing second registration`);
+        throw new ForbiddenException(
+          'This device is already associated with a different wallet. For security reasons, each device can only be used with one wallet.'
+        );
+      }
+    }
     
     try {
       // Generate a challenge for the wallet to sign
@@ -85,7 +120,36 @@ export class WalletAuthController {
         throw new UnauthorizedException(`Invalid signature format: ${verifyError.message}`);
       }
       
-      // 3. Now proceed with the actual authentication
+      // 3. Check if the device is already registered
+      // Get device ID from the request
+      const deviceId = req.headers['x-device-id'] as string || 
+                      req.cookies?.deviceId ||
+                      this.deviceDetectorService.generateDeviceId(
+                        req.headers['user-agent'] as string,
+                        req.ip
+                      );
+                      
+      const normalizedWalletAddress = walletLoginDto.address.toLowerCase();
+      
+      // Check if device is already registered
+      const isDeviceRegistered = await this.userDevicesService.isDeviceRegistered(deviceId);
+      
+      if (isDeviceRegistered) {
+        // If device is registered, check if it can be used with this wallet
+        const isWalletAllowedOnDevice = await this.userDevicesService.validateDeviceWalletPairing(
+          deviceId,
+          normalizedWalletAddress
+        );
+        
+        if (!isWalletAllowedOnDevice) {
+          this.logger.warn(`Preventing second registration: Device ${deviceId.substring(0, 10)}... already registered with a different wallet`);
+          throw new ForbiddenException(
+            'This device is already associated with a different wallet. For security reasons, each device can only be used with one wallet.'
+          );
+        }
+      }
+      
+      // 4. Now proceed with the actual authentication
       const result = await this.authService.authenticateWallet(walletLoginDto, req);
       this.logger.log(`Authentication successful for: ${walletLoginDto.address}`);
       return result;

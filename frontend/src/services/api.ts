@@ -128,8 +128,8 @@ export const authService = {
   login: (email: string, password: string) => 
     apiClient.post('/auth/login', { email, password }),
   
-  walletLogin: (walletAddress: string, signature: string) => 
-    apiClient.post('/auth/wallet-login', { walletAddress, signature }),
+  // Wallet authentication should only be handled through the walletAuthService
+  // for consistent security and device validation
   
   register: (email: string, password: string, referralCode?: string) => 
     apiClient.post('/auth/register', { email, password, referralCode }),
@@ -169,20 +169,6 @@ export const shajiTokenService = {
     apiClient.post('/blockchain/minting/annual'),
 };
 
-export const connectWallet = async (address: string, signature?: string, message?: string): Promise<any> => {
-  try {
-    console.log('Connecting wallet:', address, signature ? 'with signature' : 'without signature');
-    const response = await apiClient.post('/auth/wallet/connect', {
-      address,
-      signature,
-      message
-    });
-    console.log('Wallet connection response:', response.data);
-    return response.data;
-  } catch (error: unknown) {
-    console.error('Wallet connection error:', error);
-    throw error;
-  }
-};
+// Remove the duplicate connectWallet function - use walletAuthService instead
 
 export default api;

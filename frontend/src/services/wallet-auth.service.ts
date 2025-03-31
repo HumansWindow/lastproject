@@ -1,6 +1,5 @@
 import { ethers } from 'ethers';
 import { apiClient } from '../services/api'; // Correct import path
-import api from './api';
 
 // Add this type declaration for ethereum in the global window object
 declare global {
@@ -9,6 +8,10 @@ declare global {
   }
 }
 
+/**
+ * Service class for wallet authentication
+ * Handles connecting wallet, requesting challenge, signing, and authenticating with backend
+ */
 class WalletAuthService {
   private provider: ethers.providers.Web3Provider | null = null;
   private signer: ethers.Signer | null = null;
@@ -175,24 +178,6 @@ class WalletAuthService {
       // Step 3: Send signature back to authenticate
       console.log('Submitting signature for authentication...');
       
-      // Try the debug endpoint first to verify signature independently
-      try {
-        console.log('Verifying signature with debug endpoint first...');
-        const verifyResponse = await apiClient.post('/auth/wallet-debug/verify-signature', {
-          address,
-          message: connectResponse.challenge,
-          signature
-        });
-        
-        console.log('Verification result:', verifyResponse.data);
-        
-        if (!verifyResponse.data.valid) {
-          console.error('Signature verification failed in debug endpoint!');
-        }
-      } catch (debugError) {
-        console.warn('Debug verification failed, but continuing with auth attempt:', debugError);
-      }
-      
       // Prepare authentication data
       const authData: {
         address: string;
@@ -222,15 +207,6 @@ class WalletAuthService {
         signature: authData.signature.substring(0, 30) + '...',
         hasEmail: !!authData.email
       });
-      
-      // Try mock authenticate first to get detailed validation info
-      try {
-        console.log('Testing payload with mock authentication...');
-        const mockResponse = await apiClient.post('/auth/wallet-debug/mock-authenticate', authData);
-        console.log('Mock authentication result:', mockResponse.data);
-      } catch (mockError) {
-        console.warn('Mock authentication test failed:', mockError);
-      }
       
       // Set explicit content type header
       const config = {
@@ -270,17 +246,6 @@ class WalletAuthService {
         console.error('No response received from server');
       } else {
         console.error('Error during request setup:', error.message);
-      }
-      
-      // Try to check wallet status to see if it exists
-      try {
-        const address = await this.getCurrentAddress();
-        if (address) {
-          const checkResponse = await apiClient.post('/auth/wallet-debug/check-wallet', { address });
-          console.log('Wallet status check:', checkResponse.data);
-        }
-      } catch (checkError) {
-        console.warn('Failed to check wallet status:', checkError);
       }
       
       throw error;
@@ -361,18 +326,3 @@ class WalletAuthService {
 
 // Create and export a singleton instance
 export const walletAuthService = new WalletAuthService();
-
-export const initiateWalletConnection = async (walletAddress: string): Promise<string> => {
-  console.log('Initiating wallet connection for:', walletAddress);
-  
-  try {
-    // Use apiClient instead of api to ensure consistent configuration
-    const response = await apiClient.post('/auth/wallet/connect', { address: walletAddress });
-    
-    console.log('Challenge received:', response.data.challenge);
-    return response.data.challenge;
-  } catch (error: any) { // Add type annotation here
-    console.error('Error initiating wallet connection:', error);
-    throw error;
-  }
-};

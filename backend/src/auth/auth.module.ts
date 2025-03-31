@@ -19,10 +19,13 @@ import { WalletsModule } from '../wallets/wallets.module';
 import { RefreshToken } from './entities/refresh-token.entity';
 import { WalletAuthController } from './controllers/wallet-auth.controller';
 import { WalletAuthDebugController } from './controllers/wallet-auth-debug.controller';
+import { UserDevice } from '../users/entities/user-device.entity';
+import { UserDevicesService } from '../users/services/user-devices.service';
+import { DeviceDetectorService } from '../shared/services/device-detector.service';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([User, RefreshToken, Wallet]),
+    TypeOrmModule.forFeature([User, RefreshToken, Wallet, UserDevice]),
     forwardRef(() => UsersModule),
     forwardRef(() => WalletsModule),
     PassportModule.register({ defaultStrategy: 'jwt' }),
@@ -48,6 +51,8 @@ import { WalletAuthDebugController } from './controllers/wallet-auth-debug.contr
     JwtStrategy,
     LocalStrategy,
     WalletStrategy,
+    UserDevicesService,
+    DeviceDetectorService,
   ],
   exports: [AuthService, JwtModule],
 })
