@@ -11,6 +11,9 @@ export class ShahiTokenService implements OnModuleInit {
   private adminWallet: ethers.Wallet;
   private _initialized = false;
   private tokenContract: ethers.Contract;
+  private mintingRetryQueue: Map<string, {attempts: number, lastAttempt: number}> = new Map();
+  private readonly maxRetries = 3;
+  private readonly retryDelay = 5000; // 5 seconds
 
   constructor(
     @Inject('BLOCKCHAIN_CONFIG') private readonly blockchainConfig: BlockchainConfig,
@@ -236,10 +239,15 @@ export class ShahiTokenService implements OnModuleInit {
     }
   }
 
-  async mintForNewUser(address: string): Promise<string | null> {
+  async mintForNewUser(address: string, deviceId?: string): Promise<string | null> {
     if (!this.isInitialized() || !this.contract || !this.adminWallet) {
       this.logger.warn('Cannot mint SHAHI: service not properly initialized');
       return null;
+    }
+
+    // If deviceId is provided, log it for debugging
+    if (deviceId) {
+      this.logger.log(`Minting tokens for user ${address} from device ${deviceId.substring(0, 8)}...`);
     }
 
     try {
@@ -248,7 +256,16 @@ export class ShahiTokenService implements OnModuleInit {
       // Try mintForNewUser first
       try {
         const signer = this.contract.connect(this.adminWallet);
-        const tx = await signer.mintForNewUser(address);
+        // Add a gas limit estimation directly
+        const gasEstimate = await this.provider.estimateGas({
+          from: this.adminWallet.address,
+          to: this.contract.address,
+          data: this.contract.interface.encodeFunctionData('mintForNewUser', [address])
+        }).catch(() => ethers.BigNumber.from('500000')); // Default gas limit if estimation fails
+        
+        const tx = await signer.mintForNewUser(address, {
+          gasLimit: gasEstimate.mul(120).div(100) // Add 20% buffer
+        });
         const receipt = await tx.wait();
         
         this.logger.log(`Successfully minted SHAHI for new user. Tx hash: ${receipt.transactionHash}`);
@@ -259,7 +276,17 @@ export class ShahiTokenService implements OnModuleInit {
         // Fall back to adminMint if mintForNewUser fails
         const amountToMint = this.parseEther('1.0');
         const signer = this.contract.connect(this.adminWallet);
-        const tx = await signer.adminMint(address, amountToMint);
+        
+        // Add a gas limit estimation directly
+        const gasEstimate = await this.provider.estimateGas({
+          from: this.adminWallet.address,
+          to: this.contract.address,
+          data: this.contract.interface.encodeFunctionData('adminMint', [address, amountToMint])
+        }).catch(() => ethers.BigNumber.from('600000')); // Default gas limit if estimation fails
+        
+        const tx = await signer.adminMint(address, amountToMint, {
+          gasLimit: gasEstimate.mul(120).div(100) // Add 20% buffer
+        });
         const receipt = await tx.wait();
         
         this.logger.log(`Successfully admin minted SHAHI for new user. Tx hash: ${receipt.transactionHash}`);
@@ -267,10 +294,77 @@ export class ShahiTokenService implements OnModuleInit {
       }
     } catch (error) {
       this.logger.error(`Failed to mint SHAHI for new user: ${error.message}`);
+      // Add the wallet address to the retry queue if it's not already reached max retries
+      const queueItem = this.mintingRetryQueue.get(address) || { attempts: 0, lastAttempt: 0 };
+      if (queueItem.attempts < this.maxRetries) {
+        queueItem.attempts++;
+        queueItem.lastAttempt = Date.now();
+        this.mintingRetryQueue.set(address, queueItem);
+        this.logger.log(`Added ${address} to minting retry queue. Attempt: ${queueItem.attempts}`);
+        
+        // Schedule a retry attempt if this was the first failure
+        if (queueItem.attempts === 1) {
+          setTimeout(() => this.retryMinting(address), this.retryDelay);
+        }
+      } else {
+        this.logger.error(`Failed to mint SHAHI for ${address} after ${this.maxRetries} attempts`);
+      }
       return null;
     }
   }
   
+  private async retryMinting(address: string): Promise<void> {
+    const queueItem = this.mintingRetryQueue.get(address);
+    if (!queueItem || queueItem.attempts >= this.maxRetries) {
+      return;
+    }
+    
+    try {
+      this.logger.log(`Retry attempt ${queueItem.attempts + 1} for minting tokens to ${address}`);
+      const result = await this.mintForNewUser(address);
+      if (result) {
+        this.logger.log(`Successful retry mint for ${address}: ${result}`);
+        this.mintingRetryQueue.delete(address);
+      } else {
+        // Schedule another retry if we haven't hit the maximum
+        if (queueItem.attempts < this.maxRetries) {
+          setTimeout(() => this.retryMinting(address), this.retryDelay * queueItem.attempts); // Exponential backoff
+        }
+      }
+    } catch (error) {
+      this.logger.error(`Error during retry minting for ${address}: ${error.message}`);
+    }
+  }
+  
+  // Add a method to check if a minting operation is already in progress for an address
+  async isMintingInProgress(address: string): Promise<boolean> {
+    const item = this.mintingRetryQueue.get(address);
+    if (item && Date.now() - item.lastAttempt < 60000) { // Consider minting in progress if attempted in the last minute
+      return true;
+    }
+    return false;
+  }
+
+  // Add a method to validate if the token should be minted for a wallet based on device constraints
+  async shouldMintToken(address: string, deviceId: string): Promise<boolean> {
+    // Basic validation - address and deviceId must be present
+    if (!address || !deviceId) {
+      this.logger.warn('Cannot validate minting: missing address or deviceId');
+      return false;
+    }
+    
+    // Add your device-wallet pairing validation here
+    // For example, you might want to check if the device is already associated with a different wallet
+    
+    // If a minting operation is already in progress, don't start another one
+    if (await this.isMintingInProgress(address)) {
+      this.logger.warn(`Minting already in progress for address ${address}`);
+      return false;
+    }
+    
+    return true;
+  }
+
   async burnExpiredTokens(address: string): Promise<string> {
     this.checkInitialization();
 

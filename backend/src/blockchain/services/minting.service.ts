@@ -15,8 +15,12 @@ export class MintingService {
     private readonly merkleService: MerkleService,
   ) {}
 
-  async processFirstTimeMint(userAddress: string, userAgent: string, ip: string): Promise<string> {
-    const deviceId = await this.deviceDetector.generateDeviceId(userAgent, ip);
+  async processFirstTimeMint(userAddress: string, userAgent: string, ip: string, deviceId?: string): Promise<string> {
+    // Use provided deviceId or generate one if not provided
+    const finalDeviceId = deviceId || await this.deviceDetector.generateDeviceId(userAgent, ip);
+    
+    this.logger.log(`Processing first-time mint for ${userAddress} from device ${finalDeviceId.substring(0, 8)}...`);
+    
     const merkleProof = this.merkleService.getProof(userAddress);
     
     // Verify proof before proceeding
@@ -24,11 +28,21 @@ export class MintingService {
       throw new UnauthorizedException('User is not eligible for minting');
     }
     
-    return this.shahiToken.firstTimeMint(userAddress, deviceId, merkleProof);
+    // Log the minting attempt
+    this.logger.log(`Attempting first-time mint for ${userAddress} with device ${finalDeviceId.substring(0, 8)}...`);
+    
+    return this.shahiToken.firstTimeMint(userAddress, finalDeviceId, merkleProof);
   }
 
-  async processAnnualMint(userAddress: string, userAgent: string, ip: string): Promise<string> {
-    const deviceId = await this.deviceDetector.generateDeviceId(userAgent, ip);
-    return this.shahiToken.annualMint(userAddress, deviceId);
+  async processAnnualMint(userAddress: string, userAgent: string, ip: string, deviceId?: string): Promise<string> {
+    // Use provided deviceId or generate one if not provided
+    const finalDeviceId = deviceId || await this.deviceDetector.generateDeviceId(userAgent, ip);
+    
+    this.logger.log(`Processing annual mint for ${userAddress} from device ${finalDeviceId.substring(0, 8)}...`);
+    
+    // Log the minting attempt
+    this.logger.log(`Attempting annual mint for ${userAddress} with device ${finalDeviceId.substring(0, 8)}...`);
+    
+    return this.shahiToken.annualMint(userAddress, finalDeviceId);
   }
 }
