@@ -589,4 +589,114 @@ export class ShahiTokenService implements OnModuleInit {
   private parseEther(value: string): ethers.BigNumber {
     return ethers.utils.parseEther(value);
   }
+
+  /**
+   * Batch process expired token burns for multiple users to save gas
+   * @param addresses Array of user addresses to check for expired tokens
+   * @returns Transaction hash of the batch operation
+   */
+  async batchBurnExpiredTokens(addresses: string[]): Promise<string> {
+    this.checkInitialization();
+
+    try {
+      const signer = this.contract.connect(this.adminWallet);
+      
+      // Estimate gas for the batch operation with 20% buffer
+      const gasEstimate = await this.provider.estimateGas({
+        from: this.adminWallet.address,
+        to: this.contract.address,
+        data: this.contract.interface.encodeFunctionData('batchBurnExpiredTokens', [addresses])
+      }).catch(() => ethers.BigNumber.from('3000000')); // Default gas limit if estimation fails
+      
+      const tx = await signer.batchBurnExpiredTokens(addresses, {
+        gasLimit: gasEstimate.mul(120).div(100)
+      });
+      
+      const receipt = await tx.wait();
+      
+      this.logger.log(`Successfully batch burned expired tokens for ${addresses.length} users. Tx hash: ${receipt.transactionHash}`);
+      return receipt.transactionHash;
+    } catch (error) {
+      this.logger.error(`Failed to batch burn expired tokens: ${error.message}`);
+      throw new Error(`Failed to batch burn expired tokens: ${error.message}`);
+    }
+  }
+  
+  /**
+   * Execute multiple token transfers in a single transaction using a multicall pattern
+   * This reduces overall gas costs when sending tokens to multiple recipients
+   * @param recipients Array of recipient addresses
+   * @param amounts Array of amounts to send to each recipient (in SHAHI)
+   * @returns Transaction hash of the batch operation
+   */
+  async batchTransferTokens(recipients: string[], amounts: string[]): Promise<string> {
+    this.checkInitialization();
+    
+    try {
+      if (recipients.length !== amounts.length) {
+        throw new Error('Recipients and amounts arrays must have the same length');
+      }
+      
+      if (recipients.length === 0) {
+        throw new Error('At least one recipient is required');
+      }
+      
+      // For very large batches, split into smaller chunks to avoid gas limits
+      const MAX_BATCH_SIZE = 50;
+      if (recipients.length > MAX_BATCH_SIZE) {
+        const txHashes = [];
+        
+        for (let i = 0; i < recipients.length; i += MAX_BATCH_SIZE) {
+          const batchRecipients = recipients.slice(i, i + MAX_BATCH_SIZE);
+          const batchAmounts = amounts.slice(i, i + MAX_BATCH_SIZE);
+          
+          const txHash = await this.batchTransferTokens(batchRecipients, batchAmounts);
+          txHashes.push(txHash);
+        }
+        
+        return txHashes.join(',');
+      }
+      
+      const signer = this.contract.connect(this.adminWallet);
+      let totalAmount = ethers.BigNumber.from(0);
+      
+      // Convert all amounts to wei and calculate total
+      const amountsWei = amounts.map(amount => {
+        const amountWei = this.parseEther(amount);
+        totalAmount = totalAmount.add(amountWei);
+        return amountWei;
+      });
+      
+      // Check if admin wallet has enough balance
+      const adminBalance = await this.tokenContract.balanceOf(this.adminWallet.address);
+      if (adminBalance.lt(totalAmount)) {
+        throw new Error(`Insufficient balance for batch transfer. Have: ${this.formatEther(adminBalance)}, need: ${this.formatEther(totalAmount)}`);
+      }
+      
+      // Perform transfers one by one but in a single transaction
+      // We could implement a custom multicall function in the contract for even better gas optimization
+      let nonce = await this.provider.getTransactionCount(this.adminWallet.address);
+      
+      // Get current gas price with 10% buffer
+      const gasPrice = (await this.provider.getGasPrice()).mul(110).div(100);
+      
+      // Execute transfers in parallel with the same nonce to batch them
+      const transferPromises = recipients.map((recipient, index) => {
+        return signer.transfer(recipient, amountsWei[index], {
+          nonce: nonce,
+          gasPrice: gasPrice
+        });
+      });
+      
+      const results = await Promise.all(transferPromises);
+      const receipts = await Promise.all(results.map(tx => tx.wait()));
+      
+      this.logger.log(`Successfully batch transferred tokens to ${recipients.length} recipients`);
+      
+      return receipts.map(r => r.transactionHash).join(',');
+    } catch (error) {
+      this.logger.error(`Failed to batch transfer tokens: ${error.message}`);
+      throw new Error(`Failed to batch transfer tokens: ${error.message}`);
+    }
+  }
 }

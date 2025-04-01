@@ -216,4 +216,97 @@ export class UsersService {
       throw new InternalServerErrorException('Failed to create user account');
     }
   }
+  
+  /**
+   * Record a token minting event for a user
+   * @param walletAddress The wallet address of the user who minted tokens
+   * @param amount The amount of tokens minted
+   * @returns The updated user record
+   */
+  async recordTokenMinting(walletAddress: string, amount: number): Promise<User> {
+    const user = await this.findByWalletAddress(walletAddress);
+    if (!user) {
+      throw new NotFoundException(`User with wallet address ${walletAddress} not found`);
+    }
+
+    // Set the minting date to current time
+    const now = new Date();
+    
+    // Set expiry date to one year from now
+    const expiryDate = new Date();
+    expiryDate.setFullYear(expiryDate.getFullYear() + 1);
+    
+    // Update the user record with minting information
+    user.lastMintDate = now;
+    user.tokenExpiryDate = expiryDate;
+    user.mintedAmount = Number(user.mintedAmount || 0) + amount;
+    user.hasExpiredTokens = false; // Reset expiry flag when new tokens are minted
+    
+    this.logger.log(`Recorded token minting for ${walletAddress}: ${amount} tokens, expires at ${expiryDate}`);
+    
+    return this.userRepository.save(user);
+  }
+  
+  /**
+   * Check for and mark expired tokens for a specific user
+   * @param walletAddress The wallet address to check for expired tokens
+   * @returns Boolean indicating if tokens were marked as expired
+   */
+  async checkExpiredTokens(walletAddress: string): Promise<boolean> {
+    const user = await this.findByWalletAddress(walletAddress);
+    if (!user || !user.tokenExpiryDate) {
+      return false;
+    }
+    
+    const now = new Date();
+    
+    // Check if tokens have expired
+    if (user.tokenExpiryDate <= now && !user.hasExpiredTokens) {
+      user.hasExpiredTokens = true;
+      await this.userRepository.save(user);
+      
+      this.logger.log(`Marked tokens as expired for ${walletAddress}`);
+      return true;
+    }
+    
+    return false;
+  }
+  
+  /**
+   * Get all users with expired tokens that need to be burned
+   * @returns Array of users with expired tokens
+   */
+  async getUsersWithExpiredTokens(): Promise<User[]> {
+    const now = new Date();
+    
+    return this.userRepository.find({
+      where: {
+        tokenExpiryDate: Not(IsNull()),
+        hasExpiredTokens: false,
+        // Tokens are expired if the expiry date is in the past
+        // Using the query builder to compare dates
+      },
+      // Use query builder to properly compare dates
+    }).then(users => {
+      // Filter users client-side for compatible date comparison
+      return users.filter(user => user.tokenExpiryDate && user.tokenExpiryDate <= now);
+    });
+  }
+  
+  /**
+   * Reset token expiry tracking after tokens have been burned
+   * @param walletAddress The wallet address to reset token tracking for
+   */
+  async resetExpiredTokenTracking(walletAddress: string): Promise<void> {
+    const user = await this.findByWalletAddress(walletAddress);
+    if (!user) {
+      throw new NotFoundException(`User with wallet address ${walletAddress} not found`);
+    }
+    
+    // Mark as expired but keep the dates for record-keeping
+    user.hasExpiredTokens = true;
+    
+    await this.userRepository.save(user);
+    this.logger.log(`Reset expired token tracking for ${walletAddress}`);
+  }
 }

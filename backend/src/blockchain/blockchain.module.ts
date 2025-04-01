@@ -21,6 +21,8 @@ import * as fs from 'fs';
 import * as dotenv from 'dotenv';
 import { WalletsModule } from '../wallets/wallets.module';
 import { createBlockchainConfig, DEFAULT_RPC_URLS, getBlockchainConfig } from './config/blockchain-environment';
+import { HttpModule } from '@nestjs/axios';
+import { UsersModule } from '../users/users.module';
 
 // Load blockchain-specific environment variables
 const blockchainEnvPath = path.resolve(__dirname, 'hotwallet', '.env');
@@ -36,6 +38,7 @@ if (fs.existsSync(blockchainEnvPath)) {
     ConfigModule.forRoot({
       envFilePath: ['.env', 'backend/.env', 'blockchain/.env'],
       isGlobal: true, // Make config global
+      load: [getBlockchainConfig],
     }),
     TypeOrmModule.forFeature([Wallet, User]),
     forwardRef(() => WalletsModule),
@@ -44,6 +47,8 @@ if (fs.existsSync(blockchainEnvPath)) {
     SharedModule,
     EventEmitterModule.forRoot(),
     JwtSharedModule,
+    HttpModule,
+    UsersModule,
   ],
   providers: [
     {

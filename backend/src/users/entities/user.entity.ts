@@ -115,6 +115,19 @@ export class User {
   @Column({ nullable: true, unique: true })
   walletAddress?: string;
 
+  // New fields for token minting and expiry tracking
+  @Column({ name: 'last_mint_date', type: 'timestamp', nullable: true })
+  lastMintDate: Date;
+
+  @Column({ name: 'token_expiry_date', type: 'timestamp', nullable: true })
+  tokenExpiryDate: Date;
+
+  @Column({ name: 'minted_amount', type: 'decimal', precision: 18, scale: 8, default: 0 })
+  mintedAmount: number;
+
+  @Column({ name: 'has_expired_tokens', default: false })
+  hasExpiredTokens: boolean;
+
   @BeforeInsert()
   async hashPassword() {
     if (this.password) {

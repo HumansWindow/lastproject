@@ -8,12 +8,12 @@ pragma solidity ^0.8.0;
  */
 contract SHAHIStorage {
     // Minting System
-    struct MintingRecord {
-        uint256 lastMintTimestamp;
+    struct UserMintRecord {
         bool hasFirstMinted;
+        uint256 lastMintTimestamp;
         uint256 totalMinted;
     }
-    mapping(address => MintingRecord) public userMintRecords;
+    mapping(address => UserMintRecord) public userMintRecords;
     mapping(bytes32 => bool) public usedProofs;
     
     // Staking System
@@ -73,6 +73,11 @@ contract SHAHIStorage {
     // Add missing property for minter signature verification
     mapping(address => bool) public isAuthorizedMinterSigner; // Additional authorized signers for minting verification
     
+    // Helper function to get token expiry for a specific mint timestamp
+    function getTokenExpiry(address user, uint256 mintTimestamp) public view returns (uint256) {
+        return userTokenExpiry[user][mintTimestamp];
+    }
+    
     // Reserved for future expansion (prevents storage collision)
-    uint256[45] private __gap; // Reduced to account for the additional mappings
+    uint256[44] private __gap; // Reduced to account for the additional mappings and functions
 }

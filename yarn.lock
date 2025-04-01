@@ -1422,6 +1422,11 @@
     semver "^7.3.5"
     tar "^6.1.11"
 
+"@nestjs/axios@^4.0.0":
+  version "4.0.0"
+  resolved "https://registry.npmjs.org/@nestjs/axios/-/axios-4.0.0.tgz"
+  integrity sha512-1cB+Jyltu/uUPNQrpUimRHEQHrnQrpLzVj6dU3dgn6iDDDdahr10TgHFGTmw5VuJ9GzKZsCLDL78VSwJAs/9JQ==
+
 "@nestjs/cli@^10.2.1":
   version "8.2.8"
   resolved "https://registry.npmjs.org/@nestjs/cli/-/cli-8.2.8.tgz"
@@ -2729,6 +2734,7 @@ ajv@8.9.0:
   dependencies:
     "@ethersproject/units" "^5.7.0"
     "@ethersproject/wallet" "^5.7.0"
+    "@nestjs/axios" "^4.0.0"
     "@nestjs/cli" "^10.2.1"
     "@nestjs/common" "^9.0.0"
     "@nestjs/config" "^2.3.4"
@@ -2737,6 +2743,7 @@ ajv@8.9.0:
     "@nestjs/jwt" "^10.0.0"
     "@nestjs/passport" "^10.0.0"
     "@nestjs/platform-express" "^9.0.0"
+    "@nestjs/platform-socket.io" "^9.4.0"
     "@nestjs/schedule" "^4.1.2"
     "@nestjs/swagger" "^6.3.0"
     "@nestjs/typeorm" "^10.0.0"
@@ -2769,6 +2776,8 @@ ajv@8.9.0:
     reflect-metadata "^0.1.14"
     rimraf "^3.0.2"
     rxjs "^7.5.5"
+    socket.io "^4.5.4"
+    socket.io-client "^4.5.4"
     source-map-support "^0.5.21"
     sqlite3 "^5.1.6"
     swagger-ui-express "^4.6.3"
@@ -6689,6 +6698,24 @@ jws@^3.2.2:
     jwa "^1.4.1"
     safe-buffer "^5.0.1"
 
+keccak@^3.0.2:
+  version "3.0.4"
+  resolved "https://registry.npmjs.org/keccak/-/keccak-3.0.4.tgz"
+  integrity sha512-3vKuW0jV8J3XNTzvfyicFR5qvxrSAGl7KIhvgOu5cmWwM7tZRj3fMbj/pfIf4be7aznbc+prBWGjywox/g2Y6Q==
+  dependencies:
+    node-addon-api "^2.0.0"
+    node-gyp-build "^4.2.0"
+    readable-stream "^3.6.0"
+
+keccak256@^1.0.6:
+  version "1.0.6"
+  resolved "https://registry.npmjs.org/keccak256/-/keccak256-1.0.6.tgz"
+  integrity sha512-8GLiM01PkdJVGUhR1e6M/AvWnSqYS0HaERI+K/QtStGDGlSTx2B1zTqZk4Zlqu5TxHJNTxWAdP9Y+WI50OApUw==
+  dependencies:
+    bn.js "^5.2.0"
+    buffer "^6.0.3"
+    keccak "^3.0.2"
+
 keyv@^4.5.3:
   version "4.5.4"
   resolved "https://registry.npmjs.org/keyv/-/keyv-4.5.4.tgz"
@@ -7251,6 +7278,11 @@ node-abi@^3.3.0:
   dependencies:
     semver "^7.3.5"
 
+node-addon-api@^2.0.0:
+  version "2.0.2"
+  resolved "https://registry.npmjs.org/node-addon-api/-/node-addon-api-2.0.2.tgz"
+  integrity sha512-Ntyt4AIXyaLIuMHF6IOoTakB3K+RWxwtsHNRxllEoA6vPwP9o4866g6YWDLUdnucilZhmkxiHwHr11gAENw+QA==
+
 node-addon-api@^5.0.0:
   version "5.1.0"
   resolved "https://registry.npmjs.org/node-addon-api/-/node-addon-api-5.1.0.tgz"
@@ -7275,7 +7307,7 @@ node-fetch@^2.6.1, node-fetch@^2.6.12, node-fetch@^2.6.7, node-fetch@^2.7.0:
   dependencies:
     whatwg-url "^5.0.0"
 
-node-gyp-build@^4.3.0:
+node-gyp-build@^4.2.0, node-gyp-build@^4.3.0:
   version "4.8.4"
   resolved "https://registry.npmjs.org/node-gyp-build/-/node-gyp-build-4.8.4.tgz"
   integrity sha512-LA4ZjwlnUblHVgq0oBF3Jl/6h/Nvs5fzBLwdEF4nuxnFdsfajde4WfxtJr3CaiH+F6ewcIB/q4jQ4UzPyid+CQ==

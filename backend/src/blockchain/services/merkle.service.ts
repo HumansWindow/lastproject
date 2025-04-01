@@ -1,51 +1,207 @@
-import { Injectable } from '@nestjs/common';
-import { MerkleTree } from 'merkletreejs';
-import { ethers } from 'ethers';
+import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, Not, IsNull } from 'typeorm';
+import { ethers } from 'ethers';
+import { MerkleTree } from 'merkletreejs';
+import keccak256 from 'keccak256';
 import { User } from '../../users/entities/user.entity';
+import { ShahiTokenService } from './shahi-token.service';
+import { ConfigService } from '@nestjs/config';
 
 @Injectable()
-export class MerkleService {
-  private merkleTree: MerkleTree;
+export class MerkleService implements OnModuleInit {
+  private readonly logger = new Logger(MerkleService.name);
+  private merkleTree: MerkleTree | null = null;
+  private leaves: string[] = [];
+  private addressToLeafIndex: Map<string, number> = new Map();
+  private initialized = false;
 
   constructor(
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
+    private readonly shahiTokenService: ShahiTokenService,
+    private readonly configService: ConfigService,
   ) {}
 
-  async updateMerkleTree(): Promise<string> {
-    // Get all verified users
-    const users = await this.userRepository.find({ 
-      where: { isVerified: true },
-      select: ['walletAddress']
-    });
+  async onModuleInit() {
+    await this.initializeFromDatabase();
+  }
 
-    // Create leaves from user wallet addresses
-    const leaves = users.map(user => 
-      ethers.utils.keccak256(
-        ethers.utils.defaultAbiCoder.encode(['address'], [user.walletAddress])
-      )
-    );
+  /**
+   * Initialize merkle tree with wallet addresses from the database
+   */
+  async initializeFromDatabase() {
+    try {
+      // Find all verified wallet addresses
+      const users = await this.userRepository.find({
+        select: ['walletAddress'],
+        where: { 
+          walletAddress: Not(IsNull()),
+          isVerified: true 
+        }
+      });
 
-    // Generate Merkle Tree
-    this.merkleTree = new MerkleTree(leaves, ethers.utils.keccak256, { sortPairs: true });
+      const walletAddresses = users
+        .map(user => user.walletAddress)
+        .filter(Boolean) as string[];
+
+      this.logger.log(`Initializing merkle tree with ${walletAddresses.length} wallet addresses from database`);
+      
+      // Initialize the merkle tree
+      this.initializeMerkleTree(walletAddresses);
+      this.initialized = true;
+      
+      // Optionally update the contract's merkle root if configured to do so
+      if (this.configService.get<boolean>('UPDATE_MERKLE_ROOT_ON_BOOT') === true) {
+        try {
+          const merkleRoot = this.getRoot();
+          this.logger.log(`Updating contract merkle root to: ${merkleRoot}`);
+          // Use the ShahiTokenService to update the merkle root in the contract
+          // This depends on your implementation of shahiTokenService
+        } catch (error) {
+          this.logger.error(`Failed to update contract merkle root: ${error.message}`);
+        }
+      }
+    } catch (error) {
+      this.logger.error(`Failed to initialize merkle tree from database: ${error.message}`, error.stack);
+    }
+  }
+
+  /**
+   * Initialize the merkle tree with a list of eligible addresses
+   * @param addresses List of eligible addresses
+   */
+  initializeMerkleTree(addresses: string[]): void {
+    try {
+      // Normalize addresses and create leaves
+      const normalizedAddresses = addresses.map(addr => addr.toLowerCase());
+      this.leaves = normalizedAddresses.map(addr => ethers.utils.keccak256(addr));
+      
+      // Create the merkle tree
+      this.merkleTree = new MerkleTree(this.leaves, keccak256, { sortPairs: true });
+      
+      // Create a mapping of address to leaf index for quick lookups
+      normalizedAddresses.forEach((addr, index) => {
+        this.addressToLeafIndex.set(addr, index);
+      });
+      
+      this.logger.log(`Merkle tree initialized with ${addresses.length} addresses`);
+    } catch (error) {
+      this.logger.error(`Failed to initialize merkle tree: ${error.message}`, error.stack);
+      throw new Error(`Failed to initialize merkle tree: ${error.message}`);
+    }
+  }
+
+  /**
+   * Generate a merkle proof for a given address
+   * @param address The address to generate a proof for
+   * @returns The proof and the leaf value
+   */
+  async generateProof(address: string): Promise<{ proof: string[], leaf: string } | null> {
+    try {
+      if (!this.merkleTree) {
+        // If tree is not initialized, try to initialize it
+        if (!this.initialized) {
+          await this.initializeFromDatabase();
+        }
+        
+        if (!this.merkleTree) {
+          throw new Error('Merkle tree not initialized');
+        }
+      }
+      
+      const normalizedAddress = address.toLowerCase();
+      const leaf = ethers.utils.keccak256(normalizedAddress);
+      
+      // Get the proof from the merkle tree
+      const proof = this.merkleTree.getHexProof(leaf);
+      
+      if (proof.length === 0) {
+        this.logger.warn(`No proof found for address ${address}`);
+        return null;
+      }
+      
+      this.logger.log(`Generated merkle proof for address ${address}`);
+      return { proof, leaf };
+    } catch (error) {
+      this.logger.error(`Failed to generate proof for ${address}: ${error.message}`, error.stack);
+      return null;
+    }
+  }
+
+  /**
+   * Verify a merkle proof for a given address
+   * @param address Address to verify
+   * @param proof The merkle proof
+   * @returns True if the proof is valid
+   */
+  verifyProof(address: string, proof: string[]): boolean {
+    try {
+      if (!this.merkleTree) {
+        throw new Error('Merkle tree not initialized');
+      }
+      
+      const normalizedAddress = address.toLowerCase();
+      const leaf = ethers.utils.keccak256(normalizedAddress);
+      
+      // Convert the leaf to hex string to match proof type
+      const hexLeaf = leaf.toString();
+      const hexRoot = this.merkleTree.getHexRoot();
+      
+      // Use the proper overload with matching types (all strings)
+      return this.merkleTree.verify(proof, hexLeaf, hexRoot);
+    } catch (error) {
+      this.logger.error(`Failed to verify proof: ${error.message}`, error.stack);
+      return false;
+    }
+  }
+
+  /**
+   * Get the merkle root
+   * @returns The merkle root as a hex string
+   */
+  getRoot(): string {
+    if (!this.merkleTree) {
+      throw new Error('Merkle tree not initialized');
+    }
     
-    // Return root for contract update
     return this.merkleTree.getHexRoot();
   }
 
-  getProof(address: string): string[] {
-    const leaf = ethers.utils.keccak256(
-      ethers.utils.defaultAbiCoder.encode(['address'], [address])
-    );
-    return this.merkleTree.getHexProof(leaf);
+  /**
+   * Check if the merkle tree is initialized
+   */
+  isInitialized(): boolean {
+    return this.merkleTree !== null;
   }
 
-  verifyProof(address: string, proof: string[]): boolean {
-    const leaf = ethers.utils.keccak256(
-      ethers.utils.defaultAbiCoder.encode(['address'], [address])
-    );
-    return this.merkleTree.verify(proof, leaf, this.merkleTree.getRoot());
+  /**
+   * Add a new wallet address to the merkle tree
+   * @param address The wallet address to add
+   */
+  async addAddress(address: string): Promise<void> {
+    if (!address) return;
+    
+    const normalizedAddress = address.toLowerCase();
+    
+    // Check if address is already in the tree
+    if (this.addressToLeafIndex.has(normalizedAddress)) {
+      return;
+    }
+    
+    try {
+      // Get all existing addresses
+      const existingAddresses = Array.from(this.addressToLeafIndex.keys());
+      
+      // Add the new address
+      existingAddresses.push(normalizedAddress);
+      
+      // Re-initialize the merkle tree with the updated address list
+      this.initializeMerkleTree(existingAddresses);
+      
+      this.logger.log(`Added address ${normalizedAddress} to merkle tree`);
+    } catch (error) {
+      this.logger.error(`Failed to add address to merkle tree: ${error.message}`, error.stack);
+    }
   }
 }

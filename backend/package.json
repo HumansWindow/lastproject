@@ -38,6 +38,7 @@
   "dependencies": {
     "@ethersproject/units": "^5.7.0",
     "@ethersproject/wallet": "^5.7.0",
+    "@nestjs/axios": "^4.0.0",
     "@nestjs/cli": "^10.2.1",
     "@nestjs/common": "^9.0.0",
     "@nestjs/config": "^2.3.4",
@@ -68,6 +69,7 @@
     "express-session": "^1.18.1",
     "helmet": "^7.2.0",
     "isomorphic-fetch": "^3.0.0",
+    "keccak256": "^1.0.6",
     "merkletreejs": "^0.3.11",
     "nestjs-real-ip": "^3.0.1",
     "passport": "^0.6.0",
