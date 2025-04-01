@@ -50,6 +50,12 @@ contract SHAHICoinV1 is
         
         adminHotWallet = adminHotWalletAddress;
         
+        // Initialize the APY rates struct (gas optimization)
+        apyRates.oneYearAPY = 2000; // 20% APY
+        apyRates.sixMonthAPY = 1500; // 15% APY
+        apyRates.threeMonthAPY = 1000; // 10% APY
+        apyRates.defaultAPY = 500; // 5% APY
+        
         // Mint initial supply to the contract owner
         uint256 initialTokens = initialSupply * DECIMALS_FACTOR;
         _mint(msg.sender, initialTokens);
@@ -74,15 +80,31 @@ contract SHAHICoinV1 is
      */
     function firstTimeMint(address user, bytes32[] calldata proof, string calldata deviceId) external whenNotPaused nonReentrant {
         require(user != address(0), "Invalid address");
-        require(!isBlacklisted[user], "User is blacklisted");
+        require(!isBlacklisted(user), "User is blacklisted");
         
         // Cache storage variables to minimize SLOADs
         UserMintRecord storage mintRecord = userMintRecords[user];
         require(!mintRecord.hasFirstMinted, "Already claimed first mint");
         require(_verifyMerkle(user, proof), "Invalid proof");
         
-        // Create unique device identifier
-        bytes32 userDeviceKey = keccak256(abi.encodePacked(user, deviceId));
+        // Create unique device identifier - optimize using assembly
+        bytes32 userDeviceKey;
+        assembly {
+            // More efficient keccak256 calculation in assembly
+            let ptr := mload(0x40)
+            mstore(ptr, user) 
+            let deviceIdPos := add(deviceId.offset, 0x20)
+            let deviceIdLen := mload(deviceId.offset)
+            
+            // Copy deviceId bytes to memory
+            for { let i := 0 } lt(i, deviceIdLen) { i := add(i, 0x20) } {
+                let chunk := mload(add(deviceIdPos, i))
+                mstore(add(add(ptr, 0x20), i), chunk)
+            }
+            
+            // Compute the hash
+            userDeviceKey := keccak256(ptr, add(0x20, deviceIdLen))
+        }
         
         // Verify this is a unique visit for this device+user combination
         require(!usedProofs[userDeviceKey], "Already minted from this device");
@@ -94,27 +116,29 @@ contract SHAHICoinV1 is
         mintRecord.hasFirstMinted = true;
         mintRecord.lastMintTimestamp = block.timestamp;
         
-        // For the admin/first user, mint 110 SHAHI to admin hot wallet
-        if (user == owner()) {
-            _mint(adminHotWallet, ADMIN_INITIAL_MINT);
-            totalMintedTokens += ADMIN_INITIAL_MINT;
-            mintRecord.totalMinted += ADMIN_INITIAL_MINT;
-            emit FirstTimeMint(user, ADMIN_INITIAL_MINT);
-        } else {
-            // For all other first-time users, mint 1 SHAHI and split 50/50
-            uint256 adminShare = HALF_SHAHI;
-            uint256 userShare = HALF_SHAHI;
-            
-            // Mint shares to respective wallets
-            _mint(adminHotWallet, adminShare);
-            _mint(user, userShare);
-            
-            // Record when these tokens will expire (1 year from now)
-            userTokenExpiry[user][block.timestamp] = block.timestamp + ONE_YEAR;
-            
-            totalMintedTokens += ONE_SHAHI;
-            mintRecord.totalMinted += ONE_SHAHI;
-            emit RegularMint(user, adminShare, userShare);
+        unchecked {
+            // For the admin/first user, mint 110 SHAHI to admin hot wallet
+            if (user == owner()) {
+                _mint(adminHotWallet, ADMIN_INITIAL_MINT);
+                totalMintedTokens += ADMIN_INITIAL_MINT;
+                mintRecord.totalMinted += ADMIN_INITIAL_MINT;
+                emit FirstTimeMint(user, ADMIN_INITIAL_MINT);
+            } else {
+                // For all other first-time users, mint 1 SHAHI and split 50/50
+                uint256 adminShare = HALF_SHAHI;
+                uint256 userShare = HALF_SHAHI;
+                
+                // Mint shares to respective wallets
+                _mint(adminHotWallet, adminShare);
+                _mint(user, userShare);
+                
+                // Record when these tokens will expire (1 year from now)
+                userTokenExpiry[user][block.timestamp] = block.timestamp + ONE_YEAR;
+                
+                totalMintedTokens += ONE_SHAHI;
+                mintRecord.totalMinted += ONE_SHAHI;
+                emit RegularMint(user, adminShare, userShare);
+            }
         }
     }
     
@@ -128,7 +152,7 @@ contract SHAHICoinV1 is
      */
     function annualMint(address user, bytes calldata signature, string calldata deviceId) external whenNotPaused nonReentrant {
         require(user != address(0), "Invalid address");
-        require(!isBlacklisted[user], "User is blacklisted");
+        require(!isBlacklisted(user), "User is blacklisted");
         
         // Cache storage variables
         UserMintRecord storage mintRecord = userMintRecords[user];
@@ -181,7 +205,7 @@ contract SHAHICoinV1 is
      */
     function regularMint(address user, bytes calldata signature, string calldata deviceId) external whenNotPaused nonReentrant {
         require(user != address(0), "Invalid address");
-        require(!isBlacklisted[user], "User is blacklisted");
+        require(!isBlacklisted(user), "User is blacklisted");
         
         // Cache storage variables
         UserMintRecord storage mintRecord = userMintRecords[user];
@@ -236,9 +260,9 @@ contract SHAHICoinV1 is
      * @param user Address of the new user
      */
     function mintForNewUser(address user) external whenNotPaused {
-        require(msg.sender == owner() || isAuthorizedMinter[msg.sender], "Only owner or authorized minter");
+        require(msg.sender == owner() || isAuthorizedMinter(msg.sender), "Only owner or authorized minter");
         require(user != address(0), "Invalid address");
-        require(!isBlacklisted[user], "User is blacklisted");
+        require(!isBlacklisted(user), "User is blacklisted");
         
         // Cache storage reference for gas savings
         UserMintRecord storage mintRecord = userMintRecords[user]; 
@@ -278,7 +302,7 @@ contract SHAHICoinV1 is
      */
     function adminMint(address to, uint256 amount) external onlyOwner whenNotPaused {
         require(to != address(0), "Invalid address");
-        require(!isBlacklisted[to], "User is blacklisted");
+        require(!isBlacklisted(to), "User is blacklisted");
         
         _mint(to, amount);
         totalMintedTokens += amount;
@@ -302,7 +326,7 @@ contract SHAHICoinV1 is
         bool autoCompound,
         bool enableAutoClaim
     ) external whenNotPaused nonReentrant {
-        require(isInvestor[msg.sender], "Only investors can stake");
+        require(isInvestor(msg.sender), "Only investors can stake");
         require(amount > 0, "Stake amount must be greater than 0");
         require(balanceOf(msg.sender) >= amount, "Insufficient balance");
         
@@ -447,8 +471,8 @@ contract SHAHICoinV1 is
         uint256 amount
     ) internal override {
         // Check if the sender is blacklisted
-        require(!isBlacklisted[from], "Sender is blacklisted");
-        require(!isBlacklisted[to], "Recipient is blacklisted");
+        require(!isBlacklisted(from), "Sender is blacklisted");
+        require(!isBlacklisted(to), "Recipient is blacklisted");
         
         // Fast path for staking transfers to save gas (most common path in DeFi apps)
         // Use assembly-optimized address comparison
@@ -462,7 +486,7 @@ contract SHAHICoinV1 is
             if (!isSpecialSender) {
                 // Users can only send their tokens to approved app contracts
                 require(
-                    isAuthorizedAppContract[to] || _addressEquals(to, adminHotWallet),
+                    isAuthorizedAppContract(to) || _addressEquals(to, adminHotWallet),
                     "Locked tokens: can only be used within app"
                 );
                 
@@ -560,7 +584,8 @@ contract SHAHICoinV1 is
      * @param blacklisted Whether to blacklist or whitelist
      */
     function setBlacklist(address user, bool blacklisted) external onlyOwner {
-        isBlacklisted[user] = blacklisted;
+        setBlacklisted(user, blacklisted);
+        isBlacklistedLegacy[user] = blacklisted; // For backward compatibility
         emit BlacklistUpdated(user, blacklisted);
     }
     
@@ -569,8 +594,9 @@ contract SHAHICoinV1 is
      * @param minter Address of the minter
      * @param authorized Whether to authorize or revoke
      */
-    function setAuthorizedMinter(address minter, bool authorized) external onlyOwner {
-        isAuthorizedMinter[minter] = authorized;
+    function setAuthorizedMinterRole(address minter, bool authorized) external onlyOwner {
+        setAuthorizedMinter(minter, authorized);
+        isAuthorizedMinterLegacy[minter] = authorized; // For backward compatibility
         emit MinterUpdated(minter, authorized);
     }
     
@@ -579,8 +605,9 @@ contract SHAHICoinV1 is
      * @param contractAddress Address of the app contract
      * @param authorized Whether to authorize or revoke
      */
-    function setAuthorizedAppContract(address contractAddress, bool authorized) external onlyOwner {
-        isAuthorizedAppContract[contractAddress] = authorized;
+    function setAppContract(address contractAddress, bool authorized) external onlyOwner {
+        setAuthorizedAppContract(contractAddress, authorized);
+        isAuthorizedAppContractLegacy[contractAddress] = authorized; // For backward compatibility
         emit AppContractUpdated(contractAddress, authorized);
     }
     
@@ -593,6 +620,17 @@ contract SHAHICoinV1 is
         uint256 _threeMonthAPY,
         uint256 _defaultAPY
     ) external onlyOwner {
+        require(_oneYearAPY <= 10000 && _sixMonthAPY <= 10000 && 
+                _threeMonthAPY <= 10000 && _defaultAPY <= 10000, 
+                "APY must be <= 100%");
+        
+        // Update both the packed struct and legacy variables for backward compatibility
+        apyRates.oneYearAPY = uint64(_oneYearAPY);
+        apyRates.sixMonthAPY = uint64(_sixMonthAPY);
+        apyRates.threeMonthAPY = uint64(_threeMonthAPY);
+        apyRates.defaultAPY = uint64(_defaultAPY);
+        
+        // Legacy variables
         oneYearAPY = _oneYearAPY;
         sixMonthAPY = _sixMonthAPY;
         threeMonthAPY = _threeMonthAPY;
@@ -645,25 +683,25 @@ contract SHAHICoinV1 is
      * @param position The staking position
      * @return The APY in basis points (100 = 1%)
      */
-    function _getAPY(StakingPosition memory position) internal view returns (uint256) {
+    function _getAPY(StakingPosition memory position) private view returns (uint256) {
         // Early return for most common case
         if (position.endTime == 0) {
-            return defaultAPY;
+            return apyRates.defaultAPY;
         }
         
         uint256 lockDuration = position.endTime - position.startTime;
         
         // Use sequential checks to avoid unnecessary comparisons
         if (lockDuration >= ONE_YEAR) {
-            return oneYearAPY;
+            return apyRates.oneYearAPY;
         } 
         if (lockDuration >= SIX_MONTHS) {
-            return sixMonthAPY;
+            return apyRates.sixMonthAPY;
         } 
         if (lockDuration >= THREE_MONTHS) {
-            return threeMonthAPY;
+            return apyRates.threeMonthAPY;
         } 
-        return defaultAPY;
+        return apyRates.defaultAPY;
     }
     
     /**
@@ -671,7 +709,7 @@ contract SHAHICoinV1 is
      * @param position The staking position
      * @return The calculated rewards
      */
-    function _calculateRewards(StakingPosition memory position) internal view returns (uint256) {
+    function _calculateRewards(StakingPosition memory position) private view returns (uint256) {
         // Early return for zero amount to save gas
         if (position.amount == 0) {
             return 0;
@@ -688,13 +726,15 @@ contract SHAHICoinV1 is
         // Get APY in basis points
         uint256 apy = _getAPY(position);
         
-        // Calculate rewards: principal * APY * time / (365 days * 10000)
-        // Where APY is in basis points (100 = 1%)
-        // Pre-calculate the denominator for clarity and gas optimization
-        uint256 denominator = SECONDS_PER_YEAR * 10000;
-        uint256 rewards = (position.amount * apy * stakingDuration) / denominator;
-        
-        return rewards + position.accumulatedRewards;
+        unchecked {
+            // Calculate rewards: principal * APY * time / (365 days * 10000)
+            // Where APY is in basis points (100 = 1%)
+            // Pre-calculate the denominator for clarity and gas optimization
+            uint256 denominator = SECONDS_PER_YEAR * 10000;
+            uint256 rewards = (position.amount * apy * stakingDuration) / denominator;
+            
+            return rewards + position.accumulatedRewards;
+        }
     }
     
     /**
@@ -703,9 +743,14 @@ contract SHAHICoinV1 is
      * @param proof Merkle proof to verify
      * @return Whether the proof is valid
      */
-    function _verifyMerkle(address user, bytes32[] calldata proof) internal view returns (bool) {
+    function _verifyMerkle(address user, bytes32[] calldata proof) private view returns (bool) {
+        // Compute leaf hash outside the MerkleProof call
         bytes32 leaf = keccak256(abi.encodePacked(user));
-        return MerkleProof.verify(proof, merkleRoot, leaf);
+        
+        // Use unchecked to skip overflow/underflow checks for gas optimization
+        unchecked {
+            return MerkleProof.verify(proof, merkleRoot, leaf);
+        }
     }
     
     /**
@@ -714,9 +759,9 @@ contract SHAHICoinV1 is
      * @param signature Signature to verify
      * @return Whether the signature is valid
      */
-    function _verifySignature(bytes32 messageHash, bytes memory signature) internal view returns (bool) {
+    function _verifySignature(bytes32 messageHash, bytes memory signature) private view returns (bool) {
         address signer = messageHash.recover(signature);
-        return isAuthorizedMinter[signer] || isAuthorizedMinterSigner[signer] || signer == owner();
+        return isAuthorizedMinter(signer) || isAuthorizedMinterSigner(signer) || signer == owner();
     }
     
     /**
@@ -725,7 +770,8 @@ contract SHAHICoinV1 is
      * @param status Whether to mark as investor or not
      */
     function setInvestor(address user, bool status) external onlyOwner {
-        isInvestor[user] = status;
+        setInvestorStatus(user, status);
+        isInvestorLegacy[user] = status; // For backward compatibility
         emit InvestorStatusUpdated(user, status);
     }
     
@@ -800,24 +846,26 @@ contract SHAHICoinV1 is
             if (userBalance == 0) continue;
             
             // Find up to 10 expired timestamps per user (to bound gas usage)
-            for (uint256 i = 0; i < 10; i++) {
-                uint256 mintTimestamp = currentTime - ONE_YEAR - i * 1 days;
-                
-                if (userTokenExpiry[user][mintTimestamp] > 0 && 
-                    userTokenExpiry[user][mintTimestamp] <= currentTime) {
+            unchecked {
+                for (uint256 i = 0; i < 10; i++) {
+                    uint256 mintTimestamp = currentTime - ONE_YEAR - i * 1 days;
                     
-                    // Only burn if user has enough balance
-                    if (userBalance >= expireAmount) {
-                        _burn(user, expireAmount);
-                        burnedTokens += expireAmount;
-                        totalBurned += expireAmount;
-                        userBalance -= expireAmount;
+                    if (userTokenExpiry[user][mintTimestamp] > 0 && 
+                        userTokenExpiry[user][mintTimestamp] <= currentTime) {
                         
-                        // Once user has no more balance, skip to next user
-                        if (userBalance == 0) break;
+                        // Only burn if user has enough balance
+                        if (userBalance >= expireAmount) {
+                            _burn(user, expireAmount);
+                            burnedTokens += expireAmount;
+                            totalBurned += expireAmount;
+                            userBalance -= expireAmount;
+                            
+                            // Once user has no more balance, skip to next user
+                            if (userBalance == 0) break;
+                        }
+                        
+                        delete userTokenExpiry[user][mintTimestamp];
                     }
-                    
-                    delete userTokenExpiry[user][mintTimestamp];
                 }
             }
             

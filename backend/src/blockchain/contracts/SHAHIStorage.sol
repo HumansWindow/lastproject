@@ -3,81 +3,145 @@ pragma solidity ^0.8.0;
 
 /**
  * @title SHAHIStorage
- * @dev Storage contract for SHAHI token to enable upgradeable pattern.
- * Keeps all state variables separate from logic to prevent storage collisions during upgrades.
+ * @dev Storage contract for SHAHI token - separating storage from logic
  */
-contract SHAHIStorage {
-    // Minting System
+abstract contract SHAHIStorage {
+    // Constants for time periods
+    uint256 internal constant ONE_YEAR = 365 days;
+    uint256 internal constant SIX_MONTHS = 183 days;
+    uint256 internal constant THREE_MONTHS = 91 days;
+    
+    // Constants for token economics
+    uint256 internal constant KHORDE_PER_SHAHI = 10000; // 1 SHAHI = 10,000 KHORDE
+    uint256 internal constant EARLY_WITHDRAWAL_PENALTY_PERCENT = 50; // 50% penalty
+    
+    // ============= BITMAP FLAGS SYSTEM =============
+    
+    // Define bit positions for user flags
+    uint256 private constant IS_INVESTOR_BIT = 1;
+    uint256 private constant IS_BLACKLISTED_BIT = 2; 
+    uint256 private constant IS_AUTHORIZED_MINTER_BIT = 4;
+    uint256 private constant IS_AUTHORIZED_MINTER_SIGNER_BIT = 8;
+    uint256 private constant IS_AUTHORIZED_APP_CONTRACT_BIT = 16;
+    
+    // Single mapping for all user flags (saves ~20,000 gas per user compared to multiple mappings)
+    mapping(address => uint256) internal userFlags;
+    
+    // Helper functions to interact with the bitmap
+    function _setBit(address user, uint256 bit, bool value) internal {
+        if (value) {
+            userFlags[user] = userFlags[user] | bit;
+        } else {
+            userFlags[user] = userFlags[user] & ~bit;
+        }
+    }
+    
+    function _checkBit(address user, uint256 bit) internal view returns (bool) {
+        return (userFlags[user] & bit) != 0;
+    }
+    
+    // Wallet statuses (backward compatibility functions)
+    function isInvestor(address user) public view returns (bool) {
+        return _checkBit(user, IS_INVESTOR_BIT);
+    }
+    
+    function setInvestorStatus(address user, bool status) internal {
+        _setBit(user, IS_INVESTOR_BIT, status);
+    }
+    
+    function isBlacklisted(address user) public view returns (bool) {
+        return _checkBit(user, IS_BLACKLISTED_BIT);
+    }
+    
+    function setBlacklisted(address user, bool status) internal {
+        _setBit(user, IS_BLACKLISTED_BIT, status);
+    }
+    
+    function isAuthorizedMinter(address user) public view returns (bool) {
+        return _checkBit(user, IS_AUTHORIZED_MINTER_BIT);
+    }
+    
+    function setAuthorizedMinter(address user, bool status) internal {
+        _setBit(user, IS_AUTHORIZED_MINTER_BIT, status);
+    }
+    
+    function isAuthorizedMinterSigner(address user) public view returns (bool) {
+        return _checkBit(user, IS_AUTHORIZED_MINTER_SIGNER_BIT);
+    }
+    
+    function setAuthorizedMinterSigner(address user, bool status) internal {
+        _setBit(user, IS_AUTHORIZED_MINTER_SIGNER_BIT, status);
+    }
+    
+    function isAuthorizedAppContract(address contract_) public view returns (bool) {
+        return _checkBit(contract_, IS_AUTHORIZED_APP_CONTRACT_BIT);
+    }
+    
+    function setAuthorizedAppContract(address contract_, bool status) internal {
+        _setBit(contract_, IS_AUTHORIZED_APP_CONTRACT_BIT, status);
+    }
+    
+    // Legacy mappings - for backward compatibility, but we'll use our optimized bitmap instead
+    mapping(address => bool) internal isInvestorLegacy;  // Tracks who can stake tokens
+    mapping(address => bool) internal isBlacklistedLegacy;  // Blacklisted addresses can't transfer tokens
+    mapping(address => bool) internal isAuthorizedMinterLegacy;  // Authorized to mint new tokens
+    mapping(address => bool) internal isAuthorizedMinterSignerLegacy;  // Can sign messages for minting
+    mapping(address => bool) internal isAuthorizedAppContractLegacy;  // Contracts that can receive locked tokens
+    
+    // ============= TOKEN DATA =============
+    
+    // Records of user minting history
     struct UserMintRecord {
         bool hasFirstMinted;
         uint256 lastMintTimestamp;
         uint256 totalMinted;
     }
-    mapping(address => UserMintRecord) public userMintRecords;
-    mapping(bytes32 => bool) public usedProofs;
     
-    // Staking System
+    // User staking position
     struct StakingPosition {
-        uint256 amount;         // Amount staked
-        uint256 startTime;      // When the stake was created
-        uint256 endTime;        // When the stake will end (0 if no lock period)
-        uint256 lastClaimTime;  // Last time rewards were claimed
-        uint256 accumulatedRewards; // Unclaimed rewards
-        bool autoCompound;      // Whether to auto-compound rewards
-        bool autoClaimEnabled;  // Whether to auto-claim rewards monthly
+        uint256 amount;
+        uint256 startTime;
+        uint256 endTime; // 0 for flexible staking (no lock)
+        uint256 lastClaimTime;
+        uint256 accumulatedRewards;
+        bool autoCompound;
+        bool autoClaimEnabled;
     }
-    mapping(address => StakingPosition[]) public userStakingPositions;
-    uint256 public totalStaked;
     
-    // Tokenomics
-    uint256 public constant KHORDE_PER_SHAHI = 10**18; // 1 SHAHI = 10^18 KHORDE
-    uint256 public burnedTokens;
-    uint256 public totalMintedTokens;
+    // Token data
+    address public adminHotWallet;  // Admin hot wallet for receiving shares
     
-    // APY Tiers for Staking (represented in basis points, 100 = 1%)
-    uint256 public oneYearAPY = 1300;    // 13%
-    uint256 public sixMonthAPY = 900;    // 9%
-    uint256 public threeMonthAPY = 600;  // 6%
-    uint256 public defaultAPY = 300;     // 3%
+    // Packed struct for APY rates to save gas (single SLOAD for all rates)
+    struct APYRates {
+        uint64 oneYearAPY;
+        uint64 sixMonthAPY;
+        uint64 threeMonthAPY;
+        uint64 defaultAPY;
+    }
     
-    // Admin addresses
-    address public adminHotWallet;
+    APYRates public apyRates;
     
-    // Time periods
-    uint256 public constant MINT_COOLDOWN = 365 days;
-    uint256 public constant ONE_YEAR = 365 days;
-    uint256 public constant SIX_MONTHS = 180 days;
-    uint256 public constant THREE_MONTHS = 90 days;
-    uint256 public constant EARLY_WITHDRAWAL_PENALTY_PERCENT = 50; // 50% penalty
+    // Legacy individual APY variables - we'll use the packed struct instead
+    uint256 public oneYearAPY = 2000; // 20% APY for 1-year lock (in basis points)
+    uint256 public sixMonthAPY = 1500; // 15% APY for 6-month lock
+    uint256 public threeMonthAPY = 1000; // 10% APY for 3-month lock 
+    uint256 public defaultAPY = 500; // 5% APY for flexible staking
     
-    // Transaction fee burn rate in basis points (0.01%)
-    uint256 public transactionBurnRate = 1;  // Changed from 50 (0.5%) to 1 (0.01%)
+    // Transaction burn rate in basis points (100 = 1%)
+    uint256 public transactionBurnRate = 100; // Default 1%
     
-    // Merkle root for mint eligibility verification
+    // Root hash for Merkle tree verification
     bytes32 public merkleRoot;
     
-    // Security features
-    mapping(address => bool) public isAuthorizedMinter;
-    mapping(address => bool) public isBlacklisted;
+    // Tracking mints and burns
+    uint256 public totalMintedTokens;
+    uint256 public burnedTokens;
+    uint256 public totalStaked;
     
-    // Token gating
-    mapping(uint256 => bool) public isNFTEligibleForRewards;
+    // Mappings for token functionality
+    mapping(address => UserMintRecord) internal userMintRecords;
+    mapping(address => mapping(uint256 => uint256)) public userTokenExpiry; // user => mint timestamp => expiry timestamp
+    mapping(address => StakingPosition[]) public userStakingPositions;
     
-    // User-specific mappings for token restrictions
-    mapping(address => bool) public isInvestor;  // Tracks who can stake (only investors)
-    mapping(address => mapping(uint256 => uint256)) public userTokenExpiry;  // Tracks when each user's tokens will expire
-    
-    // App contract authorization (for locked tokens)
-    mapping(address => bool) public isAuthorizedAppContract;  // Approves contracts that can receive locked tokens
-    
-    // Add missing property for minter signature verification
-    mapping(address => bool) public isAuthorizedMinterSigner; // Additional authorized signers for minting verification
-    
-    // Helper function to get token expiry for a specific mint timestamp
-    function getTokenExpiry(address user, uint256 mintTimestamp) public view returns (uint256) {
-        return userTokenExpiry[user][mintTimestamp];
-    }
-    
-    // Reserved for future expansion (prevents storage collision)
-    uint256[44] private __gap; // Reduced to account for the additional mappings and functions
+    mapping(bytes32 => bool) public usedProofs; // Prevents replay of merkle proofs or signatures
 }
