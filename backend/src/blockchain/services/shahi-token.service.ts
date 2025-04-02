@@ -1,702 +1,652 @@
-import { Injectable, Logger, Inject, OnModuleInit } from '@nestjs/common';
-import { ethers } from 'ethers';
+import { Injectable, Logger, Inject } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { BlockchainConfig } from '../config/blockchain-environment';
+import { Contract, ethers } from 'ethers';
+// Fix the ABI import issue
+// Replace the import with a direct ABI definition
+const SHAHI_ABI = [
+  // Basic ERC20 functions
+  {
+    "constant": true,
+    "inputs": [],
+    "name": "name",
+    "outputs": [{"name": "", "type": "string"}],
+    "payable": false,
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "constant": true,
+    "inputs": [],
+    "name": "symbol",
+    "outputs": [{"name": "", "type": "string"}],
+    "payable": false,
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "constant": true,
+    "inputs": [],
+    "name": "decimals",
+    "outputs": [{"name": "", "type": "uint8"}],
+    "payable": false,
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "constant": true,
+    "inputs": [],
+    "name": "totalSupply",
+    "outputs": [{"name": "", "type": "uint256"}],
+    "payable": false,
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "constant": true,
+    "inputs": [{"name": "owner", "type": "address"}],
+    "name": "balanceOf",
+    "outputs": [{"name": "", "type": "uint256"}],
+    "payable": false,
+    "stateMutability": "view",
+    "type": "function"
+  },
+  // First-time minting
+  {
+    "constant": false,
+    "inputs": [
+      {"name": "user", "type": "address"}, 
+      {"name": "proof", "type": "bytes32[]"}, 
+      {"name": "deviceId", "type": "string"}
+    ],
+    "name": "firstTimeMint",
+    "outputs": [],
+    "payable": false,
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  // Annual minting
+  {
+    "constant": false,
+    "inputs": [
+      {"name": "user", "type": "address"}, 
+      {"name": "signature", "type": "bytes"}, 
+      {"name": "deviceId", "type": "string"}
+    ],
+    "name": "annualMint",
+    "outputs": [],
+    "payable": false,
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  // Admin minting
+  {
+    "constant": false,
+    "inputs": [
+      {"name": "to", "type": "address"}, 
+      {"name": "amount", "type": "uint256"}
+    ],
+    "name": "adminMint",
+    "outputs": [],
+    "payable": false,
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  // Burn expired tokens
+  {
+    "constant": false,
+    "inputs": [{"name": "user", "type": "address"}],
+    "name": "burnExpiredTokens",
+    "outputs": [{"name": "", "type": "uint256"}],
+    "payable": false,
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  // Batch minting functions
+  {
+    "constant": false,
+    "inputs": [
+      {"name": "users", "type": "address[]"},
+      {"name": "deviceIds", "type": "string[]"},
+      {"name": "proofs", "type": "bytes32[][]"}
+    ],
+    "name": "batchMintFirstTimeTokens",
+    "outputs": [],
+    "payable": false,
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "constant": false,
+    "inputs": [
+      {"name": "users", "type": "address[]"},
+      {"name": "deviceIds", "type": "string[]"},
+      {"name": "signatures", "type": "bytes[]"}
+    ],
+    "name": "batchMintAnnualTokens",
+    "outputs": [],
+    "payable": false,
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  // Direct minting
+  {
+    "constant": false,
+    "inputs": [
+      {"name": "user", "type": "address"}
+    ],
+    "name": "mintForNewUser",
+    "outputs": [],
+    "payable": false,
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  // Eligibility checks
+  {
+    "constant": true,
+    "inputs": [{"name": "user", "type": "address"}],
+    "name": "isEligibleForFirstTimeMinting",
+    "outputs": [{"name": "", "type": "bool"}],
+    "payable": false,
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "constant": true,
+    "inputs": [{"name": "user", "type": "address"}],
+    "name": "isEligibleForAnnualMinting",
+    "outputs": [{"name": "", "type": "bool"}],
+    "payable": false,
+    "stateMutability": "view",
+    "type": "function"
+  },
+  // Token statistics
+  {
+    "constant": true,
+    "inputs": [],
+    "name": "totalMintedTokens",
+    "outputs": [{"name": "", "type": "uint256"}],
+    "payable": false,
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "constant": true,
+    "inputs": [],
+    "name": "burnedTokens",
+    "outputs": [{"name": "", "type": "uint256"}],
+    "payable": false,
+    "stateMutability": "view",
+    "type": "function"
+  },
+  // User minting records
+  {
+    "constant": true,
+    "inputs": [{"name": "user", "type": "address"}],
+    "name": "userMintRecords",
+    "outputs": [
+      {"name": "hasFirstMinted", "type": "bool"},
+      {"name": "lastMintTimestamp", "type": "uint256"},
+      {"name": "totalMinted", "type": "uint256"}
+    ],
+    "payable": false,
+    "stateMutability": "view",
+    "type": "function"
+  },
+  // Events
+  {
+    "anonymous": false,
+    "inputs": [
+      {"indexed": true, "name": "user", "type": "address"},
+      {"indexed": false, "name": "amount", "type": "uint256"}
+    ],
+    "name": "TokensExpiredAndBurned",
+    "type": "event"
+  }
+];
 
 @Injectable()
-export class ShahiTokenService implements OnModuleInit {
+export class ShahiTokenService {
   private readonly logger = new Logger(ShahiTokenService.name);
-  private provider: ethers.providers.Provider;
-  private contract: ethers.Contract;
-  private adminWallet: ethers.Wallet;
-  private _initialized = false;
-  private tokenContract: ethers.Contract;
-  private mintingRetryQueue: Map<string, {attempts: number, lastAttempt: number}> = new Map();
-  private readonly maxRetries = 3;
-  private readonly retryDelay = 5000; // 5 seconds
+  private provider: ethers.providers.JsonRpcProvider;
+  private signer: ethers.Wallet;
+  private tokenContract: Contract;
+  private initialized = false;
 
   constructor(
-    @Inject('BLOCKCHAIN_CONFIG') private readonly blockchainConfig: BlockchainConfig,
-    private configService: ConfigService
-  ) {}
-
-  async onModuleInit() {
-    try {
-      await this.initializeProvider();
-      await this.initializeContract();
-      await this.initializeAdminWallet();
-      this._initialized = true;
-    } catch (error) {
-      this.logger.error('Failed to initialize ShahiTokenService', error);
-      // Allow the service to exist but in a non-initialized state
-      // This will make any operation that checks isInitialized() fail gracefully
-    }
+    private configService: ConfigService,
+    @Inject('BLOCKCHAIN_CONFIG') private blockchainConfig: any
+  ) {
+    this.initializeConnection();
   }
 
-  private async initializeProvider() {
+  private initializeConnection() {
     try {
-      // Get RPC URL from blockchain config
-      const rpcUrl = this.blockchainConfig.ETH_RPC_URL;
-      
-      // Try to initialize using HTTP provider which is more reliable than WebSocket
-      if (rpcUrl) {
-        // Convert WebSocket URL to HTTP if necessary
-        const httpUrl = rpcUrl.replace(/^wss?:\/\//, 'https://');
-        
-        try {
-          this.provider = new ethers.providers.JsonRpcProvider(httpUrl);
-          this.logger.log(`Provider initialized with HTTP RPC URL: ${httpUrl}`);
-        } catch (httpError) {
-          // Fallback to WebSocket if HTTP fails
-          this.logger.warn(`Failed to initialize HTTP provider: ${httpError.message}`);
-          this.provider = new ethers.providers.WebSocketProvider(rpcUrl);
-          this.logger.log(`Provider initialized with WebSocket RPC URL: ${rpcUrl}`);
-        }
-      } else {
-        // Use fallback provider if no RPC URL is provided
-        this.logger.warn('No ETH_RPC_URL provided, using fallback provider');
-        this.provider = ethers.getDefaultProvider();
-      }
-      
-      // Test the provider with a simple call
-      await this.provider.getBlockNumber();
-    } catch (error) {
-      this.logger.error('Failed to initialize provider', error);
-      throw new Error(`Failed to initialize blockchain provider: ${error.message}`);
-    }
-  }
-
-  private async initializeContract() {
-    try {
-      // Get contract address from blockchain config
+      // Get configuration from environment
+      const rpcUrl = this.blockchainConfig.ETH_RPC_URL || 'http://localhost:8545';
       const contractAddress = this.blockchainConfig.TOKEN_CONTRACT_ADDRESS;
-      
-      if (!contractAddress) {
-        this.logger.error('Token contract address is not defined in config');
-        throw new Error('Token contract address is missing in configuration');
+      const adminPrivateKey = this.blockchainConfig.ADMIN_PRIVATE_KEY;
+
+      if (!contractAddress || !adminPrivateKey) {
+        this.logger.error('Missing TOKEN_CONTRACT_ADDRESS or ADMIN_PRIVATE_KEY in configuration');
+        throw new Error('Missing required blockchain configuration');
       }
-      
-      this.logger.log(`Initializing token contract at address: ${contractAddress}`);
-      
-      // Use the ABI directly in code to avoid file loading issues
-      const minimalAbi = [
-        "function totalSupply() view returns (uint256)",
-        "function balanceOf(address) view returns (uint256)",
-        "function transfer(address to, uint amount) returns (bool)",
-        "function mint(address to, uint256 amount) returns (bool)",
-        "function burn(uint256 amount) returns (bool)",
-        "function name() view returns (string)",
-        "function symbol() view returns (string)",
-        "function decimals() view returns (uint8)",
-        "function approve(address spender, uint256 amount) returns (bool)",
-        "function allowance(address owner, address spender) view returns (uint256)",
-        "function transferFrom(address sender, address recipient, uint256 amount) returns (bool)",
-        "event Transfer(address indexed from, address indexed to, uint256 value)",
-        "event Approval(address indexed owner, address indexed spender, uint256 value)",
-        "function userMintRecords(address) view returns (bool hasFirstMinted, uint256 lastMintTimestamp, uint256 totalMinted)",
-        "function burnedTokens() view returns (uint256)",
-        "function totalMintedTokens() view returns (uint256)",
-        "function burnExpiredTokens(address) returns (bool)",
-        "function mintForNewUser(address) returns (bool)",
-        "function adminMint(address to, uint256 amount) returns (bool)",
-        "function firstTimeMint(address to, string[] merkleProof, string deviceId) returns (bool)",
-        "function annualMint(address to, string signature, string deviceId) returns (bool)"
-      ];
 
-      this.contract = new ethers.Contract(contractAddress, minimalAbi, this.provider);
-      this.tokenContract = this.contract; // Alias for compatibility with existing code
+      // Connect to blockchain network
+      this.provider = new ethers.providers.JsonRpcProvider(rpcUrl);
+      
+      // Create signer wallet from private key
+      this.signer = new ethers.Wallet(adminPrivateKey, this.provider);
+      
+      // Connect to SHAHI token contract - fix ABI reference
+      this.tokenContract = new Contract(
+        contractAddress,
+        SHAHI_ABI,
+        this.signer
+      );
+
+      this.initialized = true;
+      this.logger.log('Successfully initialized token contract connection');
     } catch (error) {
-      this.logger.error('Failed to initialize contract');
-      this.logger.error(error);
-      throw new Error('Failed to initialize token contract');
+      this.logger.error(`Error initializing token contract: ${error.message}`, error.stack);
+      throw error;
     }
   }
 
-  private async initializeAdminWallet() {
+  /**
+   * Check if the service is initialized correctly
+   * @returns True if the service is initialized
+   */
+  get isInitialized(): boolean {
+    return this.initialized;
+  }
+
+  /**
+   * Determines if a user should be minted a token based on eligibility
+   * @param walletAddress User wallet address
+   * @param isFirstTime Whether this is first-time minting or annual minting
+   * @returns True if the user should be minted a token
+   */
+  async shouldMintToken(walletAddress: string, isFirstTime: boolean): Promise<boolean> {
     try {
-      // Use ADMIN_PRIVATE_KEY instead of ADMIN_WALLET_PRIVATE_KEY
-      const privateKey = this.configService.get<string>('ADMIN_PRIVATE_KEY');
-      if (!privateKey) {
-        throw new Error('Admin wallet private key not configured');
+      if (isFirstTime) {
+        return await this.isEligibleForFirstTimeMinting(walletAddress);
+      } else {
+        return await this.isEligibleForAnnualMinting(walletAddress);
       }
-      
-      // Ensure private key has the 0x prefix
-      const formattedKey = privateKey.startsWith('0x') ? privateKey : `0x${privateKey}`;
-      
-      this.adminWallet = new ethers.Wallet(formattedKey, this.provider);
-      this.logger.log(`Admin wallet initialized with address: ${this.adminWallet.address}`);
     } catch (error) {
-      this.logger.error('Failed to initialize admin wallet');
-      throw new Error('Admin wallet initialization failed');
+      this.logger.error(`Error checking minting eligibility: ${error.message}`);
+      return false;
     }
   }
 
-  isInitialized(): boolean {
-    return this._initialized;
-  }
-
-  private checkInitialization() {
-    if (!this._initialized || !this.contract || !this.adminWallet) {
-      throw new Error('ShahiTokenService not properly initialized');
-    }
-  }
-
-  async generateMintSignature(address: string, deviceId: string): Promise<string> {
-    this.checkInitialization();
-
+  /**
+   * Generate signature for annual minting
+   * @param walletAddress User's wallet address for minting
+   * @param deviceId Device identifier for security binding
+   * @returns Signature that can be used for minting
+   */
+  async generateMintingSignature(walletAddress: string, deviceId: string): Promise<string> {
     try {
+      const timestamp = Math.floor(Date.now() / 1000); // Current time in seconds
       const messageHash = ethers.utils.solidityKeccak256(
-        ['address', 'string'],
-        [address, deviceId]
+        ['address', 'string', 'uint256'],
+        [walletAddress, deviceId, timestamp]
       );
       
-      const messageBytes = ethers.utils.arrayify(messageHash);
-      const signature = await this.adminWallet.signMessage(messageBytes);
+      const messageHashBinary = ethers.utils.arrayify(messageHash);
+      const signature = await this.signer.signMessage(messageHashBinary);
       
+      this.logger.log(`Generated minting signature for wallet ${walletAddress.substring(0, 8)}...`);
       return signature;
     } catch (error) {
-      this.logger.error(`Failed to generate mint signature for ${address}`, error);
-      throw new Error(`Failed to generate mint signature: ${error.message}`);
+      this.logger.error(`Error generating minting signature: ${error.message}`);
+      throw new Error('Failed to generate minting signature');
     }
   }
 
-  async firstTimeMint(userAddress: string, deviceId: string, merkleProof: string[]): Promise<string> {
-    this.checkInitialization();
-
-    try {
-      const signer = this.contract.connect(this.adminWallet);
-      const tx = await signer.firstTimeMint(userAddress, merkleProof, deviceId);
-      const receipt = await tx.wait();
-      
-      this.logger.log(`First-time mint successful for ${userAddress}, tx hash: ${receipt.transactionHash}`);
-      return receipt.transactionHash;
-    } catch (error) {
-      this.logger.error(`First-time mint failed for ${userAddress}`, error);
-      throw new Error(`First-time mint failed: ${error.message}`);
-    }
-  }
-
-  async annualMint(userAddress: string, deviceId: string): Promise<string> {
-    this.checkInitialization();
-
-    try {
-      const signature = await this.generateMintSignature(userAddress, deviceId);
-      const signer = this.contract.connect(this.adminWallet);
-      const tx = await signer.annualMint(userAddress, signature, deviceId);
-      const receipt = await tx.wait();
-      
-      this.logger.log(`Annual mint successful for ${userAddress}, tx hash: ${receipt.transactionHash}`);
-      return receipt.transactionHash;
-    } catch (error) {
-      this.logger.error(`Annual mint failed for ${userAddress}`, error);
-      throw new Error(`Annual mint failed: ${error.message}`);
-    }
-  }
-
-  async getMintingStatus(userAddress: string): Promise<{
+  /**
+   * Get user's minting status
+   * @param walletAddress User wallet address
+   * @returns Object with minting status details
+   */
+  async getMintingStatus(walletAddress: string): Promise<{
     hasFirstMinted: boolean;
     lastMintTimestamp: number;
     totalMinted: string;
   }> {
-    this.checkInitialization();
-
     try {
-      const userRecord = await this.contract.userMintRecords(userAddress);
+      this.logger.log(`Retrieving minting status for ${walletAddress.substring(0, 8)}...`);
+      
+      const result = await this.tokenContract.userMintRecords(walletAddress);
       
       return {
-        hasFirstMinted: userRecord.hasFirstMinted,
-        lastMintTimestamp: userRecord.lastMintTimestamp.toNumber(),
-        totalMinted: this.formatEther(userRecord.totalMinted),
+        hasFirstMinted: result.hasFirstMinted,
+        lastMintTimestamp: result.lastMintTimestamp.toNumber(),
+        totalMinted: ethers.utils.formatEther(result.totalMinted),
       };
     } catch (error) {
-      this.logger.error(`Failed to get minting status for ${userAddress}`, error);
+      this.logger.error(`Failed to get minting status: ${error.message}`);
       throw new Error(`Failed to get minting status: ${error.message}`);
     }
   }
-  
-  async getTokenStats(): Promise<{
-    totalSupply: string;
-    totalBurned: string;
-    totalMinted: string;
-  }> {
-    this.checkInitialization();
 
+  /**
+   * Perform first-time minting with Merkle proof
+   * @param walletAddress User wallet address
+   * @param deviceId Device identifier for security
+   * @param merkleProof Merkle proof of eligibility
+   * @returns Transaction hash
+   */
+  async firstTimeMint(walletAddress: string, deviceId: string, merkleProof: string[]): Promise<string> {
     try {
-      const [totalSupply, burned, minted] = await Promise.all([
-        this.contract.totalSupply(),
-        this.contract.burnedTokens(),
-        this.contract.totalMintedTokens(),
-      ]);
+      this.logger.log(`Attempting first-time minting for ${walletAddress.substring(0, 8)}...`);
       
-      return {
-        totalSupply: this.formatEther(totalSupply),
-        totalBurned: this.formatEther(burned),
-        totalMinted: this.formatEther(minted),
-      };
-    } catch (error) {
-      this.logger.error('Failed to get token stats', error);
-      throw new Error(`Failed to get token stats: ${error.message}`);
-    }
-  }
-
-  async mintForNewUser(address: string, deviceId?: string): Promise<string | null> {
-    if (!this.isInitialized() || !this.contract || !this.adminWallet) {
-      this.logger.warn('Cannot mint SHAHI: service not properly initialized');
-      return null;
-    }
-
-    // If deviceId is provided, log it for debugging
-    if (deviceId) {
-      this.logger.log(`Minting tokens for user ${address} from device ${deviceId.substring(0, 8)}...`);
-    }
-
-    try {
-      this.logger.log(`Minting 1 SHAHI for new user ${address}`);
+      // Convert Merkle proof format if needed
+      const proof = Array.isArray(merkleProof) ? merkleProof : JSON.parse(merkleProof);
       
-      // Try mintForNewUser first
-      try {
-        const signer = this.contract.connect(this.adminWallet);
-        // Add a gas limit estimation directly
-        const gasEstimate = await this.provider.estimateGas({
-          from: this.adminWallet.address,
-          to: this.contract.address,
-          data: this.contract.interface.encodeFunctionData('mintForNewUser', [address])
-        }).catch(() => ethers.BigNumber.from('500000')); // Default gas limit if estimation fails
-        
-        const tx = await signer.mintForNewUser(address, {
-          gasLimit: gasEstimate.mul(120).div(100) // Add 20% buffer
-        });
-        const receipt = await tx.wait();
-        
-        this.logger.log(`Successfully minted SHAHI for new user. Tx hash: ${receipt.transactionHash}`);
-        return receipt.transactionHash;
-      } catch (mintError) {
-        this.logger.warn(`mintForNewUser failed, trying adminMint: ${mintError.message}`);
-        
-        // Fall back to adminMint if mintForNewUser fails
-        const amountToMint = this.parseEther('1.0');
-        const signer = this.contract.connect(this.adminWallet);
-        
-        // Add a gas limit estimation directly
-        const gasEstimate = await this.provider.estimateGas({
-          from: this.adminWallet.address,
-          to: this.contract.address,
-          data: this.contract.interface.encodeFunctionData('adminMint', [address, amountToMint])
-        }).catch(() => ethers.BigNumber.from('600000')); // Default gas limit if estimation fails
-        
-        const tx = await signer.adminMint(address, amountToMint, {
-          gasLimit: gasEstimate.mul(120).div(100) // Add 20% buffer
-        });
-        const receipt = await tx.wait();
-        
-        this.logger.log(`Successfully admin minted SHAHI for new user. Tx hash: ${receipt.transactionHash}`);
-        return receipt.transactionHash;
-      }
+      // Call contract's first-time minting function
+      const tx = await this.tokenContract.firstTimeMint(walletAddress, deviceId, proof);
+      await tx.wait();
+      
+      this.logger.log(`First-time minting transaction confirmed: ${tx.hash}`);
+      return tx.hash;
     } catch (error) {
-      this.logger.error(`Failed to mint SHAHI for new user: ${error.message}`);
-      // Add the wallet address to the retry queue if it's not already reached max retries
-      const queueItem = this.mintingRetryQueue.get(address) || { attempts: 0, lastAttempt: 0 };
-      if (queueItem.attempts < this.maxRetries) {
-        queueItem.attempts++;
-        queueItem.lastAttempt = Date.now();
-        this.mintingRetryQueue.set(address, queueItem);
-        this.logger.log(`Added ${address} to minting retry queue. Attempt: ${queueItem.attempts}`);
-        
-        // Schedule a retry attempt if this was the first failure
-        if (queueItem.attempts === 1) {
-          setTimeout(() => this.retryMinting(address), this.retryDelay);
-        }
-      } else {
-        this.logger.error(`Failed to mint SHAHI for ${address} after ${this.maxRetries} attempts`);
-      }
-      return null;
+      this.logger.error(`First-time minting failed: ${error.message}`);
+      throw new Error(`First-time minting failed: ${error.message}`);
     }
   }
-  
-  private async retryMinting(address: string): Promise<void> {
-    const queueItem = this.mintingRetryQueue.get(address);
-    if (!queueItem || queueItem.attempts >= this.maxRetries) {
-      return;
-    }
-    
+
+  /**
+   * Perform annual minting with signature verification
+   * @param walletAddress User wallet address
+   * @param deviceId Device identifier for security
+   * @param signature Valid signature for minting
+   * @returns Transaction hash
+   */
+  async annualMint(walletAddress: string, deviceId: string, signature: string): Promise<string> {
     try {
-      this.logger.log(`Retry attempt ${queueItem.attempts + 1} for minting tokens to ${address}`);
-      const result = await this.mintForNewUser(address);
-      if (result) {
-        this.logger.log(`Successful retry mint for ${address}: ${result}`);
-        this.mintingRetryQueue.delete(address);
-      } else {
-        // Schedule another retry if we haven't hit the maximum
-        if (queueItem.attempts < this.maxRetries) {
-          setTimeout(() => this.retryMinting(address), this.retryDelay * queueItem.attempts); // Exponential backoff
-        }
-      }
+      this.logger.log(`Attempting annual minting for ${walletAddress.substring(0, 8)}...`);
+      
+      // Call contract's annual minting function
+      const tx = await this.tokenContract.annualMint(walletAddress, deviceId, signature);
+      await tx.wait();
+      
+      this.logger.log(`Annual minting transaction confirmed: ${tx.hash}`);
+      return tx.hash;
     } catch (error) {
-      this.logger.error(`Error during retry minting for ${address}: ${error.message}`);
+      this.logger.error(`Annual minting failed: ${error.message}`);
+      throw new Error(`Annual minting failed: ${error.message}`);
     }
   }
-  
-  // Add a method to check if a minting operation is already in progress for an address
-  async isMintingInProgress(address: string): Promise<boolean> {
-    const item = this.mintingRetryQueue.get(address);
-    if (item && Date.now() - item.lastAttempt < 60000) { // Consider minting in progress if attempted in the last minute
-      return true;
-    }
-    return false;
-  }
 
-  // Add a method to validate if the token should be minted for a wallet based on device constraints
-  async shouldMintToken(address: string, deviceId: string): Promise<boolean> {
-    // Basic validation - address and deviceId must be present
-    if (!address || !deviceId) {
-      this.logger.warn('Cannot validate minting: missing address or deviceId');
-      return false;
-    }
-    
-    // Add your device-wallet pairing validation here
-    // For example, you might want to check if the device is already associated with a different wallet
-    
-    // If a minting operation is already in progress, don't start another one
-    if (await this.isMintingInProgress(address)) {
-      this.logger.warn(`Minting already in progress for address ${address}`);
-      return false;
-    }
-    
-    return true;
-  }
-
-  async burnExpiredTokens(address: string): Promise<string> {
-    this.checkInitialization();
-
+  /**
+   * Perform admin minting to any address (requires admin privileges)
+   * @param walletAddress Recipient wallet address
+   * @param amount Amount to mint in wei format
+   * @returns Transaction hash
+   */
+  async adminMint(walletAddress: string, amount: string): Promise<string> {
     try {
-      const signer = this.contract.connect(this.adminWallet);
-      const tx = await signer.burnExpiredTokens(address);
+      this.logger.log(`Admin minting ${amount} tokens to ${walletAddress.substring(0, 8)}...`);
+      
+      // Call contract's admin minting function
+      const tx = await this.tokenContract.adminMint(walletAddress, amount);
+      await tx.wait();
+      
+      this.logger.log(`Admin minting transaction confirmed: ${tx.hash}`);
+      return tx.hash;
+    } catch (error) {
+      this.logger.error(`Admin minting failed: ${error.message}`);
+      throw new Error(`Admin minting failed: ${error.message}`);
+    }
+  }
+
+  /**
+   * Check if wallet is eligible for first-time minting
+   * @param walletAddress Wallet address to check
+   * @returns True if eligible for first-time minting
+   */
+  async isEligibleForFirstTimeMinting(walletAddress: string): Promise<boolean> {
+    try {
+      return await this.tokenContract.isEligibleForFirstTimeMinting(walletAddress);
+    } catch (error) {
+      this.logger.error(`Error checking first-time minting eligibility: ${error.message}`);
+      throw new Error('Failed to check first-time minting eligibility');
+    }
+  }
+
+  /**
+   * Check if wallet is eligible for annual minting
+   * @param walletAddress Wallet address to check
+   * @returns True if eligible for annual minting
+   */
+  async isEligibleForAnnualMinting(walletAddress: string): Promise<boolean> {
+    try {
+      return await this.tokenContract.isEligibleForAnnualMinting(walletAddress);
+    } catch (error) {
+      this.logger.error(`Error checking annual minting eligibility: ${error.message}`);
+      throw new Error('Failed to check annual minting eligibility');
+    }
+  }
+
+  /**
+   * Get token balance for a wallet
+   * @param walletAddress Wallet address
+   * @returns Token balance in wei format
+   */
+  async getTokenBalance(walletAddress: string): Promise<string> {
+    try {
+      const balance = await this.tokenContract.balanceOf(walletAddress);
+      return balance.toString();
+    } catch (error) {
+      this.logger.error(`Error getting token balance: ${error.message}`);
+      throw new Error('Failed to get token balance');
+    }
+  }
+
+  /**
+   * Burns expired tokens for a specific wallet address
+   * @param walletAddress The address to check for expired tokens
+   * @returns Object containing transaction hash and amount burned
+   */
+  async burnExpiredTokens(walletAddress: string): Promise<{ transactionHash: string; amountBurned?: string }> {
+    try {
+      this.logger.log(`Burning expired tokens for wallet: ${walletAddress.substring(0, 8)}...`);
+      
+      // Call contract's burnExpiredTokens function (assuming it exists in the contract)
+      const tx = await this.tokenContract.burnExpiredTokens(walletAddress);
       const receipt = await tx.wait();
       
-      this.logger.log(`Successfully burned expired tokens for ${address}. Tx hash: ${receipt.transactionHash}`);
-      return receipt.transactionHash;
+      // Try to extract burned amount from events
+      let amountBurned: string | undefined;
+      try {
+        // Look for TokensExpiredAndBurned event in the receipt
+        const event = receipt.events?.find(e => e.event === 'TokensExpiredAndBurned');
+        if (event && event.args) {
+          amountBurned = event.args.amount.toString();
+        }
+      } catch (eventError) {
+        this.logger.warn(`Could not extract burned amount from event: ${eventError.message}`);
+      }
+      
+      this.logger.log(`Burned expired tokens for ${walletAddress.substring(0, 8)}, tx: ${tx.hash}`);
+      return { 
+        transactionHash: tx.hash,
+        amountBurned
+      };
     } catch (error) {
       this.logger.error(`Failed to burn expired tokens: ${error.message}`);
       throw new Error(`Failed to burn expired tokens: ${error.message}`);
     }
   }
-  
-  async getTokenBalance(address: string): Promise<string> {
-    try {
-      const balance = await this.tokenContract.balanceOf(address);
-      return this.formatEther(balance);
-    } catch (error) {
-      this.logger.error(`Failed to get balance for ${address}`, error);
-      throw new Error(`Failed to get token balance for ${address}`);
+
+  /**
+   * Burns expired tokens for multiple wallet addresses in batches
+   * @param walletAddresses Array of wallet addresses to process
+   * @param batchSize Optional batch size (default: 50)
+   * @returns Array of transaction results
+   */
+  async batchBurnExpiredTokens(walletAddresses: string[], batchSize = 50): Promise<{ successful: number; failed: number; transactions: Array<{ address: string; result: string | Error }> }> {
+    this.logger.log(`Starting batch burn of expired tokens for ${walletAddresses.length} wallets`);
+    
+    const results: Array<{ address: string; result: string | Error }> = [];
+    let successful = 0;
+    let failed = 0;
+    
+    // Process in batches to avoid gas issues
+    for (let i = 0; i < walletAddresses.length; i += batchSize) {
+      const batch = walletAddresses.slice(i, i + batchSize);
+      this.logger.log(`Processing batch ${Math.floor(i/batchSize) + 1} with ${batch.length} wallets`);
+      
+      // Process each wallet in the current batch
+      const batchPromises = batch.map(async (address) => {
+        try {
+          const result = await this.burnExpiredTokens(address);
+          successful++;
+          return { address, result: result.transactionHash };
+        } catch (error) {
+          failed++;
+          this.logger.warn(`Failed to burn expired tokens for ${address}: ${error.message}`);
+          return { address, result: error as Error };
+        }
+      });
+      
+      // Wait for all transactions in this batch to complete
+      const batchResults = await Promise.all(batchPromises);
+      results.push(...batchResults);
+      
+      // Add a small delay between batches to avoid rate limiting
+      if (i + batchSize < walletAddresses.length) {
+        await new Promise(resolve => setTimeout(resolve, 2000));
+      }
     }
+    
+    this.logger.log(`Batch burn completed: ${successful} successful, ${failed} failed`);
+    return { successful, failed, transactions: results };
   }
-  
-  async transferTokens(toAddress: string, amount: string): Promise<string> {
-    try {
-      const amountWei = this.parseEther(amount);
-      const signer = this.tokenContract.connect(this.adminWallet);
-      
-      const tx = await signer.transfer(toAddress, amountWei);
-      const receipt = await tx.wait();
-      
-      this.logger.log(`Transferred ${amount} tokens to ${toAddress}, tx hash: ${receipt.transactionHash}`);
-      return receipt.transactionHash;
-    } catch (error) {
-      this.logger.error(`Failed to transfer ${amount} tokens to ${toAddress}`, error);
-      throw new Error(`Failed to transfer tokens: ${error.message}`);
-    }
-  }
-  
-  async getTotalSupply(): Promise<string> {
-    try {
-      const supply = await this.tokenContract.totalSupply();
-      return this.formatEther(supply);
-    } catch (error) {
-      this.logger.error('Failed to get total supply', error);
-      throw new Error('Failed to get total token supply');
-    }
-  }
-  
-  async mintTokens(toAddress: string, amount: string): Promise<string> {
-    try {
-      const amountWei = this.parseEther(amount);
-      const signer = this.tokenContract.connect(this.adminWallet);
-      
-      const tx = await signer.mint(toAddress, amountWei);
-      const receipt = await tx.wait();
-      
-      this.logger.log(`Minted ${amount} tokens to ${toAddress}, tx hash: ${receipt.transactionHash}`);
-      return receipt.transactionHash;
-    } catch (error) {
-      this.logger.error(`Failed to mint ${amount} tokens to ${toAddress}`, error);
-      throw new Error(`Failed to mint tokens: ${error.message}`);
-    }
-  }
-  
-  async burnTokens(amount: string): Promise<string> {
-    try {
-      const amountWei = this.parseEther(amount);
-      const signer = this.tokenContract.connect(this.adminWallet);
-      
-      const tx = await signer.burn(amountWei);
-      const receipt = await tx.wait();
-      
-      this.logger.log(`Burned ${amount} tokens, tx hash: ${receipt.transactionHash}`);
-      return receipt.transactionHash;
-    } catch (error) {
-      this.logger.error(`Failed to burn ${amount} tokens`, error);
-      throw new Error(`Failed to burn tokens: ${error.message}`);
-    }
-  }
-  
-  async getTokenInfo(): Promise<{
-    name: string;
-    symbol: string;
-    decimals: number;
-    totalSupply: string;
-  }> {
+
+  /**
+   * Get basic token information
+   * @returns Basic information about the token
+   */
+  async getTokenInfo(): Promise<any> {
     try {
       const [name, symbol, decimals, totalSupply] = await Promise.all([
         this.tokenContract.name(),
         this.tokenContract.symbol(),
         this.tokenContract.decimals(),
-        this.tokenContract.totalSupply()
+        this.tokenContract.totalSupply(),
+      ]);
+      
+      return { name, symbol, decimals: decimals.toString(), totalSupply: totalSupply.toString() };
+    } catch (error) {
+      this.logger.error(`Error fetching token info: ${error.message}`);
+      throw new Error('Failed to get token info');
+    }
+  }
+
+  /**
+   * Get token statistics
+   * @returns Statistics about the token including total minted, burned, etc.
+   */
+  async getTokenStats(): Promise<any> {
+    try {
+      const [totalSupply, totalMintedTokens, burnedTokens] = await Promise.all([
+        this.tokenContract.totalSupply(),
+        this.tokenContract.totalMintedTokens ? this.tokenContract.totalMintedTokens() : 0,
+        this.tokenContract.burnedTokens ? this.tokenContract.burnedTokens() : 0
       ]);
       
       return {
-        name,
-        symbol,
-        decimals: decimals.toNumber(),
-        totalSupply: this.formatEther(totalSupply)
+        totalSupply: totalSupply.toString(),
+        totalMinted: totalMintedTokens.toString(),
+        totalBurned: burnedTokens.toString()
       };
     } catch (error) {
-      this.logger.error('Failed to get token info', error);
-      throw new Error('Failed to get token information');
+      this.logger.error(`Error fetching token stats: ${error.message}`);
+      throw new Error('Failed to get token stats');
     }
-  }
-  
-  async approveSpender(spender: string, amount: string): Promise<string> {
-    try {
-      const amountWei = this.parseEther(amount);
-      const signer = this.tokenContract.connect(this.adminWallet);
-      
-      const tx = await signer.approve(spender, amountWei);
-      const receipt = await tx.wait();
-      
-      this.logger.log(`Approved ${amount} tokens for ${spender}, tx hash: ${receipt.transactionHash}`);
-      return receipt.transactionHash;
-    } catch (error) {
-      this.logger.error(`Failed to approve ${amount} tokens for ${spender}`, error);
-      throw new Error(`Failed to approve tokens: ${error.message}`);
-    }
-  }
-  
-  async getAllowance(owner: string, spender: string): Promise<string> {
-    try {
-      const allowance = await this.tokenContract.allowance(owner, spender);
-      return this.formatEther(allowance);
-    } catch (error) {
-      this.logger.error(`Failed to get allowance for ${owner} -> ${spender}`, error);
-      throw new Error(`Failed to get token allowance`);
-    }
-  }
-  
-  async transferFrom(from: string, to: string, amount: string): Promise<string> {
-    try {
-      const amountWei = this.parseEther(amount);
-      const signer = this.tokenContract.connect(this.adminWallet);
-      
-      const tx = await signer.transferFrom(from, to, amountWei);
-      const receipt = await tx.wait();
-      
-      this.logger.log(`Transferred ${amount} tokens from ${from} to ${to}, tx hash: ${receipt.transactionHash}`);
-      return receipt.transactionHash;
-    } catch (error) {
-      this.logger.error(`Failed to transfer ${amount} tokens from ${from} to ${to}`, error);
-      throw new Error(`Failed to transfer tokens: ${error.message}`);
-    }
-  }
-  
-  async getTransactionReceipt(txHash: string): Promise<any> {
-    try {
-      const receipt = await this.provider.getTransactionReceipt(txHash);
-      return {
-        status: receipt.status === 1 ? 'success' : 'failed',
-        blockNumber: receipt.blockNumber,
-        gasUsed: receipt.gasUsed.toString(),
-        transactionHash: receipt.transactionHash,
-        from: receipt.from,
-        to: receipt.to
-      };
-    } catch (error) {
-      this.logger.error(`Failed to get receipt for tx ${txHash}`, error);
-      throw new Error(`Failed to get transaction receipt: ${error.message}`);
-    }
-  }
-  
-  async getGasPrice(): Promise<string> {
-    try {
-      const gasPrice = await this.provider.getGasPrice();
-      return this.formatEther(gasPrice);
-    } catch (error) {
-      this.logger.error('Failed to get gas price', error);
-      throw new Error('Failed to get current gas price');
-    }
-  }
-  
-  async estimateTransferGas(to: string, amount: string): Promise<number> {
-    try {
-      const amountWei = this.parseEther(amount);
-      const signer = this.tokenContract.connect(this.adminWallet);
-      
-      const gasEstimate = await signer.estimateGas.transfer(to, amountWei);
-      return gasEstimate.toNumber();
-    } catch (error) {
-      this.logger.error(`Failed to estimate gas for transfer to ${to}`, error);
-      throw new Error('Failed to estimate transaction gas');
-    }
-  }
-
-  async getPastTransfers(fromBlock: number, toBlock: number | 'latest' = 'latest'): Promise<any[]> {
-    try {
-      const fromAddress = this.adminWallet.address;
-      const transferEvents = await this.tokenContract.queryFilter(
-        this.tokenContract.filters.Transfer(fromAddress, null),
-        fromBlock,
-        toBlock
-      );
-      
-      return transferEvents.map(event => {
-        return {
-          from: event.args.from,
-          to: event.args.to,
-          value: this.formatEther(event.args.value),
-          blockNumber: event.blockNumber,
-          transactionHash: event.transactionHash
-        };
-      });
-    } catch (error) {
-      this.logger.error('Failed to get past transfers', error);
-      throw new Error('Failed to retrieve transfer history');
-    }
-  }
-
-  // Helper methods for ethers formatting/parsing
-  private formatEther(value: ethers.BigNumberish): string {
-    return ethers.utils.formatEther(value);
-  }
-
-  private parseEther(value: string): ethers.BigNumber {
-    return ethers.utils.parseEther(value);
   }
 
   /**
-   * Batch process expired token burns for multiple users to save gas
-   * @param addresses Array of user addresses to check for expired tokens
-   * @returns Transaction hash of the batch operation
+   * Batch mint first-time tokens for multiple users
+   * @param walletAddresses Array of wallet addresses
+   * @param deviceIds Array of device IDs matching the walletAddresses
+   * @param proofs Array of merkle proofs for each user
+   * @returns Transaction hash
    */
-  async batchBurnExpiredTokens(addresses: string[]): Promise<string> {
-    this.checkInitialization();
-
+  async batchMintFirstTimeTokens(
+    walletAddresses: string[],
+    deviceIds: string[],
+    proofs: string[][]
+  ): Promise<string> {
     try {
-      const signer = this.contract.connect(this.adminWallet);
+      if (!walletAddresses.length || walletAddresses.length !== deviceIds.length || walletAddresses.length !== proofs.length) {
+        throw new Error('Invalid input arrays: must be non-empty and of equal length');
+      }
+
+      this.logger.log(`Batch minting first-time tokens for ${walletAddresses.length} addresses`);
       
-      // Estimate gas for the batch operation with 20% buffer
-      const gasEstimate = await this.provider.estimateGas({
-        from: this.adminWallet.address,
-        to: this.contract.address,
-        data: this.contract.interface.encodeFunctionData('batchBurnExpiredTokens', [addresses])
-      }).catch(() => ethers.BigNumber.from('3000000')); // Default gas limit if estimation fails
+      // Call the contract's batch minting function
+      const tx = await this.tokenContract.batchMintFirstTimeTokens(walletAddresses, deviceIds, proofs);
+      await tx.wait();
       
-      const tx = await signer.batchBurnExpiredTokens(addresses, {
-        gasLimit: gasEstimate.mul(120).div(100)
-      });
-      
-      const receipt = await tx.wait();
-      
-      this.logger.log(`Successfully batch burned expired tokens for ${addresses.length} users. Tx hash: ${receipt.transactionHash}`);
-      return receipt.transactionHash;
+      this.logger.log(`Batch first-time minting transaction confirmed: ${tx.hash}`);
+      return tx.hash;
     } catch (error) {
-      this.logger.error(`Failed to batch burn expired tokens: ${error.message}`);
-      throw new Error(`Failed to batch burn expired tokens: ${error.message}`);
+      this.logger.error(`Batch first-time minting failed: ${error.message}`);
+      throw new Error(`Batch first-time minting failed: ${error.message}`);
     }
   }
-  
+
   /**
-   * Execute multiple token transfers in a single transaction using a multicall pattern
-   * This reduces overall gas costs when sending tokens to multiple recipients
-   * @param recipients Array of recipient addresses
-   * @param amounts Array of amounts to send to each recipient (in SHAHI)
-   * @returns Transaction hash of the batch operation
+   * Batch mint annual tokens for multiple users
+   * @param walletAddresses Array of wallet addresses
+   * @param deviceIds Array of device IDs matching the walletAddresses
+   * @param signatures Array of signatures for each user
+   * @returns Transaction hash
    */
-  async batchTransferTokens(recipients: string[], amounts: string[]): Promise<string> {
-    this.checkInitialization();
-    
+  async batchMintAnnualTokens(
+    walletAddresses: string[],
+    deviceIds: string[],
+    signatures: string[]
+  ): Promise<string> {
     try {
-      if (recipients.length !== amounts.length) {
-        throw new Error('Recipients and amounts arrays must have the same length');
+      if (!walletAddresses.length || walletAddresses.length !== deviceIds.length || walletAddresses.length !== signatures.length) {
+        throw new Error('Invalid input arrays: must be non-empty and of equal length');
       }
+
+      this.logger.log(`Batch minting annual tokens for ${walletAddresses.length} addresses`);
       
-      if (recipients.length === 0) {
-        throw new Error('At least one recipient is required');
-      }
+      // Call the contract's batch minting function
+      const tx = await this.tokenContract.batchMintAnnualTokens(walletAddresses, deviceIds, signatures);
+      await tx.wait();
       
-      // For very large batches, split into smaller chunks to avoid gas limits
-      const MAX_BATCH_SIZE = 50;
-      if (recipients.length > MAX_BATCH_SIZE) {
-        const txHashes = [];
-        
-        for (let i = 0; i < recipients.length; i += MAX_BATCH_SIZE) {
-          const batchRecipients = recipients.slice(i, i + MAX_BATCH_SIZE);
-          const batchAmounts = amounts.slice(i, i + MAX_BATCH_SIZE);
-          
-          const txHash = await this.batchTransferTokens(batchRecipients, batchAmounts);
-          txHashes.push(txHash);
-        }
-        
-        return txHashes.join(',');
-      }
-      
-      const signer = this.contract.connect(this.adminWallet);
-      let totalAmount = ethers.BigNumber.from(0);
-      
-      // Convert all amounts to wei and calculate total
-      const amountsWei = amounts.map(amount => {
-        const amountWei = this.parseEther(amount);
-        totalAmount = totalAmount.add(amountWei);
-        return amountWei;
-      });
-      
-      // Check if admin wallet has enough balance
-      const adminBalance = await this.tokenContract.balanceOf(this.adminWallet.address);
-      if (adminBalance.lt(totalAmount)) {
-        throw new Error(`Insufficient balance for batch transfer. Have: ${this.formatEther(adminBalance)}, need: ${this.formatEther(totalAmount)}`);
-      }
-      
-      // Perform transfers one by one but in a single transaction
-      // We could implement a custom multicall function in the contract for even better gas optimization
-      let nonce = await this.provider.getTransactionCount(this.adminWallet.address);
-      
-      // Get current gas price with 10% buffer
-      const gasPrice = (await this.provider.getGasPrice()).mul(110).div(100);
-      
-      // Execute transfers in parallel with the same nonce to batch them
-      const transferPromises = recipients.map((recipient, index) => {
-        return signer.transfer(recipient, amountsWei[index], {
-          nonce: nonce,
-          gasPrice: gasPrice
-        });
-      });
-      
-      const results = await Promise.all(transferPromises);
-      const receipts = await Promise.all(results.map(tx => tx.wait()));
-      
-      this.logger.log(`Successfully batch transferred tokens to ${recipients.length} recipients`);
-      
-      return receipts.map(r => r.transactionHash).join(',');
+      this.logger.log(`Batch annual minting transaction confirmed: ${tx.hash}`);
+      return tx.hash;
     } catch (error) {
-      this.logger.error(`Failed to batch transfer tokens: ${error.message}`);
-      throw new Error(`Failed to batch transfer tokens: ${error.message}`);
+      this.logger.error(`Batch annual minting failed: ${error.message}`);
+      throw new Error(`Batch annual minting failed: ${error.message}`);
+    }
+  }
+
+  /**
+   * Direct minting for new user
+   * @param walletAddress User wallet address
+   * @returns Transaction hash
+   */
+  async mintForNewUser(walletAddress: string): Promise<string> {
+    try {
+      this.logger.log(`Direct minting for new user: ${walletAddress.substring(0, 8)}...`);
+      
+      const tx = await this.tokenContract.mintForNewUser(walletAddress);
+      await tx.wait();
+      
+      this.logger.log(`Direct minting transaction confirmed: ${tx.hash}`);
+      return tx.hash;
+    } catch (error) {
+      this.logger.error(`Direct minting failed: ${error.message}`);
+      throw new Error(`Direct minting failed: ${error.message}`);
     }
   }
 }

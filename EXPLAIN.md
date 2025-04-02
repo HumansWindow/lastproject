@@ -250,6 +250,53 @@ The SHAHI Coin system is an ERC-20 token implementation with unique features des
    - Maintains healthy token economics and circulation
    - Encourages active participation in the ecosystem
 
+## Security Architecture
+
+### Device Management Security System
+
+The project implements a sophisticated device management security system to enforce strict device-wallet binding policies, preventing fraud and unauthorized access:
+
+**`/backend/src/users/entities/user-device.entity.ts`**
+- Database entity model for tracking user devices
+- Stores device fingerprinting data including:
+  - Device IDs (unique identifiers for each device)
+  - Hardware information (brand, model, platform, OS)
+  - Browser details (name, version)
+  - IP address tracking for security auditing
+  - Visit count and usage patterns
+  - First seen and last seen timestamps
+- Implements wallet address binding through JSON storage
+- Built-in methods for managing wallet associations
+- Relational mapping to user accounts with cascade deletion
+
+**`/backend/src/users/services/user-devices.service.ts`**
+- Core service implementing device security policies
+- Enforces the one-device-one-wallet policy with multiple verification layers:
+  - Device registration and tracking
+  - Wallet address binding to specific devices
+  - Cross-validation of device-wallet associations
+  - IP address monitoring for suspicious activity
+- Advanced device registration workflow:
+  - Device fingerprinting and identification
+  - Secure registration with fraud prevention
+  - Device history tracking with timestamps
+  - Automatic detection of multiple account attempts
+- Policy enforcement methods:
+  - `validateDeviceWalletPairing()` - Verifies if a wallet can be used with a specific device
+  - `enforcedDeviceWalletPolicy()` - Strict policy enforcement for one-device-one-wallet rule
+  - `addWalletToDevice()` - Securely binds a wallet address to a specific device
+  - `isDeviceWalletCombinationRegistered()` - Checks existing registrations
+- Security troubleshooting tools:
+  - `resetDeviceAssociations()` - Administrative function to reset device bindings when needed
+  - Comprehensive error handling and logging for security auditing
+  - Fallback mechanisms to ensure authentication continuity during system problems
+- Configurable security through environment variables:
+  - Optional relaxation of device checks during testing via `SKIP_DEVICE_CHECK`
+  - Detailed logging of security-related operations for audit trails
+  - Circuit breakers to prevent database access failures from blocking authentication
+
+### Wallet Authentication Security
+
 ## HotWallet Implementation Status
 
 ### Partially Implemented (80%)

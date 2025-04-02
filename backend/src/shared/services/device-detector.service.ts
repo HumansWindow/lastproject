@@ -146,4 +146,82 @@ export class DeviceDetectorService {
       'unknown'
     ).split(',')[0];
   }
+
+  /**
+   * Extract device information from user agent
+   * @param userAgent User agent string
+   * @returns Structured device information
+   */
+  getDeviceInfo(userAgent: string): {
+    deviceType: 'mobile' | 'tablet' | 'desktop' | 'unknown';
+    browser: string;
+    os: string;
+  } {
+    // Simple detection logic - in a real app you might use a more sophisticated library
+    const ua = userAgent.toLowerCase();
+    
+    // Determine device type
+    let deviceType: 'mobile' | 'tablet' | 'desktop' | 'unknown' = 'unknown';
+    if (/(android|webos|iphone|ipod|blackberry|iemobile|opera mini)/i.test(ua)) {
+      deviceType = 'mobile';
+    } else if (/(ipad|tablet|playbook|silk)|(android(?!.*mobile))/i.test(ua)) {
+      deviceType = 'tablet';
+    } else if (!/(mobile|tablet)/i.test(ua)) {
+      deviceType = 'desktop';
+    }
+    
+    // Determine browser
+    let browser = 'unknown';
+    if (ua.includes('firefox')) {
+      browser = 'Firefox';
+    } else if (ua.includes('edg')) {
+      browser = 'Edge';
+    } else if (ua.includes('chrome')) {
+      browser = 'Chrome';
+    } else if (ua.includes('safari')) {
+      browser = 'Safari';
+    } else if (ua.includes('opera') || ua.includes('opr')) {
+      browser = 'Opera';
+    }
+    
+    // Determine OS
+    let os = 'unknown';
+    if (ua.includes('windows')) {
+      os = 'Windows';
+    } else if (ua.includes('mac')) {
+      os = 'MacOS';
+    } else if (ua.includes('linux')) {
+      os = 'Linux';
+    } else if (ua.includes('android')) {
+      os = 'Android';
+    } else if (ua.includes('iphone') || ua.includes('ipad')) {
+      os = 'iOS';
+    }
+    
+    return { deviceType, browser, os };
+  }
+
+  /**
+   * Compare two user agents to determine if they're likely from the same device
+   * @param userAgent1 First user agent
+   * @param userAgent2 Second user agent
+   * @returns Similarity score between 0 and 1
+   */
+  compareUserAgents(userAgent1: string, userAgent2: string): number {
+    if (!userAgent1 || !userAgent2) {
+      return 0;
+    }
+    
+    const device1 = this.getDeviceInfo(userAgent1);
+    const device2 = this.getDeviceInfo(userAgent2);
+    
+    let score = 0;
+    
+    // Compare device type, browser and OS
+    if (device1.deviceType === device2.deviceType) score += 0.3;
+    if (device1.browser === device2.browser) score += 0.3;
+    if (device1.os === device2.os) score += 0.4;
+    
+    return score;
+  }
 }

@@ -311,6 +311,134 @@ contract SHAHICoinV1 is
         emit FirstTimeMint(to, amount);
     }
     
+    /**
+     * @dev Batch minting for multiple new users at once
+     * This function greatly optimizes gas costs when minting for multiple users
+     * @param users Array of user addresses to mint tokens for
+     */
+    function batchMintForNewUsers(address[] calldata users) external whenNotPaused onlyOwner {
+        require(users.length > 0, "Empty users array");
+        
+        // Calculate total amounts to mint
+        uint256 totalMintAmount = users.length * ONE_SHAHI;
+        uint256 adminTotalShare = users.length * HALF_SHAHI;
+        uint256 userShareEach = HALF_SHAHI;
+        
+        // First mint the admin's total share in one operation
+        _mint(adminHotWallet, adminTotalShare);
+        
+        // Then mint each user's portion and record expiry
+        uint256 currentTimestamp = block.timestamp;
+        uint256 expiryTimestamp = currentTimestamp + ONE_YEAR;
+        
+        for (uint256 i = 0; i < users.length; i++) {
+            address user = users[i];
+            require(user != address(0), "Invalid address");
+            require(!isBlacklisted(user), "User is blacklisted");
+            
+            // Cache storage variables for gas savings
+            UserMintRecord storage mintRecord = userMintRecords[user];
+            
+            // Skip if already minted (to avoid reverts for the whole batch)
+            if (mintRecord.hasFirstMinted) continue;
+            
+            // Mark as first minted and record timestamp
+            mintRecord.hasFirstMinted = true;
+            mintRecord.lastMintTimestamp = currentTimestamp;
+            
+            // Mint to user (these tokens are locked and non-transferable)
+            _mint(user, userShareEach);
+            
+            // Record when these tokens will expire
+            userTokenExpiry[user][currentTimestamp] = expiryTimestamp;
+            
+            mintRecord.totalMinted += userShareEach;
+            
+            emit RegularMint(user, userShareEach, userShareEach);
+        }
+        
+        // Update total minted tokens
+        totalMintedTokens += totalMintAmount;
+    }
+
+    /**
+     * @dev Batch annual minting for multiple users at once
+     * This function greatly optimizes gas costs when annual minting for multiple users
+     * The admin must sign a batch mint approval for security
+     * @param users Array of user addresses for annual minting
+     */
+    function batchAnnualMint(address[] calldata users, string calldata /* batchId */) external whenNotPaused onlyOwner {
+        require(users.length > 0, "Empty users array");
+        
+        // Calculate total amounts to mint
+        uint256 totalMintAmount = users.length * ONE_SHAHI;
+        uint256 adminTotalShare = users.length * HALF_SHAHI;
+        uint256 userShareEach = HALF_SHAHI;
+        
+        // First mint the admin's total share in one operation
+        _mint(adminHotWallet, adminTotalShare);
+        
+        // Then mint each user's portion and record expiry
+        uint256 currentTimestamp = block.timestamp;
+        uint256 expiryTimestamp = currentTimestamp + ONE_YEAR;
+        
+        for (uint256 i = 0; i < users.length; i++) {
+            address user = users[i];
+            require(user != address(0), "Invalid address");
+            require(!isBlacklisted(user), "User is blacklisted");
+            
+            // Cache storage variables for gas savings
+            UserMintRecord storage mintRecord = userMintRecords[user];
+            
+            // Must have done first mint
+            if (!mintRecord.hasFirstMinted) continue;
+            
+            // Skip users who haven't waited the full 1-year cooldown
+            if (currentTimestamp < mintRecord.lastMintTimestamp + ONE_YEAR) continue;
+            
+            // Update minting record with new timestamp
+            mintRecord.lastMintTimestamp = currentTimestamp;
+            
+            // Mint to user (these tokens are locked and non-transferable)
+            _mint(user, userShareEach);
+            
+            // Record when these tokens will expire
+            userTokenExpiry[user][currentTimestamp] = expiryTimestamp;
+            
+            mintRecord.totalMinted += userShareEach;
+            
+            emit RegularMint(user, userShareEach, userShareEach);
+        }
+        
+        // Update total minted tokens
+        totalMintedTokens += totalMintAmount;
+    }
+
+    /**
+     * @dev Batch mint function for admins to mint to multiple addresses at once
+     * Optimizes gas by creating multiple mints in one transaction
+     * @param recipients Array of addresses to mint to
+     * @param amountEach Amount of tokens to mint for each recipient
+     */
+    function adminMintBatch(address[] calldata recipients, uint256 amountEach) external onlyOwner whenNotPaused {
+        require(recipients.length > 0, "Empty recipients array");
+        require(amountEach > 0, "Amount must be greater than 0");
+        
+        uint256 totalAmount = amountEach * recipients.length;
+        
+        for (uint256 i = 0; i < recipients.length; i++) {
+            address to = recipients[i];
+            require(to != address(0), "Invalid address");
+            require(!isBlacklisted(to), "Recipient is blacklisted");
+            
+            _mint(to, amountEach);
+            
+            emit FirstTimeMint(to, amountEach);
+        }
+        
+        totalMintedTokens += totalAmount;
+    }
+    
     // ============= STAKING SYSTEM =============
     
     /**

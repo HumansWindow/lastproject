@@ -1,8 +1,8 @@
-import { Controller, Post, UseGuards, Req, Headers, ForbiddenException, Logger, BadRequestException } from '@nestjs/common';
+import { Controller, Post, UseGuards, Req, Headers, ForbiddenException, Logger, BadRequestException, Get, Param } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { MintingService } from '../services/minting.service';
 import { RealIP } from 'nestjs-real-ip';
-import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiResponse, ApiParam } from '@nestjs/swagger';
 import { MintRateLimitGuard } from '../guards/rate-limit.guard';
 import { DeviceDetectorService } from '../../shared/services/device-detector.service';
 import { UserDevicesService } from '../../users/services/user-devices.service';
@@ -43,7 +43,7 @@ export class MintingController {
     this.logger.log(`First-time mint request received from wallet ${walletAddress} on device ${deviceId.substring(0, 8)}...`);
     
     // Check if this device is allowed to mint with this wallet
-    if (!this.shahiTokenService.isInitialized()) {
+    if (!this.shahiTokenService.isInitialized) {
       throw new BadRequestException('Blockchain service is not fully initialized, please try again later');
     }
     
@@ -99,7 +99,7 @@ export class MintingController {
     this.logger.log(`Annual mint request received from wallet ${walletAddress} on device ${deviceId.substring(0, 8)}...`);
     
     // Check if this device is allowed to mint with this wallet
-    if (!this.shahiTokenService.isInitialized()) {
+    if (!this.shahiTokenService.isInitialized) {
       throw new BadRequestException('Blockchain service is not fully initialized, please try again later');
     }
     
@@ -131,5 +131,38 @@ export class MintingController {
     );
     
     return { txHash };
+  }
+
+  @Get('status/:txIdOrWallet')
+  @ApiOperation({ summary: 'Check minting status' })
+  @ApiParam({ name: 'txIdOrWallet', description: 'Transaction ID or wallet address' })
+  @ApiResponse({ status: 200, description: 'Returns status of the minting operation' })
+  async getMintStatus(@Param('txIdOrWallet') txIdOrWallet: string) {
+    this.logger.log(`Checking mint status for: ${txIdOrWallet}`);
+    
+    const status = await this.mintingService.getMintStatus(txIdOrWallet);
+    return status;
+  }
+  
+  @Get('batch-status')
+  @ApiOperation({ summary: 'Get batch minting status and queue information' })
+  @ApiResponse({ status: 200, description: 'Returns batch minting status information' })
+  async getBatchMintingStatus() {
+    try {
+      // Get the current queue length and status
+      const queueLength = await this.mintingService.getBatchQueueLength();
+      const isEnabled = await this.mintingService.isBatchMintingEnabled();
+      const nextBatchTime = await this.mintingService.getNextBatchMintTime();
+      
+      return {
+        enabled: isEnabled,
+        queueLength: queueLength,
+        nextBatchTime: nextBatchTime,
+        maxBatchSize: await this.mintingService.getBatchMintMaxSize()
+      };
+    } catch (error) {
+      this.logger.error(`Error getting batch minting status: ${error.message}`);
+      throw new BadRequestException('Failed to get batch minting status');
+    }
   }
 }

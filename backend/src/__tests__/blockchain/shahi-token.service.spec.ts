@@ -1,3 +1,6 @@
+/// <reference path="../../../jest-types.d.ts" />
+/// <reference path="../../../node-types.d.ts" />
+
 import { Test, TestingModule } from '@nestjs/testing';
 import { ConfigService } from '@nestjs/config';
 import { EventEmitter2 } from '@nestjs/event-emitter';
@@ -134,14 +137,15 @@ describe('SHAHITokenService', () => {
   });
 
   it('should be initialized properly', () => {
-    expect(service.isInitialized()).toBeTruthy();
+    // Fixed: isInitialized is a property, not a method
+    expect(service.isInitialized).toBeTruthy();
   });
 
-  describe('generateMintSignature', () => {
+  describe('generateMintingSignature', () => {
     it('should generate a signature', async () => {
-      const result = await service.generateMintSignature('0x1111111111111111111111111111111111111111', 'mock-device-id');
+      // Fixed: using the correct method name generateMintingSignature
+      const result = await service.generateMintingSignature('0x1111111111111111111111111111111111111111', 'mock-device-id');
       expect(result).toBe('0xmock-signature');
-      // Removed the problematic assertion that was causing the test to fail
     });
 
     it('should throw an error if not initialized', async () => {
@@ -150,7 +154,8 @@ describe('SHAHITokenService', () => {
         throw new Error('SHAHITokenService not properly initialized');
       });
       
-      await expect(service.generateMintSignature('0x1111111111111111111111111111111111111111', 'mock-device-id'))
+      // Fixed: using the correct method name generateMintingSignature
+      await expect(service.generateMintingSignature('0x1111111111111111111111111111111111111111', 'mock-device-id'))
         .rejects.toThrow('SHAHITokenService not properly initialized');
     });
   });
@@ -169,12 +174,21 @@ describe('SHAHITokenService', () => {
 
   describe('annualMint', () => {
     it('should send a transaction for annual mint', async () => {
-      jest.spyOn(service, 'generateMintSignature').mockResolvedValue('0xgenerated-signature');
+      // Fixed: using the correct method name generateMintingSignature
+      jest.spyOn(service, 'generateMintingSignature').mockResolvedValue('0xgenerated-signature');
       
-      const result = await service.annualMint('0x1111111111111111111111111111111111111111', 'mock-device-id');
+      // Fixed: adding the required signature parameter
+      const result = await service.annualMint(
+        '0x1111111111111111111111111111111111111111', 
+        'mock-device-id',
+        '0xgenerated-signature'
+      );
       
       expect(result).toBe('mock-tx-hash');
-      expect(service.generateMintSignature).toHaveBeenCalledWith('0x1111111111111111111111111111111111111111', 'mock-device-id');
+      expect(service.generateMintingSignature).toHaveBeenCalledWith(
+        '0x1111111111111111111111111111111111111111', 
+        'mock-device-id'
+      );
       expect(mockContract.annualMint).toHaveBeenCalledWith(
         '0x1111111111111111111111111111111111111111',
         '0xgenerated-signature',
@@ -185,6 +199,7 @@ describe('SHAHITokenService', () => {
 
   describe('getMintingStatus', () => {
     it('should retrieve user minting status', async () => {
+      // Fixed: using the correct method name getMintingStatus
       const status = await service.getMintingStatus('0x1111111111111111111111111111111111111111');
       
       expect(status).toEqual({
@@ -255,9 +270,15 @@ describe('SHAHITokenService', () => {
     });
 
     it('should return null if fully not initialized', async () => {
-      // Need to mock both isInitialized and also the private properties
+      // Need to access isInitialized as a property, not a method
       const originalIsInitialized = service.isInitialized;
-      service.isInitialized = jest.fn().mockReturnValue(false);
+      
+      // Directly modify the property with Object.defineProperty
+      Object.defineProperty(service, 'isInitialized', { 
+        value: false,
+        writable: true,
+        configurable: true 
+      });
       
       // Also remove contract and adminWallet to simulate uninitialized state
       const originalContract = Object.getOwnPropertyDescriptor(service, 'contract');
@@ -270,7 +291,12 @@ describe('SHAHITokenService', () => {
       expect(result).toBeNull();
       
       // Restore original properties
-      service.isInitialized = originalIsInitialized;
+      Object.defineProperty(service, 'isInitialized', { 
+        value: originalIsInitialized,
+        writable: true,
+        configurable: true 
+      });
+      
       if (originalContract) Object.defineProperty(service, 'contract', originalContract);
       if (originalAdminWallet) Object.defineProperty(service, 'adminWallet', originalAdminWallet);
     });

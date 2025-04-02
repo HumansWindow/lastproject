@@ -23,6 +23,18 @@ import { WalletsModule } from '../wallets/wallets.module';
 import { createBlockchainConfig, DEFAULT_RPC_URLS, getBlockchainConfig } from './config/blockchain-environment';
 import { HttpModule } from '@nestjs/axios';
 import { UsersModule } from '../users/users.module';
+// Fixed imports with correct casing and paths
+import { StakingService } from './services/staking.service';
+import { StakingController } from './controllers/staking.controller';
+import { TokenController } from './controllers/token.controller';
+import { DeviceDetectorModule } from '../shared/modules/device-detector.module';
+import { AccountsModule } from '../accounts/accounts.module';
+import { StakingPosition } from './entities/staking-position.entity';
+import { ApyTier } from './entities/apy-tier.entity';
+import { MintingRecord } from './entities/minting-record.entity';
+import { MintingQueueItem } from './entities/minting-queue-item.entity';
+import { UserMintingQueueService } from './services/user-minting-queue.service';
+import { TokenMintingController } from './controllers/token-minting.controller';
 
 // Load blockchain-specific environment variables
 const blockchainEnvPath = path.resolve(__dirname, 'hotwallet', '.env');
@@ -40,7 +52,7 @@ if (fs.existsSync(blockchainEnvPath)) {
       isGlobal: true, // Make config global
       load: [getBlockchainConfig],
     }),
-    TypeOrmModule.forFeature([Wallet, User]),
+    TypeOrmModule.forFeature([Wallet, User, StakingPosition, ApyTier, MintingRecord, MintingQueueItem]),
     forwardRef(() => WalletsModule),
     forwardRef(() => AuthModule),
     ScheduleModule.forRoot(),
@@ -49,6 +61,8 @@ if (fs.existsSync(blockchainEnvPath)) {
     JwtSharedModule,
     HttpModule,
     UsersModule,
+    DeviceDetectorModule,
+    AccountsModule,
   ],
   providers: [
     {
@@ -62,7 +76,8 @@ if (fs.existsSync(blockchainEnvPath)) {
           MATIC_RPC_URL: configService.get<string>('MATIC_RPC_URL'),
           encryptPrivateKeys: configService.get<boolean>('ENCRYPT_PRIVATE_KEYS') || false,
           encryptionKey: configService.get<string>('ENCRYPTION_KEY') || 'default-encryption-key-for-development',
-          TOKEN_CONTRACT_ADDRESS: configService.get<string>('TOKEN_CONTRACT_ADDRESS')
+          TOKEN_CONTRACT_ADDRESS: configService.get<string>('TOKEN_CONTRACT_ADDRESS'),
+          ADMIN_PRIVATE_KEY: configService.get<string>('ADMIN_PRIVATE_KEY'),
         });
         
         console.log('Blockchain configuration initialized with:', {
@@ -84,13 +99,17 @@ if (fs.existsSync(blockchainEnvPath)) {
     MerkleService,
     TokenEventsGateway,
     WsAuthGuard,
+    StakingService,
+    UserMintingQueueService,
   ],
-  controllers: [MintingController],
+  controllers: [MintingController, TokenController, StakingController, TokenMintingController],
   exports: [
     'BLOCKCHAIN_CONFIG', // Export the config provider
     BlockchainService,
     ShahiTokenService,
-    MerkleService
+    MerkleService,
+    StakingService,
+    UserMintingQueueService,
   ],
 })
 export class BlockchainModule {

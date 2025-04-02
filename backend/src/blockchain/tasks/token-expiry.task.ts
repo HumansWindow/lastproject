@@ -1,82 +1,68 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
-import { UsersService } from '../../users/users.service';
 import { ShahiTokenService } from '../services/shahi-token.service';
+import { InjectRepository } from '@nestjs/typeorm';
+import { User } from '../../users/entities/user.entity';
+import { Repository, IsNull, Not } from 'typeorm';
 
 @Injectable()
 export class TokenExpiryTask {
   private readonly logger = new Logger(TokenExpiryTask.name);
-  
+  private isRunning = false;
+
   constructor(
-    private readonly usersService: UsersService,
     private readonly shahiTokenService: ShahiTokenService,
+    @InjectRepository(User)
+    private readonly userRepository: Repository<User>,
   ) {}
-  
-  /**
-   * Check for and burn expired tokens once per day at midnight
-   * This is more efficient than the on-chain approach which requires checking many timestamps
-   */
+
+  // Run at midnight every day
   @Cron(CronExpression.EVERY_DAY_AT_MIDNIGHT)
-  async checkAndBurnExpiredTokens() {
-    this.logger.log('Starting scheduled token expiry check');
-    
+  async handleExpiredTokens() {
+    if (this.isRunning) {
+      this.logger.warn('Token expiry task is already running, skipping this execution');
+      return;
+    }
+
     try {
-      // Get all users with expired tokens
-      const usersWithExpiredTokens = await this.usersService.getUsersWithExpiredTokens();
-      this.logger.log(`Found ${usersWithExpiredTokens.length} users with expired tokens`);
-      
-      if (usersWithExpiredTokens.length === 0) {
-        return;
-      }
-      
-      // Process in larger batches of 100 for better efficiency
-      const batchSize = 100; // Increased from 20 to 100
-      for (let i = 0; i < usersWithExpiredTokens.length; i += batchSize) {
-        const batch = usersWithExpiredTokens.slice(i, i + batchSize);
-        const addressBatch = batch.map(user => user.walletAddress).filter(Boolean) as string[];
+      this.isRunning = true;
+      this.logger.log('Starting token expiry check task');
+
+      // Get all wallet addresses from users
+      const users = await this.userRepository.find({
+        select: ['walletAddress'],
+        where: { walletAddress: Not(IsNull()) },
+      });
+
+      if (users.length > 0) {
+        this.logger.log(`Found ${users.length} wallet addresses to check for expired tokens`);
         
-        try {
-          // Use the new batch burn function to process multiple users at once
-          if (addressBatch.length > 0) {
-            const txHash = await this.shahiTokenService.batchBurnExpiredTokens(addressBatch);
-            this.logger.log(`Batch burned tokens for ${addressBatch.length} users. Tx: ${txHash}`);
-            
-            // Mark each user's tokens as processed in our database
-            for (const user of batch) {
-              if (user.walletAddress) {
-                await this.usersService.resetExpiredTokenTracking(user.walletAddress);
-              }
-            }
-          }
-        } catch (error) {
-          this.logger.error(`Failed to burn batch of tokens: ${error.message}`, error.stack);
-          
-          // Fall back to individual processing if batch fails
-          for (const user of batch) {
-            if (!user.walletAddress) continue;
-            
-            try {
-              await this.shahiTokenService.burnExpiredTokens(user.walletAddress);
-              await this.usersService.resetExpiredTokenTracking(user.walletAddress);
-              this.logger.log(`Individually burned tokens for user ${user.walletAddress}`);
-            } catch (individualError) {
-              this.logger.error(
-                `Failed to burn tokens for user ${user.walletAddress}: ${individualError.message}`,
-                individualError.stack,
-              );
-            }
-          }
-        }
+        // Get unique wallet addresses
+        const walletAddresses = [...new Set(users.map(user => user.walletAddress))];
         
-        // Wait a bit between batches to avoid network congestion
-        if (i + batchSize < usersWithExpiredTokens.length) {
-          await new Promise(resolve => setTimeout(resolve, 5000));
-        }
+        // Process in batches to avoid gas issues
+        await this.shahiTokenService.batchBurnExpiredTokens(walletAddresses);
+      } else {
+        this.logger.log('No wallet addresses found to check for token expiry');
       }
-      
-      this.logger.log('Completed token expiry processing');
     } catch (error) {
       this.logger.error(`Error in token expiry task: ${error.message}`, error.stack);
+    } finally {
+      this.isRunning = false;
+      this.logger.log('Token expiry check task completed');
+    }
+  }
+
+  // Manual trigger method for testing or admin controls
+  async manuallyTriggerExpiredTokensCheck(walletAddress: string) {
+    this.logger.log(`Manually checking for expired tokens for wallet: ${walletAddress}`);
+    
+    try {
+      const result = await this.shahiTokenService.burnExpiredTokens(walletAddress);
+      return { success: true, transactionHash: result?.transactionHash };
+    } catch (error) {
+      this.logger.error(`Failed to manually burn expired tokens: ${error.message}`);
+      throw error;
     }
   }
 }

@@ -20,26 +20,42 @@
     "esModuleInterop": true,
     "resolveJsonModule": true,
     "moduleResolution": "node",
-    "types": [
-      "node",
-      "jest"
-    ],
+    // Only explicitly include the types we need
+    "types": ["node", "jest"],
     "typeRoots": [
       "./node_modules/@types"
     ],
     "paths": {
       "@/*": [
         "src/*"
+      ],
+      "@blockchain/*": [
+        "src/blockchain/*"
+      ],
+      "@blockchain/services/*": [
+        "src/blockchain/services/*"
+      ],
+      "@blockchain/controllers/*": [
+        "src/blockchain/controllers/*"
+      ],
+      "@blockchain/entities/*": [
+        "src/blockchain/entities/*"
       ]
     }
   },
+  // Only explicitly include the files/folders that should be compiled
   "include": [
-    "src/**/*",
-    "src/__tests__/**/*",
-    "test/**/*"
+    "src/**/*.ts",
+    "test/**/*.ts",
+    "jest-global.d.ts",
+    "jest-types.d.ts",
+    "node-types.d.ts"
   ],
   "exclude": [
     "node_modules",
-    "dist"
+    "dist",
+    "config",
+    "patches",
+    "scripts"
   ]
 }
