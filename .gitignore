@@ -12,6 +12,8 @@ node_modules/
 /node_modules
 /.pnp
 .pnp.js
+# Specific blockchain contracts node_modules
+/backend/src/blockchain/contracts/node_modules
 
 # Specific large binary files
 **/next-swc.linux-x64-musl.node

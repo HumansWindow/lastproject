@@ -2,6 +2,8 @@
 /node_modules
 /.pnp
 .pnp.js
+**/node_modules/
+**/src/blockchain/contracts/node_modules/
 
 # Build
 /dist
@@ -51,3 +53,9 @@ coverage/
 # Local development
 /local
 /tmp
+
+# Large binary files
+**/*.node
+**/*.map
+**/*.tar.gz
+**/*.tgz
