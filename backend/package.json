@@ -35,7 +35,22 @@
     "migration:run": "nest build && typeorm migration:run -d dist/database/data-source",
     "migration:revert": "typeorm migration:revert -d dist/database/data-source",
     "fix:jest-types": "npm install --save-dev @types/jest ts-jest jest @jest/globals && tsc --build --clean",
-    "check:types": "tsc --noEmit"
+    "check:types": "tsc --noEmit",
+    "deploy:polygon:testnet": "cd src/blockchain/contracts && npx hardhat run deploy/deploy-polygon.js --network mumbai",
+    "deploy:polygon:testnet:direct": "cd src/blockchain/contracts && node deploy/deploy-polygon-direct.js",
+    "deploy:polygon:mainnet": "cd src/blockchain/contracts && npx hardhat run deploy/deploy-polygon.js --network polygon",
+    "deploy:ethereum:testnet": "cd src/blockchain/contracts && npx hardhat run deploy/deploy-ethereum.js --network goerli",
+    "deploy:ethereum:mainnet": "cd src/blockchain/contracts && npx hardhat run deploy/deploy-ethereum.js --network mainnet",
+    "deploy:bsc:testnet": "cd src/blockchain/contracts && npx hardhat run deploy/deploy-bsc.js --network bscTestnet",
+    "deploy:bsc:mainnet": "cd src/blockchain/contracts && npx hardhat run deploy/deploy-bsc.js --network bsc",
+    "deploy:bitcoin:testnet": "cd src/blockchain/contracts && npx hardhat run deploy/deploy-rsk.js --network rsktestnet",
+    "deploy:bitcoin:mainnet": "cd src/blockchain/contracts && npx hardhat run deploy/deploy-rsk.js --network rskmainnet",
+    "deploy:all:testnet": "cd src/blockchain/contracts && node deploy/deploy-all.js test",
+    "deploy:all:mainnet": "cd src/blockchain/contracts && node deploy/deploy-all.js main",
+    "verify:contracts:all": "cd src/blockchain/contracts && node deploy/verify-contracts.js all",
+    "verify:contracts:ethereum": "cd src/blockchain/contracts && node deploy/verify-contracts.js ethereum",
+    "verify:contracts:polygon": "cd src/blockchain/contracts && node deploy/verify-contracts.js polygon",
+    "verify:contracts:bsc": "cd src/blockchain/contracts && node deploy/verify-contracts.js bsc"
   },
   "dependencies": {
     "@ethersproject/units": "^5.7.0",

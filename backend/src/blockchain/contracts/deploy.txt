@@ -1,0 +1,48 @@
+# SHAHI Coin Multi-Chain Deployment Commands
+
+## DEPLOYMENT READY CHAINS
+The following chains can be deployed immediately using the existing SHAHICoin.sol contract:
+
+# Testnet deployments (start here for testing)
+npm run deploy:polygon:testnet    # Deploy to Polygon Mumbai
+npm run deploy:ethereum:testnet   # Deploy to Ethereum Goerli
+npm run deploy:bsc:testnet        # Deploy to BNB Chain Testnet
+
+# Mainnet deployments (when ready for production)
+npm run deploy:polygon:mainnet    # Deploy to Polygon Mainnet
+npm run deploy:ethereum:mainnet   # Deploy to Ethereum Mainnet
+npm run deploy:bsc:mainnet        # Deploy to BNB Chain Mainnet
+
+## BATCH DEPLOYMENT
+You can deploy to all networks at once:
+
+# Deploy to all testnets
+npm run deploy:all:testnet
+
+# Deploy to all mainnets (CAUTION: Only when fully tested)
+npm run deploy:all:mainnet
+
+## CONTRACT VERIFICATION
+After deployment, verify your contracts on block explorers:
+
+# Verify all contracts across networks
+npm run verify:contracts:all
+
+# Or verify on specific networks
+npm run verify:contracts:ethereum
+npm run verify:contracts:polygon
+npm run verify:contracts:bsc
+
+## FUTURE CHAIN INTEGRATION (Requires additional implementation)
+The following chains require additional implementation steps:
+
+# Bitcoin (via RSK) - Follow instructions in bitcoin-integration.md first
+npm run deploy:bitcoin:testnet    # Deploy to RSK Testnet (Bitcoin)
+npm run deploy:bitcoin:mainnet    # Deploy to RSK Mainnet (Bitcoin)
+
+# Solana & TON - Follow instructions in phase2-networks.md first
+# These implementations will be available in Phase 2
+
+## MONITORING DEPLOYMENT
+To monitor your deployment process and check logs:
+tail -f deployment-logs.log       # View deployment logs in real-time

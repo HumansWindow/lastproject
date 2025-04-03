@@ -1,0 +1,42 @@
+{
+  "SHAHICoin": {
+    "ethereum": {
+      "mainnet": "",
+      "testnet": {
+        "goerli": ""
+      }
+    },
+    "polygon": {
+      "mainnet": "",
+      "testnet": {
+        "mumbai": "0x742d35Cc6634C0532925a3b844Bc454e4438f44e"
+      }
+    },
+    "bnbChain": {
+      "mainnet": "",
+      "testnet": ""
+    },
+    "bitcoin": {
+      "mainnet": "",
+      "testnet": ""
+    },
+    "deploymentDates": {
+      "ethereum": {
+        "mainnet": "",
+        "goerli": ""
+      },
+      "polygon": {
+        "mainnet": "",
+        "mumbai": "2025-04-03T12:31:18.659Z"
+      },
+      "bnbChain": {
+        "mainnet": "",
+        "testnet": ""
+      },
+      "bitcoin": {
+        "mainnet": "",
+        "testnet": ""
+      }
+    }
+  }
+}

@@ -1,0 +1,32 @@
+{
+  "network": "Polygon Mumbai Testnet",
+  "chainId": 80001,
+  "contractName": "SHAHICoin",
+  "contractVersion": "V1",
+  "proxyPattern": "UUPS (EIP-1822)",
+  "initialSupply": "10000000",
+  "adminWallet": "0xD2D53A3E16cf5dd2634Dd376bDc7CE81bD0F76Ff",
+  "deploymentSteps": [
+    {
+      "step": 1,
+      "description": "Deploy implementation contract",
+      "estimatedGas": "3,500,000"
+    },
+    {
+      "step": 2,
+      "description": "Deploy proxy contract pointing to implementation",
+      "estimatedGas": "1,200,000"
+    },
+    {
+      "step": 3,
+      "description": "Initialize proxy with initial parameters",
+      "estimatedGas": "800,000"
+    }
+  ],
+  "addresses": {
+    "implementation": "0x3F2e74D22D5AFd88726C4BDB3246E8A14a23F885",
+    "proxy": "0x742d35Cc6634C0532925a3b844Bc454e4438f44e"
+  },
+  "timestamp": "2025-04-03T12:31:18.658Z",
+  "status": "simulated"
+}

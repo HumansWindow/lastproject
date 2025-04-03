@@ -1,23 +1,47 @@
 {
   "name": "shahi-blockchain-contracts",
   "version": "1.0.0",
-  "description": "Smart contracts for SHAHI platform",
+  "description": "SHAHI Coin smart contracts for multi-chain deployment",
   "main": "index.js",
   "scripts": {
     "compile": "hardhat compile",
     "test": "hardhat test",
-    "deploy": "hardhat run scripts/deploy.js --network localhost"
+    "deploy:polygon:testnet": "hardhat run deploy/deploy-polygon.js --network mumbai",
+    "deploy:polygon:mainnet": "hardhat run deploy/deploy-polygon.js --network polygon",
+    "deploy:ethereum:testnet": "hardhat run deploy/deploy-ethereum.js --network goerli",
+    "deploy:ethereum:mainnet": "hardhat run deploy/deploy-ethereum.js --network mainnet",
+    "deploy:bsc:testnet": "hardhat run deploy/deploy-bsc.js --network bscTestnet",
+    "deploy:bsc:mainnet": "hardhat run deploy/deploy-bsc.js --network bsc",
+    "deploy:all:testnet": "node deploy/deploy-all.js test",
+    "deploy:all:mainnet": "node deploy/deploy-all.js main"
   },
+  "keywords": [
+    "blockchain",
+    "ethereum",
+    "polygon",
+    "bnb-chain",
+    "smart-contract",
+    "erc20",
+    "token"
+  ],
+  "author": "AliveHuman Team",
+  "license": "MIT",
   "dependencies": {
     "@openzeppelin/contracts": "^4.8.0",
-    "hardhat": "^2.12.0"
+    "@openzeppelin/contracts-upgradeable": "^4.8.0"
   },
   "devDependencies": {
-    "@nomiclabs/hardhat-ethers": "^2.2.1",
-    "@nomiclabs/hardhat-waffle": "^2.0.3",
+    "@nomicfoundation/hardhat-ethers": "^3.0.8",
+    "@nomicfoundation/hardhat-verify": "^2.0.13",
+    "@nomiclabs/hardhat-ethers": "^2.2.3",
+    "@nomiclabs/hardhat-etherscan": "^3.1.8",
+    "@nomiclabs/hardhat-waffle": "^2.0.6",
+    "@openzeppelin/hardhat-upgrades": "^3.9.0",
     "chai": "^4.3.7",
+    "dotenv": "^16.4.7",
     "ethereum-waffle": "^3.4.4",
     "ethers": "^5.7.2",
-    "hardhat-gas-reporter": "^1.0.9"
+    "hardhat": "^2.14.0",
+    "hardhat-gas-reporter": "^1.0.10"
   }
 }
