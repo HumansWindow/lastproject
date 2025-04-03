@@ -7,6 +7,7 @@ interface User {
   email: string;
   firstName?: string;
   lastName?: string;
+  walletAddress?: string;  // Added this property to fix the TypeScript error
 }
 
 interface AuthContextType {

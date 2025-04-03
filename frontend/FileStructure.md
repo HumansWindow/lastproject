@@ -23,12 +23,14 @@ npm run dev
 - **`tsconfig.json`** - TypeScript configuration with path aliases and compiler options
 - **`tailwind.config.js`** - Tailwind CSS configuration for styling
 - **`postcss.config.js`** - PostCSS configuration for processing CSS
+- **`.vscode/settings.json`** - VS Code settings for proper linting and Tailwind CSS integration
 
 ## Core Application Files
 
-- **`src/pages/_app.tsx`** - Main application wrapper with context providers for auth and wallet
+- **`src/pages/_app.tsx`** - Main application wrapper with context providers for auth, wallet, and theme
 - **`src/pages/index.tsx`** - Homepage component with internationalization support
 - **`src/pages/login.tsx`** - Login page supporting both email and wallet authentication
+- **`src/pages/bootstrap-demo.tsx`** - Demo page showcasing Bootstrap components with theme support
 
 ## Context Providers
 
@@ -38,8 +40,9 @@ npm run dev
 ## Layout and UI Components
 
 - **`src/components/layout/Layout.tsx`** - Main layout wrapper with navigation and footer
-- **`src/components/layout/Navbar.tsx`** - Navigation bar with authentication status and links
+- **`src/components/layout/Navbar.tsx`** - Navigation bar with authentication status, links and theme toggle
 - **`src/components/layout/Footer.tsx`** - Application footer with links and copyright info
+- **`src/components/ThemeToggle.tsx`** - Component for switching between light and dark themes
 
 ## API and Services
 
@@ -58,7 +61,7 @@ npm run dev
 
 ## Styling
 
-- **`src/styles/globals.css`** - Global CSS with Tailwind imports and custom variables
+- **`src/styles/globals.css`** - Global CSS with Tailwind imports, Bootstrap overrides, and theme variables for light/dark modes
 
 ## Main Functionality
 
@@ -87,15 +90,37 @@ The application provides:
    - Locale-specific formatting
 
 4. **Responsive UI**
-   - Mobile-friendly design using Tailwind CSS
+   - Mobile-friendly design using Tailwind CSS and Bootstrap
    - Consistent layout across pages
    - Modern web styling with gradients and proper spacing
+   - Dark/light theme support with system preference detection
 
 5. **API Communication**
    - Secure communication with backend services
    - Token-based authentication
    - Automatic token refresh on expiration
    - Type-safe API responses
+
+6. **Theme System**
+   - Supports dark and light mode themes
+   - User preference is stored and persisted
+   - Seamless switching between themes with smooth transitions
+   - Bootstrap components styled to match the current theme
+   - Toggle component in the navigation bar for easy access
+
+## UI Framework and Components
+
+The application uses a combination of:
+
+1. **Tailwind CSS** - For utility-based styling and responsive design
+2. **Bootstrap 5** - For pre-built components and layout system
+3. **React-Bootstrap** - React components implementing Bootstrap functionality
+
+These frameworks work together to provide:
+- Responsive grid system
+- Pre-styled UI components (cards, buttons, forms)
+- Consistent theme variables across both frameworks
+- Accessibility features built-in to components
 
 ## Wallet Authentication Flow
 

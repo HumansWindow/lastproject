@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { useTranslation } from 'next-i18next';
 import { useAuth } from '@/contexts/auth';
 import { WalletConnectButton } from '../WalletConnectButton';
+import ThemeToggle from '../ThemeToggle';
 
 const Navbar: React.FC = () => {
   const { t } = useTranslation('common');
@@ -45,6 +46,11 @@ const Navbar: React.FC = () => {
               </Link>
             </>
           )}
+          
+          {/* Theme Toggle Button */}
+          <div className="ml-2">
+            <ThemeToggle />
+          </div>
           
           {/* Wallet Connect Button */}
           <WalletConnectButton className="ml-4" />

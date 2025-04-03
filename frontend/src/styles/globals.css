@@ -1,11 +1,28 @@
+/* tailwind directives - keep these comments to prevent linting errors */
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-:root {
+/* Light theme variables */
+[data-bs-theme="light"] {
   --foreground-rgb: 0, 0, 0;
   --background-start-rgb: 214, 219, 220;
   --background-end-rgb: 255, 255, 255;
+  
+  /* Bootstrap override variables for light theme */
+  --bs-body-color: #212529;
+  --bs-body-bg: #ffffff;
+}
+
+/* Dark theme variables */
+[data-bs-theme="dark"] {
+  --foreground-rgb: 255, 255, 255;
+  --background-start-rgb: 36, 36, 36;
+  --background-end-rgb: 0, 0, 0;
+  
+  /* Bootstrap override variables for dark theme */
+  --bs-body-color: #f8f9fa;
+  --bs-body-bg: #212529;
 }
 
 body {
@@ -16,6 +33,7 @@ body {
       rgb(var(--background-end-rgb))
     )
     rgb(var(--background-start-rgb));
+  transition: background-color 0.3s ease, color 0.3s ease;
 }
 
 .container {
@@ -23,6 +41,12 @@ body {
   max-width: 1200px;
   margin-left: auto;
   margin-right: auto;
+  padding-left: 1rem;
+  padding-right: 1rem;
+}
+
+/* Override Bootstrap container to match your existing styles */
+.container-fluid {
   padding-left: 1rem;
   padding-right: 1rem;
 }

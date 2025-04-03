@@ -28,6 +28,7 @@ build/
 .nuxt
 **/build
 **/.next
+frontend/.next
 **/.nuxt
 
 # Logs
