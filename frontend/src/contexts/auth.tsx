@@ -18,6 +18,7 @@ interface AuthContextType {
   register: (email: string, password: string, referralCode?: string) => Promise<void>;
   logout: () => void;
   error: string | null;
+  setUserFromWalletAuth: (userData: User) => void; // Export this method
 }
 
 const AuthContext = createContext<AuthContextType>({
@@ -27,7 +28,8 @@ const AuthContext = createContext<AuthContextType>({
   login: async () => {},
   register: async () => {},
   logout: () => {},
-  error: null
+  error: null,
+  setUserFromWalletAuth: () => {} // Add default implementation
 });
 
 export const useAuth = () => useContext(AuthContext);
@@ -113,7 +115,8 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
       login,
       register,
       logout,
-      error
+      error,
+      setUserFromWalletAuth // Export the method in the provider
     }}>
       {children}
     </AuthContext.Provider>

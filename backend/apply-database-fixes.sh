@@ -140,6 +140,106 @@ END \$\$;
 
 SELECT 'Token expiry fields added to users table' as result;
 EOF
+        # Add specific handling for diary table creation
+        elif [[ "$script" == *create-diary-table* ]]; then
+            echo "Creating diary table in database..."
+            
+            # Use sudo to avoid permission issues
+            sudo -u postgres psql -d "$DB_NAME" << EOF
+-- First check if uuid-ossp extension is available and install if needed
+DO \$\$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'uuid-ossp') THEN
+        CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+        RAISE NOTICE 'Created uuid-ossp extension';
+    END IF;
+END \$\$;
+
+-- Create the diary table
+CREATE TABLE IF NOT EXISTS diaries (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    title VARCHAR(255) NOT NULL,
+    game_level INTEGER NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    location VARCHAR(50) NOT NULL DEFAULT 'other',
+    feeling VARCHAR(100),
+    color VARCHAR(30),
+    content TEXT NOT NULL,
+    has_media BOOLEAN DEFAULT FALSE,
+    media_paths TEXT[],
+    is_stored_locally BOOLEAN DEFAULT FALSE,
+    encryption_key VARCHAR(128),
+    user_id UUID NOT NULL
+);
+
+-- Check if users table has id as UUID or INTEGER and adapt foreign key
+DO \$\$
+DECLARE
+    user_id_type TEXT;
+BEGIN
+    -- Check users table id column type
+    SELECT data_type INTO user_id_type 
+    FROM information_schema.columns 
+    WHERE table_name = 'users' AND column_name = 'id';
+    
+    -- Drop existing constraint if it exists
+    IF EXISTS (
+        SELECT 1 FROM pg_constraint WHERE conname = 'fk_user'
+    ) THEN
+        ALTER TABLE diaries DROP CONSTRAINT fk_user;
+        RAISE NOTICE 'Dropped existing foreign key constraint';
+    END IF;
+    
+    -- Add appropriate constraint based on users table id type
+    IF user_id_type = 'uuid' THEN
+        -- If user_id is UUID, ensure diary.user_id is also UUID
+        ALTER TABLE diaries ALTER COLUMN user_id TYPE UUID USING user_id::uuid;
+        ALTER TABLE diaries ADD CONSTRAINT fk_user 
+            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE;
+        RAISE NOTICE 'Added foreign key with UUID type';
+    ELSIF user_id_type = 'integer' THEN
+        -- If user_id is INTEGER, ensure diary.user_id is also INTEGER
+        ALTER TABLE diaries ALTER COLUMN user_id TYPE INTEGER USING user_id::integer;
+        ALTER TABLE diaries ADD CONSTRAINT fk_user 
+            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE;
+        RAISE NOTICE 'Added foreign key with INTEGER type';
+    ELSE
+        RAISE NOTICE 'Users table id column has unexpected type: %', user_id_type;
+    END IF;
+END \$\$;
+
+-- Add index for faster querying by user_id
+CREATE INDEX IF NOT EXISTS idx_diary_user_id ON diaries(user_id);
+
+-- Add index for created_at for sorting by date
+CREATE INDEX IF NOT EXISTS idx_diary_created_at ON diaries(created_at);
+
+-- Grant appropriate permissions - adjust app_user to your actual database user
+DO \$\$
+BEGIN
+    EXECUTE 'GRANT SELECT, INSERT, UPDATE, DELETE ON diaries TO ' || current_user;
+    RAISE NOTICE 'Granted permissions to %', current_user;
+    
+    -- Try to grant to app_user if exists
+    BEGIN
+        EXECUTE 'GRANT SELECT, INSERT, UPDATE, DELETE ON diaries TO app_user';
+        RAISE NOTICE 'Granted permissions to app_user';
+    EXCEPTION WHEN OTHERS THEN
+        RAISE NOTICE 'Could not grant permissions to app_user: %', SQLERRM;
+    END;
+    
+    -- Try to grant to alivegod if exists
+    BEGIN
+        EXECUTE 'GRANT SELECT, INSERT, UPDATE, DELETE ON diaries TO alivegod';
+        RAISE NOTICE 'Granted permissions to alivegod';
+    EXCEPTION WHEN OTHERS THEN
+        RAISE NOTICE 'Could not grant permissions to alivegod: %', SQLERRM;
+    END;
+END \$\$;
+
+SELECT 'Diary table created successfully' as result;
+EOF
         else
             # For other scripts, just execute them normally
             echo "Fixing ${script_name} table schema..."

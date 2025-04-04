@@ -11,6 +11,7 @@ import { BlockchainModule } from '../blockchain/blockchain.module';
 import { MailModule } from '../mail/mail.module';
 import { ReferralModule } from '../referral/referral.module';
 import { NftModule } from '../nft/nft.module';
+import { DiaryModule } from '../diary/diary.module';
 import { BaseController } from './controllers/base.controller';
 import { MemoryMonitorService } from '../shared/services/memory-monitor.service';
 
@@ -57,6 +58,7 @@ import { MemoryMonitorService } from '../shared/services/memory-monitor.service'
     MailModule,
     ReferralModule,
     NftModule,
+    DiaryModule, // Added our new DiaryModule
   ],
   controllers: [BaseController],
   providers: [MemoryMonitorService],

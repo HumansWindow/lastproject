@@ -50,14 +50,47 @@ npm run dev
 - **`src/services/wallet-auth.service.ts`** - Wallet authentication service implementing two-step authentication flow:
   - Step 1: Connect wallet and get a challenge from the backend
   - Step 2: Sign the challenge and submit for verification
+- **`src/services/diary.service.ts`** - Diary service for managing personal diary entries:
+  - Create, read, update, and delete diary entries
+  - Filtering diary entries by location and game level
+  - Support for multimedia attachments
+
+## Diary System
+
+- **`src/pages/diary/index.tsx`** - Main diary listing page showing all user diary entries
+- **`src/pages/diary/create.tsx`** - Page for creating new diary entries with rich text editor
+- **`src/pages/diary/[id].tsx`** - Detailed view of a single diary entry
+- **`src/pages/diary/edit/[id].tsx`** - Edit page for updating existing diary entries
+- **`src/components/diary/DiaryCard.tsx`** - Component for displaying diary entry summaries in a grid
+- **`src/components/diary/DiaryForm.tsx`** - Reusable form component for creating and editing diary entries
+- **`src/types/diary.ts`** - TypeScript interfaces for diary data structure
+
+### Diary Features
+
+The diary system provides users with:
+1. **Personal Journal** - Users can maintain a private digital journal
+2. **Rich Content** - Support for formatted text with React-Quill
+3. **Emotion Tracking** - Record feelings and moods with each entry
+4. **Location Tagging** - Tag entries with in-game locations
+5. **Game Progress** - Track game level for each diary entry
+6. **Color Coding** - Customize entry appearance with colors
+7. **Media Support** - Attach audio and video recordings to entries
+8. **Filtering** - Filter entries by location and game level
+9. **Responsive Layout** - Grid-based diary view that adapts to different screen sizes
+10. **Secure Storage** - Entries are securely stored and accessible only to the user
 
 ## TypeScript Definitions
 
 - **`src/types/user.ts`** - TypeScript interfaces for user data structure
+- **`src/types/diary.ts`** - TypeScript interfaces for diary data including:
+  - Diary entry structure with title, content, location, and feeling
+  - Location enum for categorizing entries
+  - Feeling options for emotional tracking
+  - Media attachment interfaces
 
 ## Internationalization
 
-- **`public/locales/en/common.json`** - English translations for the application
+- **`public/locales/en/common.json`** - English translations for the application, including new diary-related terms
 
 ## Styling
 
@@ -107,6 +140,16 @@ The application provides:
    - Seamless switching between themes with smooth transitions
    - Bootstrap components styled to match the current theme
    - Toggle component in the navigation bar for easy access
+
+7. **Personal Diary System**
+   - Create and manage personal diary entries tied to user accounts
+   - Rich text formatting with React-Quill editor
+   - Media attachments with audio and video recording
+   - Color-coded entries for visual organization
+   - Location and feeling tagging for contextual information
+   - Game progress tracking with level indicators
+   - Grid-based diary view with responsive layout
+   - Filtering capabilities for organizing entries
 
 ## UI Framework and Components
 

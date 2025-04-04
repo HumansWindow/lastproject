@@ -12,19 +12,22 @@ const Navbar: React.FC = () => {
   return (
     <nav className="bg-gradient-to-r from-blue-600 to-purple-600 text-white p-4">
       <div className="container mx-auto flex justify-between items-center">
-        <Link href="/">
-          <span className="text-xl font-bold">AliveHuman</span>
+        <Link href="/" className="text-xl font-bold">
+          AliveHuman
         </Link>
         
         <div className="flex items-center space-x-4">
-          <Link href="/">
-            <span className="hover:text-blue-200">{t('home')}</span>
+          <Link href="/" className="hover:text-blue-200">
+            {t('home')}
           </Link>
           
           {isAuthenticated ? (
             <>
-              <Link href="/dashboard">
-                <span className="hover:text-blue-200">{t('dashboard')}</span>
+              <Link href="/dashboard" className="hover:text-blue-200">
+                {t('dashboard')}
+              </Link>
+              <Link href="/diary" className="hover:text-blue-200">
+                {t('diary')}
               </Link>
               <button 
                 onClick={logout}
@@ -36,13 +39,11 @@ const Navbar: React.FC = () => {
             </>
           ) : (
             <>
-              <Link href="/login">
-                <span className="hover:text-blue-200">{t('login')}</span>
+              <Link href="/login" className="hover:text-blue-200">
+                {t('login')}
               </Link>
-              <Link href="/register">
-                <span className="bg-white text-blue-600 px-4 py-2 rounded hover:bg-blue-100">
-                  {t('register')}
-                </span>
+              <Link href="/register" className="bg-white text-blue-600 px-4 py-2 rounded hover:bg-blue-100">
+                {t('register')}
               </Link>
             </>
           )}

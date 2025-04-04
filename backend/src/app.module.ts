@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { DebugLogger } from './shared/utils/debug-logger.util';
+import { DiaryModule } from './diary/diary.module';
 // ...other imports
 
 @Module({
@@ -9,6 +10,21 @@ import { DebugLogger } from './shared/utils/debug-logger.util';
     ConfigModule.forRoot({
       isGlobal: true,
     }),
+    TypeOrmModule.forRootAsync({
+      imports: [ConfigModule],
+      inject: [ConfigService],
+      useFactory: (configService: ConfigService) => ({
+        type: 'postgres',
+        host: configService.get('DB_HOST', 'localhost'),
+        port: configService.get('DB_PORT', 5432),
+        username: configService.get('DB_USERNAME', 'Aliveadmin'),
+        password: configService.get('DB_PASSWORD', 'password'),
+        database: configService.get('DB_DATABASE', 'Alive-Db'),
+        entities: [__dirname + '/**/*.entity{.ts,.js}'],
+        synchronize: configService.get('DB_SYNCHRONIZE', false),
+      }),
+    }),
+    DiaryModule,
     // ...other imports
   ],
   providers: [

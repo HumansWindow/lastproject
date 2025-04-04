@@ -1,5 +1,7 @@
 import React, { createContext, useState, useContext, useEffect, useRef, ReactNode } from 'react';
+import { ethers } from 'ethers';
 import { walletAuthService } from '../services/wallet-auth.service';
+import { useAuth } from './auth'; // Import the auth context
 
 interface WalletContextType {
   address: string | null;
@@ -26,6 +28,9 @@ export const WalletProvider: React.FC<{children: ReactNode}> = ({ children }) =>
   const [isConnecting, setIsConnecting] = useState<boolean>(false);
   const [isConnected, setIsConnected] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+  
+  // Use the auth context to update user state when wallet connects
+  const { setUserFromWalletAuth } = useAuth();
   
   // Use refs to store cleanup functions
   const accountsCleanupRef = useRef<() => void>(() => {});
@@ -96,6 +101,11 @@ export const WalletProvider: React.FC<{children: ReactNode}> = ({ children }) =>
       const result = await walletAuthService.authenticate(email);
       setAddress(result.wallet || await walletAuthService.getCurrentAddress());
       setIsConnected(true);
+      
+      // Update the auth context with the user data from wallet authentication
+      if (result.user) {
+        setUserFromWalletAuth(result.user);
+      }
     } catch (error: any) {
       console.error('Wallet connection error:', error);
       

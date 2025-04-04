@@ -43,6 +43,16 @@ backend/
 │   │   │   ├── merkle.service.ts      # Merkle tree service
 │   │   │   └── minting.service.ts     # Token minting service
 │   │   └── tasks/             # Scheduled tasks for blockchain operations
+│   ├── diary/                 # User diary module
+│   │   ├── diary.module.ts    # Diary module configuration
+│   │   ├── controllers/       # Diary REST API controllers
+│   │   │   └── diary.controller.ts # Main diary controller with CRUD operations
+│   │   ├── dto/               # Data transfer objects for diary operations
+│   │   │   └── diary.dto.ts   # DTOs for create, update, and response
+│   │   ├── entities/          # Database entities for the diary system
+│   │   │   └── diary.entity.ts # Diary entity with user relationship
+│   │   └── services/          # Business logic for diary operations
+│   │       └── diary.service.ts # Core diary service implementation
 │   ├── mail/                  # Email service module
 │   │   ├── mail.module.ts     # Mail module configuration
 │   │   ├── mail.service.ts    # Email sending service
@@ -249,6 +259,122 @@ The SHAHI Coin system is an ERC-20 token implementation with unique features des
    - Daily scheduled task checks and burns expired tokens
    - Maintains healthy token economics and circulation
    - Encourages active participation in the ecosystem
+
+## Diary System
+
+### System Overview
+
+The Diary system provides authenticated users with a personal journal feature integrated with the AliveHuman platform:
+
+- **User-specific diary entries**: Each diary entry is linked to a specific user
+- **Location tagging**: Entries can be tagged with specific in-game locations
+- **Emotion tracking**: Users can record their feelings with each entry
+- **Game progress**: Track game level at the time of entry creation
+- **Rich content**: Support for HTML formatted content
+- **Media attachments**: Optional support for audio and video recordings
+- **Custom appearance**: Color coding for visual organization
+
+### Entity Models
+
+1. **`/backend/src/diary/entities/diary.entity.ts`**
+   - Core entity model for diary entries with the following fields:
+     - `id`: Unique UUID identifier for each diary entry
+     - `title`: The title of the diary entry
+     - `content`: HTML content with rich text formatting
+     - `createdAt`: Timestamp when the entry was created
+     - `updatedAt`: Timestamp when the entry was last updated
+     - `userId`: Foreign key linking to the user who created the entry
+     - `user`: Relationship to the User entity
+     - `location`: Enum value representing an in-game location
+     - `feeling`: String representing user's emotional state
+     - `gameLevel`: Numeric field for tracking in-game progress
+     - `color`: Hex color code for visual customization
+     - `hasMedia`: Boolean flag indicating if media is attached
+     - `isStoredLocally`: Indicates if media is stored on the client or server
+   - Implements cascade deletion when a user is removed
+   - Uses TypeORM decorators for database schema definition
+   - Contains enum definition for predefined location values
+
+### Data Transfer Objects
+
+1. **`/backend/src/diary/dto/diary.dto.ts`**
+   - Defines structured data objects for diary operations:
+     - `CreateDiaryDto`: Validation rules for creating new diary entries
+     - `UpdateDiaryDto`: Partial DTO for updating existing entries
+     - `DiaryResponseDto`: Standardized response format for diary data
+   - Implements class-validator decorations for automatic input validation
+   - Uses Swagger decorators for API documentation
+   - Includes proper typing for nested objects and optional fields
+
+### Service Implementation
+
+1. **`/backend/src/diary/services/diary.service.ts`**
+   - Core service that implements diary business logic:
+     - `create(userId, createDiaryDto)`: Creates new diary entries
+     - `findAll(userId)`: Returns all diary entries for a specific user
+     - `findOne(id, userId)`: Gets a specific diary entry by ID
+     - `update(id, userId, updateDiaryDto)`: Updates an existing entry
+     - `remove(id, userId)`: Deletes a diary entry
+     - `addDiaryLocation(name)`: Admin-only method to add new locations
+   - Implements proper error handling with HTTP exceptions
+   - Enforces ownership validation on all operations
+   - Uses TypeORM repository for data access
+   - Provides transaction support for complex operations
+   - Implements security checks to prevent unauthorized access
+
+### Controller and API Endpoints
+
+1. **`/backend/src/diary/controllers/diary.controller.ts`**
+   - RESTful API controller with the following endpoints:
+     - `POST /diary`: Create a new diary entry
+     - `GET /diary`: Get all diary entries for the current user
+     - `GET /diary/:id`: Get a specific diary entry by ID
+     - `PUT /diary/:id`: Update a diary entry
+     - `DELETE /diary/:id`: Delete a diary entry
+     - `POST /diary/locations/add`: Admin endpoint to add new locations
+     - `GET /diary/locations/list`: Get all available diary locations
+   - Uses JWT authentication guard to protect all endpoints
+   - Implements proper request validation
+   - Returns standardized response objects
+   - Includes comprehensive Swagger API documentation
+   - Extracts user ID from JWT token for ownership validation
+
+### Module Configuration
+
+1. **`/backend/src/diary/diary.module.ts`**
+   - NestJS module that configures the diary system:
+     - Imports TypeORM features for the Diary entity
+     - Registers DiaryController and DiaryService
+     - Exports DiaryService for use in other modules
+   - Sets up dependency injection for required services
+   - Configures repository for database operations
+
+### Database Migration
+
+1. **`/backend/create-diary-table.sql`**
+   - SQL migration script for creating the diary table:
+     - Defines table schema with all required columns
+     - Sets up foreign key relationship to the users table
+     - Adds appropriate indexes for query optimization
+     - Creates constraints for data integrity
+
+### Security Considerations
+
+1. **User Ownership**
+   - Each diary entry is linked to a specific user through the `userId` field
+   - All service methods verify that the current user is the owner of the entry
+   - Unauthorized access attempts are prevented with authentication guards
+   - Proper error handling prevents information disclosure
+
+2. **Media Security**
+   - Option for client-side only storage of sensitive media
+   - Encrypted storage for server-side media
+   - User-controlled media attachment settings
+
+3. **Input Validation**
+   - Comprehensive validation for all input fields
+   - HTML sanitization to prevent XSS attacks
+   - Size limits on content fields to prevent abuse
 
 ## Security Architecture
 
@@ -1078,6 +1204,19 @@ The project uses TypeScript throughout for type safety and follows a modular arc
 - Support for account and network change events
 - Debug utilities for troubleshooting authentication issues
 - Database schema support for wallet-only users
+
+✅ **Diary System**
+- Complete implementation of diary entity and relationships
+- Full CRUD operations for diary entries
+- User-specific diary entry management
+- Location tracking with enum support
+- Emotion and game progress tracking
+- JWT authentication integration for all endpoints
+- Comprehensive Swagger API documentation
+- Input validation with class-validator
+- Ownership verification for secure access
+- Media attachment management
+- Comprehensive test coverage with isolated tests
 
 ◔ **API Documentation**
 - Partially completed with `@ApiTags`, `@ApiOperation`, `@ApiResponse`, and `@ApiBody` decorators

@@ -45,5 +45,6 @@
   "last_name": "Last Name",
   "referral_code": "Referral Code (optional)",
   "submit": "Submit",
-  "cancel": "Cancel"
+  "cancel": "Cancel",
+  "diary": "Diary"
 }

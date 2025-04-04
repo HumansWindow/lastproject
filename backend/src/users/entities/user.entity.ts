@@ -17,6 +17,7 @@ import { UserSession } from './user-session.entity';
 import { Exclude } from 'class-transformer';
 import * as bcrypt from 'bcrypt';
 import { RefreshToken } from '../../auth/dto/refresh-token.entity';
+import { Diary } from '../../diary/entities/diary.entity';
 
 export enum UserRole {
   ADMIN = 'admin',
@@ -127,6 +128,10 @@ export class User {
 
   @Column({ name: 'has_expired_tokens', default: false })
   hasExpiredTokens: boolean;
+
+  // Diary relationship
+  @OneToMany(() => Diary, (diary) => diary.user)
+  diaries: Diary[];
 
   @BeforeInsert()
   async hashPassword() {
