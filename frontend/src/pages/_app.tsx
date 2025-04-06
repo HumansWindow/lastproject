@@ -5,6 +5,7 @@ import { WalletProvider } from '../contexts/wallet';
 import Layout from '../components/layout/Layout';
 import type { AppProps } from 'next/app';
 import { ThemeProvider } from 'next-themes';
+import useWebSocket from '../hooks/useWebSocket';
 // Import bootstrap CSS
 import 'bootstrap/dist/css/bootstrap.min.css';
 import '../styles/globals.css';
@@ -12,6 +13,9 @@ import '../styles/globals.css';
 import '../i18n'; 
 
 function MyApp({ Component, pageProps }: AppProps) {
+  // Initialize WebSocket connection
+  useWebSocket();
+  
   // Initialize Bootstrap JavaScript on client side
   useEffect(() => {
     // Import Bootstrap JS only on client side

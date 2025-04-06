@@ -1,9 +1,9 @@
 import { WebSocketManager, ConnectionStatus } from '../websocket-manager';
 
 /**
- * WebSocket URL - replace with actual WebSocket server URL
+ * WebSocket URL - Using Next.js environment variables
  */
-const WS_URL = process.env.REACT_APP_WS_URL || 'wss://api.example.com';
+const WS_URL = process.env.NEXT_PUBLIC_WS_URL || 'ws://localhost:3001';
 
 /**
  * Event interface for balance updates

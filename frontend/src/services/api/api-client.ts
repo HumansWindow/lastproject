@@ -1,9 +1,9 @@
 import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse, InternalAxiosRequestConfig } from 'axios';
 
 /**
- * Base URL for API calls - replace with actual API URL
+ * Base URL for API calls - Using Next.js environment variables
  */
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'https://api.example.com';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
 /**
  * Configuration for API client
