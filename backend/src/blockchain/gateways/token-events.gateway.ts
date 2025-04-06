@@ -2,13 +2,13 @@ import { WebSocketGateway, WebSocketServer } from '@nestjs/websockets';
 import { OnEvent } from '@nestjs/event-emitter';
 import { Server } from 'socket.io';
 import { UseGuards } from '@nestjs/common';
-import { WsAuthGuard } from '../../auth/guards/ws-auth.guard';
+import { WsJwtAuthGuard } from '../../auth/guards/ws-auth.guard';
 
 @WebSocketGateway({
   cors: true,
   namespace: 'token-events',
 })
-@UseGuards(WsAuthGuard)
+@UseGuards(WsJwtAuthGuard)
 export class TokenEventsGateway {
   @WebSocketServer()
   server: Server;

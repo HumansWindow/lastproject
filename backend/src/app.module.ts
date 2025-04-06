@@ -3,6 +3,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { DebugLogger } from './shared/utils/debug-logger.util';
 import { DiaryModule } from './diary/diary.module';
+import { BatchModule } from './batch/batch.module';
 // ...other imports
 
 @Module({
@@ -24,6 +25,7 @@ import { DiaryModule } from './diary/diary.module';
         synchronize: configService.get('DB_SYNCHRONIZE', false),
       }),
     }),
+    BatchModule,
     DiaryModule,
     // ...other imports
   ],

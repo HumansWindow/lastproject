@@ -3,8 +3,8 @@ import { ChainHandlers, ChainConfig } from './handlers/ChainHandlers';
 import BalanceService from './services/BalanceService';
 import GasService from './services/GasService';
 import { NFTService, NFTMetadata } from './services/NFTService';
-import TransactionHistoryService from './services/TransactionHistoryService';
-import MonitoringService from './services/MonitoringService';
+import { TransactionHistoryService } from './services/TransactionHistoryService';
+import { MonitoringService } from './services/MonitoringService';
 import { HotWalletError, TransactionError, InsufficientBalanceError, SimulationError } from './utils/errors';
 import { ethers } from 'ethers';
 import EventEmitter from 'events';
@@ -247,7 +247,17 @@ class HotWallet {
     }
 
     try {
-      this.historyService = new TransactionHistoryService(this.chainHandlers);
+      this.historyService = new TransactionHistoryService({
+        etherscan: { 
+          apiKey: this.config.etherscanApiKey || process.env.ETHERSCAN_API_KEY
+        },
+        covalent: {
+          apiKey: this.config.covalentApiKey || process.env.COVALENT_API_KEY
+        },
+        alchemy: {
+          apiKey: this.config.alchemyApiKey || process.env.ALCHEMY_API_KEY
+        }
+      });
     } catch (error) {
       console.error('Failed to initialize TransactionHistoryService:', error);
       // Create minimal implementation
@@ -255,19 +265,13 @@ class HotWallet {
     }
 
     try {
-      this.monitoringService = new MonitoringService(this.chainHandlers);
+      this.monitoringService = new MonitoringService();
       // Set up monitoring event handlers
       this._setupMonitoringEvents();
     } catch (error) {
       console.error('Failed to initialize MonitoringService:', error);
       // Create minimal implementation with EventEmitter capabilities
-      this.monitoringService = new EventEmitter() as MonitoringService;
-      this.monitoringService.on = this._eventEmitter.on.bind(this._eventEmitter);
-      this.monitoringService.off = this._eventEmitter.off.bind(this._eventEmitter);
-      this.monitoringService.monitorAddress = () => true;
-      this.monitoringService.stopMonitoring = () => true;
-      this.monitoringService.monitorNFTTransfers = () => true;
-      this.monitoringService.stopMonitoringNFTs = () => true;
+      this.monitoringService = new MonitoringService();
     }
 
     // Initialize provider for backward compatibility - avoid WebSocket in tests
@@ -521,7 +525,7 @@ class HotWallet {
    * @returns {Promise<Array>} Transaction history
    */
   async getTransactionHistory(network: string, address: string, options: any = {}): Promise<any[]> {
-    return this.historyService.getTransactionHistory(network, address, options);
+    return this.historyService.getTransactionHistory(parseInt(network), address, options);
   }
 
   /**
@@ -539,9 +543,9 @@ class HotWallet {
    * @param {string} network - Network identifier
    * @param {string} address - Address to monitor
    * @param {Object} options - Monitoring options
-   * @returns {boolean} Whether monitoring was started
+   * @returns {Promise<void>} Whether monitoring was started
    */
-  monitorAddress(network: string, address: string, options: any = {}): boolean {
+  monitorAddress(network: string, address: string, options: any = {}): Promise<void> {
     return this.monitoringService.monitorAddress(network, address, options);
   }
 
@@ -549,9 +553,9 @@ class HotWallet {
    * Stop monitoring an address
    * @param {string} network - Network identifier
    * @param {string} address - Address to stop monitoring
-   * @returns {boolean} Whether monitoring was stopped
+   * @returns {Promise<void>} Whether monitoring was stopped
    */
-  stopMonitoring(network: string, address: string): boolean {
+  stopMonitoring(network: string, address: string): Promise<void> {
     return this.monitoringService.stopMonitoring(network, address);
   }
 
@@ -560,9 +564,9 @@ class HotWallet {
    * @param {string} network - Network identifier
    * @param {string} address - Address to monitor
    * @param {Object} options - Monitoring options
-   * @returns {boolean} Whether monitoring was started
+   * @returns {Promise<void>} Whether monitoring was started
    */
-  monitorNFTTransfers(network: string, address: string, options: any = {}): boolean {
+  monitorNFTTransfers(network: string, address: string, options: any = {}): Promise<void> {
     return this.monitoringService.monitorNFTTransfers(network, address, options);
   }
 
@@ -570,9 +574,9 @@ class HotWallet {
    * Stop monitoring NFT transfers for an address
    * @param {string} network - Network identifier
    * @param {string} address - Address to stop monitoring
-   * @returns {boolean} Whether monitoring was stopped
+   * @returns {Promise<void>} Whether monitoring was stopped
    */
-  stopMonitoringNFTs(network: string, address: string): boolean {
+  stopMonitoringNFTs(network: string, address: string): Promise<void> {
     return this.monitoringService.stopMonitoringNFTs(network, address);
   }
 

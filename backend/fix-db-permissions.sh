@@ -98,3 +98,54 @@ echo "Cleaning up temporary files..."
 rm backend/temp-db-fix.sql
 
 echo "Database update complete."
+
+# Function to run commands with or without sudo based on availability
+run_command() {
+  local cmd="$1"
+  local explanation="$2"
+  
+  echo "==================================="
+  echo "$explanation"
+  echo "==================================="
+  
+  # Navigate to backend directory
+  cd "$(dirname "$0")" || exit
+  
+  # Try with sudo if available
+  if command -v sudo &> /dev/null; then
+    echo "Using sudo to run command..."
+    sudo $cmd
+  else
+    # Otherwise run directly
+    echo "Running command directly..."
+    $cmd
+  fi
+  
+  # Return to original directory
+  cd - > /dev/null
+}
+
+# Add command line parameter handling
+case "$1" in
+  "migration")
+    run_command "npm run migration:run" "Running database migration..."
+    ;;
+  "id-check")
+    run_command "npm run test:id-consistency" "Running ID consistency check..."
+    ;;
+  "help")
+    echo "Usage: $0 [command]"
+    echo "Commands:"
+    echo "  (no command) - Run database permissions fix only"
+    echo "  migration    - Run database migration"
+    echo "  id-check     - Run ID consistency check"
+    echo "  help         - Show this help message"
+    ;;
+  *)
+    echo ""
+    echo "To run migrations or ID consistency checks, use:"
+    echo "  $0 migration    - Run database migration"
+    echo "  $0 id-check     - Run ID consistency check"
+    echo ""
+    ;;
+esac

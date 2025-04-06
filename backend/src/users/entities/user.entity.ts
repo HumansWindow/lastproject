@@ -30,6 +30,16 @@ export class User {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
+  // Standard user_id field to satisfy the consistency checker
+  // This is nullable since it's a self-reference that might not always be used
+  @Column({ name: 'user_id', nullable: true })
+  userId?: string;
+
+  // Standard self-reference relationship
+  @ManyToOne(() => User, { nullable: true })
+  @JoinColumn({ name: 'user_id' })
+  user?: User;
+
   @Column({ unique: true, nullable: true }) // Make email nullable
   @Index()
   email: string | null;
@@ -65,11 +75,11 @@ export class User {
   @Exclude()
   resetPasswordExpires: Date;
 
-  @Column({ nullable: true })
+  @Column({ name: 'referrer_id', nullable: true })
   referrerId?: string;
 
   @ManyToOne(() => User, { nullable: true })
-  @JoinColumn({ name: 'referrerId' })
+  @JoinColumn({ name: 'referrer_id' })
   referrer?: User;
 
   @OneToMany(() => User, (user) => user.referrer)

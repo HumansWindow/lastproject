@@ -14,6 +14,9 @@ export class UserDevicesService {
     private configService: ConfigService,
   ) {}
 
+  /**
+   * Create a new user device
+   */
   async create(data: Partial<UserDevice>): Promise<UserDevice> {
     try {
       // Before creating, check if this device is associated with other users
@@ -40,14 +43,23 @@ export class UserDevicesService {
     }
   }
 
+  /**
+   * Find a device by ID
+   */
   async findById(id: string): Promise<UserDevice> {
     return this.userDeviceRepository.findOne({ where: { id } });
   }
 
+  /**
+   * Find all devices for a user
+   */
   async findByUserId(userId: string): Promise<UserDevice[]> {
     return this.userDeviceRepository.find({ where: { userId } });
   }
 
+  /**
+   * Find devices by device ID
+   */
   async findByDeviceId(deviceId: string): Promise<UserDevice[]> {
     try {
       // Using a simple query to avoid schema mismatch issues
@@ -63,10 +75,14 @@ export class UserDevicesService {
     }
   }
 
-  async findByUserIdAndDeviceId(userId: string | number, deviceId: string): Promise<UserDevice | null> {
+  /**
+   * Find a device by user ID and device ID
+   */
+  async findByUserIdAndDeviceId(userId: string, deviceId: string): Promise<UserDevice | null> {
     try {
+      // Always treat userId as a UUID string
       const queryBuilder = this.userDeviceRepository.createQueryBuilder('device')
-        .where('device.user_id = :userId', { userId: userId.toString() })
+        .where('device.user_id = :userId', { userId })
         .andWhere('device.device_id = :deviceId', { deviceId });
         
       return await queryBuilder.getOne();
@@ -76,6 +92,9 @@ export class UserDevicesService {
     }
   }
 
+  /**
+   * Update a device
+   */
   async update(id: string, data: Partial<UserDevice>): Promise<UserDevice> {
     try {
       await this.userDeviceRepository.update(id, data);
@@ -86,16 +105,25 @@ export class UserDevicesService {
     }
   }
 
+  /**
+   * Deactivate a device
+   */
   async deactivate(id: string): Promise<void> {
     await this.userDeviceRepository.update(id, { isActive: false });
   }
 
+  /**
+   * Count active devices for a user
+   */
   async countByUserId(userId: string): Promise<number> {
     return this.userDeviceRepository.count({
       where: { userId, isActive: true },
     });
   }
 
+  /**
+   * Delete a device
+   */
   async delete(id: string): Promise<void> {
     try {
       const device = await this.userDeviceRepository.findOne({ where: { id } });
@@ -113,7 +141,10 @@ export class UserDevicesService {
     }
   }
 
-  async registerDevice(userId: string | number, deviceId: string, deviceInfo: any): Promise<UserDevice> {
+  /**
+   * Register a device for a user
+   */
+  async registerDevice(userId: string, deviceId: string, deviceInfo: any): Promise<UserDevice> {
     this.logger.log(`Device registration attempt - UserId: ${userId}, DeviceId: ${deviceId.substring(0, 8)}...`);
     
     try {
@@ -125,9 +156,8 @@ export class UserDevicesService {
         this.logger.error(`Error querying for existing devices: ${error.message}`);
         devices = [];
       }
-
       // If device already exists for this user, update it
-      const userDevice = devices.find(device => device.userId?.toString() === userId?.toString());
+      const userDevice = devices.find(device => device.userId === userId);
       if (userDevice) {
         // Update last seen and visit count
         userDevice.lastSeen = new Date();
@@ -155,11 +185,10 @@ export class UserDevicesService {
       
       // Create new device record using QueryBuilder to avoid column mismatch issues
       this.logger.log(`Creating new device record for user ${userId}`);
-
       try {
         // Prepare base device data
         const deviceData: Partial<UserDevice> = {
-          userId: userId.toString(),
+          userId, // Already treating as UUID string
           deviceId: deviceId,
           deviceType: deviceInfo?.deviceType || 'unknown',
           name: deviceInfo?.deviceName || deviceInfo?.name || 'Unknown device',
@@ -195,7 +224,7 @@ export class UserDevicesService {
         
         // Create a simplified version with only essential fields if there's an error
         const minimumDeviceData: Partial<UserDevice> = {
-          userId: userId.toString(),
+          userId,
           deviceId: deviceId,
           isActive: true
         };
@@ -210,13 +239,16 @@ export class UserDevicesService {
       // Return a temporary device object that's not saved to database
       // This allows authentication to continue even if device registration fails
       const tempDevice = new UserDevice();
-      tempDevice.userId = userId.toString();
+      tempDevice.userId = userId;
       tempDevice.deviceId = deviceId;
       tempDevice.isActive = true;
       return tempDevice;
     }
   }
 
+  /**
+   * Remove a device for a user
+   */
   async removeDevice(deviceId: string, userId: string): Promise<void> {
     const devices = await this.findByDeviceId(deviceId);
     const device = devices.find(d => d.userId === userId);
@@ -228,7 +260,9 @@ export class UserDevicesService {
     await this.userDeviceRepository.remove(device);
   }
 
-  // Check if this device can be used with this wallet address
+  /**
+   * Check if this device can be used with this wallet address
+   */
   async validateDeviceWalletPairing(deviceId: string, walletAddress: string, userId?: string): Promise<boolean> {
     // Always log the validation attempt
     this.logger.log(`Validating device-wallet pairing - DeviceId: ${deviceId.substring(0, 8)}..., WalletAddress: ${walletAddress.substring(0, 8)}...`);
@@ -314,7 +348,54 @@ export class UserDevicesService {
     }
   }
 
-  // Check if a device + wallet combination is already registered
+  // Rest of the methods - only modify the most critical ones for now
+  // Keep the remaining methods as they are since they're not causing immediate issues
+  // ...existing code...
+
+  /**
+   * Reset all device associations for a user
+   */
+  async resetDeviceAssociations(userId: string): Promise<{success: boolean; message: string; count: number}> {
+    this.logger.log(`Resetting device associations for user ${userId}`);
+    
+    try {
+      // Find all devices registered to this user
+      const devices = await this.findByUserId(userId);
+      
+      if (!devices || devices.length === 0) {
+        return {
+          success: true,
+          message: 'No devices found for this user',
+          count: 0
+        };
+      }
+      
+      let resetCount = 0;
+      
+      // Clear wallet associations for each device
+      for (const device of devices) {
+        if (device.walletAddresses) {
+          // Clear the wallet associations
+          device.walletAddresses = JSON.stringify([]);
+          await this.userDeviceRepository.save(device);
+          resetCount++;
+        }
+      }
+      
+      this.logger.log(`Reset ${resetCount} device associations for user ${userId}`);
+      
+      return {
+        success: true,
+        message: `Successfully reset ${resetCount} device associations`,
+        count: resetCount
+      };
+    } catch (error) {
+      this.logger.error(`Failed to reset device associations for user ${userId}: ${error.message}`);
+      throw new InternalServerErrorException('Failed to reset device associations');
+    }
+  }
+
+  // Remaining methods from the original file
   async isDeviceWalletCombinationRegistered(deviceId: string, walletAddress: string): Promise<boolean> {
     try {
       this.logger.log(`Checking if device ${deviceId.substring(0, 8)}... with wallet ${walletAddress.substring(0, 8)}... is already registered`);
@@ -353,11 +434,9 @@ export class UserDevicesService {
     }
   }
 
-  // Method to check/enforce one-wallet-one-device policy
   async enforcedDeviceWalletPolicy(deviceId: string, walletAddress: string): Promise<boolean> {
     try {
       const normalizedWalletAddress = walletAddress.toLowerCase();
-
       // First check if this exact combination is already registered
       const isAlreadyRegistered = await this.isDeviceWalletCombinationRegistered(deviceId, normalizedWalletAddress);
       if (isAlreadyRegistered) {
@@ -415,7 +494,6 @@ export class UserDevicesService {
     }
   }
 
-  // Add a utility method to update wallet addresses for a device
   async addWalletToDevice(deviceId: string, walletAddress: string): Promise<boolean> {
     try {
       // Normalize wallet address
@@ -434,7 +512,6 @@ export class UserDevicesService {
       if (!devices || devices.length === 0) {
         return false;
       }
-
       const device = devices[0]; // Use the first found device
       
       // Parse existing wallet addresses or create new array
@@ -469,7 +546,6 @@ export class UserDevicesService {
     }
   }
 
-  // Check if a device is already registered with any wallet
   async isDeviceRegistered(deviceId: string): Promise<boolean> {
     try {
       this.logger.log(`Checking if device ${deviceId.substring(0, 8)}... is already registered`);
@@ -502,52 +578,6 @@ export class UserDevicesService {
     } catch (error) {
       this.logger.error(`Error checking device registration: ${error.message}`);
       return false;
-    }
-  }
-
-  /**
-   * Reset all device associations for a user
-   * This allows a user to use new devices with their wallet after having problems
-   * @param userId The ID of the user whose device associations should be reset
-   * @returns An object with information about the reset operation
-   */
-  async resetDeviceAssociations(userId: string): Promise<{success: boolean; message: string; count: number}> {
-    this.logger.log(`Resetting device associations for user ${userId}`);
-    
-    try {
-      // Find all devices registered to this user
-      const devices = await this.findByUserId(userId);
-      
-      if (!devices || devices.length === 0) {
-        return {
-          success: true,
-          message: 'No devices found for this user',
-          count: 0
-        };
-      }
-      
-      let resetCount = 0;
-      
-      // Clear wallet associations for each device
-      for (const device of devices) {
-        if (device.walletAddresses) {
-          // Clear the wallet associations
-          device.walletAddresses = JSON.stringify([]);
-          await this.userDeviceRepository.save(device);
-          resetCount++;
-        }
-      }
-      
-      this.logger.log(`Reset ${resetCount} device associations for user ${userId}`);
-      
-      return {
-        success: true,
-        message: `Successfully reset ${resetCount} device associations`,
-        count: resetCount
-      };
-    } catch (error) {
-      this.logger.error(`Failed to reset device associations for user ${userId}: ${error.message}`);
-      throw new InternalServerErrorException('Failed to reset device associations');
     }
   }
 }

@@ -27,7 +27,8 @@ export default function Login() {
       await login(email, password);
       router.push('/dashboard');
     } catch (err) {
-      setError(t('invalidCredentials'));
+      // Ensure we always set a string, fallback to a default message if translation is null
+      setError(t('invalidCredentials') || 'Invalid credentials');
     } finally {
       setLoading(false);
     }
@@ -42,7 +43,7 @@ export default function Login() {
       const walletAddress = address || await connect();
       
       if (!walletAddress) {
-        setError(t('walletConnectionFailed'));
+        setError(t('walletConnectionFailed') || 'Failed to connect wallet');
         return;
       }
       
@@ -52,7 +53,7 @@ export default function Login() {
       const signature = await signMessage(message);
       
       if (!signature) {
-        setError(t('signatureRejected'));
+        setError(t('signatureRejected') || 'Signature was rejected');
         return;
       }
       
@@ -60,7 +61,7 @@ export default function Login() {
       await walletLogin(walletAddress, signature);
       router.push('/dashboard');
     } catch (err) {
-      setError(t('loginFailed'));
+      setError(t('loginFailed') || 'Login failed');
     } finally {
       setLoading(false);
     }
@@ -111,12 +112,12 @@ export default function Login() {
             disabled={loading}
             className="w-full bg-blue-500 hover:bg-blue-600 text-white py-2 px-4 rounded-md disabled:opacity-50"
           >
-            {loading ? t('loggingIn') : t('loginWithEmail')}
+            {loading ? t('loggingIn') || 'Logging in...' : t('loginWithEmail') || 'Login with Email'}
           </button>
         </form>
         
         <div className="text-center mb-6">
-          <span className="text-gray-500">{t('or')}</span>
+          <span className="text-gray-500">{t('or') || 'or'}</span>
         </div>
         
         <button
@@ -124,23 +125,23 @@ export default function Login() {
           disabled={loading}
           className="w-full bg-purple-600 hover:bg-purple-700 text-white py-2 px-4 rounded-md disabled:opacity-50"
         >
-          {loading ? t('connecting') : t('loginWithWallet')}
+          {loading ? t('connecting') || 'Connecting...' : t('loginWithWallet') || 'Login with Wallet'}
         </button>
         
         <div className="mt-6 text-center">
           <Link href="/forgot-password">
             <span className="text-blue-500 hover:text-blue-600">
-              {t('forgotPassword')}
+              {t('forgotPassword') || 'Forgot Password?'}
             </span>
           </Link>
         </div>
         
         <div className="mt-4 text-center">
           <span className="text-gray-600">
-            {t('dontHaveAccount')} {' '}
+            {t('dontHaveAccount') || "Don't have an account?"} {' '}
             <Link href="/register">
               <span className="text-blue-500 hover:text-blue-600">
-                {t('signUp')}
+                {t('signUp') || 'Sign Up'}
               </span>
             </Link>
           </span>

@@ -1,174 +1,524 @@
-import axios, { AxiosResponse, AxiosError, InternalAxiosRequestConfig } from 'axios';
+import axios, { AxiosInstance, AxiosRequestConfig, InternalAxiosRequestConfig, AxiosResponse } from 'axios';
+import { ConnectionStatus, WebSocketManager, WebSocketError } from './websocket-manager';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+// Import types for API responses
+import { 
+  LoginResponse, 
+  RegisterResponse, 
+  UserProfile, 
+  DiaryEntry, 
+  DiaryEntryRequest, 
+  WalletData, 
+  ReferralData, 
+  TokenData, 
+  NFTItem,
+  BalanceChangeEvent,
+  NftTransferEvent,
+  TokenPriceEvent,
+  StakingUpdateEvent,
+  NotificationEvent
+} from '../types/api-types';
 
-// Create axios instance with proper CORS configuration
-const api = axios.create({
-  baseURL: API_URL,
-  withCredentials: true, // This ensures credentials are included in requests
-  headers: {
-    'Content-Type': 'application/json',
-  },
-});
-
-const baseURL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
-
-// Create an Axios instance with default configs
-export const apiClient = axios.create({
-  baseURL,
-  timeout: 30000, // 30 seconds
-  headers: {
-    'Content-Type': 'application/json',
-  },
-  withCredentials: true, // Important for cookies / CORS
-});
-
-// Define a type for our extended Axios request config
-interface ExtendedAxiosRequestConfig extends InternalAxiosRequestConfig {
-  _retry?: boolean;
+// Define Event Bus types
+interface EventBus {
+  events: Record<string, Function[]>;
+  on(event: string, callback: Function): () => void;
+  off(event: string, callback: Function): void;
+  emit(event: string, data?: any): void;
 }
+
+// Event bus for app-wide communication
+const eventBus: EventBus = {
+  events: {} as Record<string, Function[]>,
+  on(event: string, callback: Function) {
+    if (!this.events[event]) {
+      this.events[event] = [];
+    }
+    this.events[event].push(callback);
+    return () => this.off(event, callback);
+  },
+  off(event: string, callback: Function) {
+    if (!this.events[event]) return;
+    this.events[event] = this.events[event].filter((cb: Function) => cb !== callback);
+  },
+  emit(event: string, data?: any) {
+    if (!this.events[event]) return;
+    this.events[event].forEach((cb: Function) => cb(data));
+  }
+};
+
+// Create WebSocket manager instance
+const wsManager = new WebSocketManager(
+  process.env.NEXT_PUBLIC_WS_URL || 'localhost:3000'
+);
+
+// Create API client instance
+const apiClient: AxiosInstance = axios.create({
+  baseURL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api',
+  timeout: 15000,
+  headers: {
+    'Content-Type': 'application/json',
+  },
+});
 
 // Request interceptor for adding auth token
 apiClient.interceptors.request.use(
   (config: InternalAxiosRequestConfig) => {
     // Get token from localStorage
-    const token = localStorage.getItem('access_token');
+    const token = localStorage.getItem('accessToken');
     
-    // If token exists, add it to request headers
+    // If token exists, add to Authorization header
     if (token) {
-      config.headers = config.headers || {};
-      config.headers.Authorization = `Bearer ${token}`;
-    }
-
-    // Set content type if not already set for POST, PUT, PATCH
-    if (config.headers && 
-        (config.method === 'post' || config.method === 'put' || config.method === 'patch')) {
-      if (!config.headers['Content-Type']) {
-        config.headers['Content-Type'] = 'application/json';
-      }
+      config.headers.set('Authorization', `Bearer ${token}`);
     }
     
     return config;
   },
-  (error: AxiosError) => {
-    return Promise.reject(error);
-  }
+  (error) => Promise.reject(error)
 );
 
-// Response interceptor for refreshing token
+// Response interceptor for handling token refresh
 apiClient.interceptors.response.use(
-  (response: AxiosResponse) => {
-    return response;
-  },
-  async (error: AxiosError) => {
-    const originalRequest = error.config as ExtendedAxiosRequestConfig;
+  (response) => response,
+  async (error) => {
+    const originalRequest = error.config;
     
-    // If the error is 401 and we haven't already tried to refresh the token
-    if (error.response?.status === 401 && originalRequest && !originalRequest._retry) {
+    // If error is 401 Unauthorized and we haven't tried to refresh the token yet
+    if (error.response?.status === 401 && !originalRequest._retry) {
       originalRequest._retry = true;
       
       try {
         // Get refresh token
-        const refreshToken = localStorage.getItem('refresh_token');
+        const refreshToken = localStorage.getItem('refreshToken');
         
         if (!refreshToken) {
-          // No refresh token, redirect to login
-          localStorage.removeItem('access_token');
-          localStorage.removeItem('refresh_token');
+          // No refresh token available, redirect to login
           window.location.href = '/login';
           return Promise.reject(error);
         }
         
-        // Try to refresh token
+        // Try to get a new access token
         const response = await axios.post(
-          `${baseURL}/auth/refresh`,
-          { refreshToken },
-          { headers: { 'Content-Type': 'application/json' } }
+          `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api'}/auth/refresh-token`,
+          { refreshToken }
         );
         
         if (response.data.accessToken) {
-          localStorage.setItem('access_token', response.data.accessToken);
-          
-          // Update the failed request with new token and retry
-          apiClient.defaults.headers.common.Authorization = `Bearer ${response.data.accessToken}`;
-          
-          // Make sure headers exists before setting Authorization
-          if (originalRequest.headers) {
-            originalRequest.headers.Authorization = `Bearer ${response.data.accessToken}`;
+          // Store the new tokens
+          localStorage.setItem('accessToken', response.data.accessToken);
+          if (response.data.refreshToken) {
+            localStorage.setItem('refreshToken', response.data.refreshToken);
           }
           
+          // Update WebSocket connection with new token
+          wsManager.updateToken(response.data.accessToken);
+          
+          // Update the Authorization header and retry request
+          originalRequest.headers.Authorization = `Bearer ${response.data.accessToken}`;
           return apiClient(originalRequest);
         }
       } catch (refreshError) {
-        // Refresh token failed, clear auth and redirect to login
-        localStorage.removeItem('access_token');
-        localStorage.removeItem('refresh_token');
+        // Token refresh failed, redirect to login
+        console.error('Token refresh failed:', refreshError);
+        localStorage.removeItem('accessToken');
+        localStorage.removeItem('refreshToken');
         window.location.href = '/login';
-        return Promise.reject(refreshError);
       }
-    }
-
-    if (error.response) {
-      console.error('API error:', {
-        status: error.response.status,
-        data: error.response.data,
-        headers: error.response.headers
-      });
-    } else if (error.request) {
-      console.error('API request made but no response received:', error.request);
-    } else {
-      console.error('API request setup error:', error.message);
     }
     
     return Promise.reject(error);
   }
 );
 
+/**
+ * Authentication service
+ */
 export const authService = {
-  login: (email: string, password: string) => 
-    apiClient.post('/auth/login', { email, password }),
+  /**
+   * Login with email and password
+   */
+  login: async (email: string, password: string): Promise<AxiosResponse<LoginResponse>> => {
+    const response = await apiClient.post<LoginResponse>('/auth/login', { email, password });
+    
+    if (response.data.accessToken) {
+      // Store tokens in localStorage
+      localStorage.setItem('accessToken', response.data.accessToken);
+      localStorage.setItem('refreshToken', response.data.refreshToken);
+      
+      // Setup WebSocket connection
+      await setupWebSocket(response.data.accessToken);
+    }
+    
+    return response;
+  },
   
-  // Wallet authentication should only be handled through the walletAuthService
-  // for consistent security and device validation
+  /**
+   * Register a new user
+   */
+  register: (email: string, password: string, referralCode?: string) =>
+    apiClient.post<RegisterResponse>('/auth/register', { 
+      email, 
+      password, 
+      referralCode 
+    }),
   
-  register: (email: string, password: string, referralCode?: string) => 
-    apiClient.post('/auth/register', { email, password, referralCode }),
+  /**
+   * Login with wallet
+   */
+  loginWithWallet: async (walletAddress: string, signature: string, message: string) => {
+    const response = await apiClient.post<LoginResponse>('/auth/wallet-login', { 
+      walletAddress, 
+      signature, 
+      message 
+    });
+    
+    if (response.data.accessToken) {
+      localStorage.setItem('accessToken', response.data.accessToken);
+      localStorage.setItem('refreshToken', response.data.refreshToken);
+      
+      // Setup WebSocket connection
+      await setupWebSocket(response.data.accessToken);
+    }
+    
+    return response;
+  },
   
+  /**
+   * Get wallet connection message to sign
+   */
+  getWalletChallenge: (walletAddress: string) =>
+    apiClient.post<{ challenge: string, walletExists: boolean }>('/auth/wallet-connect', { 
+      walletAddress 
+    }),
+  
+  /**
+   * Request password reset
+   */
   forgotPassword: (email: string) => 
-    apiClient.post('/auth/forgot-password', { email }),
+    apiClient.post<{ message: string }>('/auth/forgot-password', { email }),
   
-  resetPassword: (token: string, password: string) => 
-    apiClient.post('/auth/reset-password', { token, password }),
+  /**
+   * Reset password with token
+   */
+  resetPassword: (token: string, newPassword: string) =>
+    apiClient.post<{ message: string }>('/auth/reset-password', { 
+      token, 
+      newPassword 
+    }),
   
-  getUserInfo: () => 
-    apiClient.get('/auth/me'),
+  /**
+   * Logout current user
+   */
+  logout: async () => {
+    try {
+      await apiClient.post('/auth/logout');
+    } finally {
+      localStorage.removeItem('accessToken');
+      localStorage.removeItem('refreshToken');
+      wsManager.disconnect();
+    }
+  },
+  
+  /**
+   * Get current user profile
+   */
+  getUserProfile: () => 
+    apiClient.get<UserProfile>('/users/profile'),
+  
+  /**
+   * Update user profile
+   */
+  updateUserProfile: (data: Partial<UserProfile>) => 
+    apiClient.patch<UserProfile>('/users/profile', data),
 };
 
+/**
+ * Diary service
+ */
+export const diaryService = {
+  /**
+   * Get all diary entries
+   */
+  getDiaryEntries: () =>
+    apiClient.get<DiaryEntry[]>('/diary'),
+  
+  /**
+   * Get a specific diary entry
+   */
+  getDiaryEntry: (entryId: string) =>
+    apiClient.get<DiaryEntry>(`/diary/${entryId}`),
+  
+  /**
+   * Create a new diary entry
+   */
+  createDiaryEntry: (entry: DiaryEntryRequest) =>
+    apiClient.post<DiaryEntry>('/diary', entry),
+  
+  /**
+   * Update a diary entry
+   */
+  updateDiaryEntry: (entryId: string, entry: Partial<DiaryEntryRequest>) =>
+    apiClient.patch<DiaryEntry>(`/diary/${entryId}`, entry),
+  
+  /**
+   * Delete a diary entry
+   */
+  deleteDiaryEntry: (entryId: string) =>
+    apiClient.delete(`/diary/${entryId}`),
+  
+  /**
+   * Get available diary locations
+   */
+  getDiaryLocations: () =>
+    apiClient.get<string[]>('/diary/locations'),
+};
+
+/**
+ * Wallet service for blockchain wallet operations
+ */
+export const walletService = {
+  /**
+   * Get all user wallets
+   */
+  getUserWallets: () =>
+    apiClient.get<WalletData[]>('/wallets'),
+  
+  /**
+   * Get details of a specific wallet
+   */
+  getWalletDetails: (walletId: string) =>
+    apiClient.get<WalletData>(`/wallets/${walletId}`),
+  
+  /**
+   * Create a new wallet
+   */
+  createWallet: () =>
+    apiClient.post<WalletData>('/wallets'),
+  
+  /**
+   * Delete a wallet
+   */
+  deleteWallet: (walletId: string) =>
+    apiClient.delete(`/wallets/${walletId}`),
+};
+
+/**
+ * NFT service for NFT operations
+ */
+export const nftService = {
+  /**
+   * Get user's NFTs
+   */
+  getUserNFTs: () =>
+    apiClient.get<NFTItem[]>('/nft/user'),
+  
+  /**
+   * Get details of a specific NFT
+   */
+  getNFTDetails: (nftId: string) =>
+    apiClient.get<NFTItem>(`/nft/${nftId}`),
+  
+  /**
+   * Mint a new NFT
+   */
+  mintNFT: (metadata: any) =>
+    apiClient.post<{ tokenId: string, transactionHash: string }>('/nft/mint', metadata),
+  
+  /**
+   * Transfer an NFT
+   */
+  transferNFT: (nftId: string, recipientAddress: string) =>
+    apiClient.post<{ transactionHash: string }>(`/nft/transfer/${nftId}`, {
+      recipientAddress
+    }),
+};
+
+/**
+ * Token service for SHAHI token operations
+ */
+export const tokenService = {
+  /**
+   * Check token balance
+   */
+  getBalance: () =>
+    apiClient.get<{ balance: string, formattedBalance: string }>('/token/balance'),
+  
+  /**
+   * Mint tokens (first time)
+   */
+  mintFirstTime: () =>
+    apiClient.post<{ transactionHash: string }>('/token/mint/first-time'),
+  
+  /**
+   * Mint annual tokens
+   */
+  mintAnnual: () =>
+    apiClient.post<{ transactionHash: string }>('/token/mint/annual'),
+  
+  /**
+   * Get token information
+   */
+  getTokenInfo: () =>
+    apiClient.get<TokenData>('/token/info'),
+  
+  /**
+   * Get token statistics
+   */
+  getTokenStats: () =>
+    apiClient.get<{ 
+      totalSupply: string, 
+      circulatingSupply: string, 
+      marketCap: string, 
+      price: string 
+    }>('/token/stats'),
+};
+
+/**
+ * Referral service for managing referral codes
+ */
 export const referralService = {
-  getReferralStats: () => 
-    apiClient.get('/referral/stats'),
+  /**
+   * Get statistics about your referrals
+   */
+  getReferralStats: () =>
+    apiClient.get<{ 
+      totalReferrals: number,
+      successfulReferrals: number,
+      pendingReferrals: number,
+      rewardsEarned: string
+    }>('/referral/stats'),
   
-  generateReferralCode: () => 
-    apiClient.post('/referral/code'),
+  /**
+   * Generate a new referral code
+   */
+  generateReferralCode: () =>
+    apiClient.post<{ code: string }>('/referral/generate'),
   
-  toggleReferralCode: (isActive: boolean) => 
-    apiClient.patch('/referral/code/toggle', { isActive }),
+  /**
+   * Toggle your referral code active status
+   */
+  toggleReferralCode: (isActive: boolean) =>
+    apiClient.patch<{ isActive: boolean }>('/referral/toggle', { isActive }),
   
-  getReferralByCode: (code: string) => 
-    apiClient.get(`/referral/code/${code}`),
+  /**
+   * Get referral by code
+   */
+  getReferralByCode: (code: string) =>
+    apiClient.get<ReferralData>(`/referral/code/${code}`),
+  
+  /**
+   * Validate a referral code
+   */
+  validateReferralCode: (code: string) =>
+    apiClient.post<{ isValid: boolean, message: string }>('/referral/validate', { code }),
 };
 
-export const shajiTokenService = {
-  getBalance: () => 
-    apiClient.get('/blockchain/token/balance'),
+/**
+ * Staking service for SHAHI token staking operations
+ */
+export const stakingService = {
+  /**
+   * Get staking positions
+   */
+  getStakingPositions: () =>
+    apiClient.get<any[]>('/staking/positions'),
   
-  mintFirstTime: () => 
-    apiClient.post('/blockchain/minting/first-time'),
+  /**
+   * Create a new staking position
+   */
+  stake: (data: { amount: string; lockPeriod: number }) =>
+    apiClient.post<{ transactionHash: string, positionId: string }>('/staking/stake', data),
   
-  mintAnnual: () => 
-    apiClient.post('/blockchain/minting/annual'),
+  /**
+   * Withdraw from a staking position
+   */
+  withdraw: (data: { positionId: string }) =>
+    apiClient.post<{ transactionHash: string }>('/staking/withdraw', data),
+    
+  /**
+   * Claim staking rewards
+   */
+  claimStakingRewards: (data: { positionId: string }) =>
+    apiClient.post<{ transactionHash: string }>('/staking/claim-rewards', data),
 };
 
-// Remove the duplicate connectWallet function - use walletAuthService instead
+/**
+ * Real-time service for WebSocket-based subscriptions
+ */
+export const realtimeService = {
+  // Connection management
+  connect: (token: string) => wsManager.connect(token),
+  disconnect: () => wsManager.disconnect(),
+  isConnected: () => wsManager.isConnected(),
+  getConnectionStatus: () => wsManager.getConnectionStatus(),
+  onConnectionStatusChange: (callback: (status: ConnectionStatus) => void) => 
+    wsManager.onConnectionStatusChange(callback),
+  
+  // Error and message handling
+  onError: (callback: (error: WebSocketError) => void) =>
+    wsManager.onError(callback),
+  onMessage: (callback: (message: any) => void) =>
+    wsManager.onMessage(callback),
 
-export default api;
+  // Configuration
+  setAutoReconnect: (enabled: boolean, maxAttempts: number = 10) =>
+    wsManager.setAutoReconnect(enabled, maxAttempts),
+  
+  // Connection control
+  reconnect: () => wsManager.reconnect(),
+  
+  // Subscription management
+  subscribe: (channel: string, callback: (data: any) => void) =>
+    wsManager.subscribe(channel, callback),
+  unsubscribe: (channel: string) =>
+    wsManager.unsubscribe(channel),
+  getActiveSubscriptions: () =>
+    wsManager.getActiveSubscriptions(),
+  
+  // Connection testing
+  ping: () => wsManager.ping(),
+    
+  // Subscribe to authentication events
+  onAuthError: (callback: (error: any) => void) =>
+    wsManager.subscribe('auth_error', callback),
+  
+  // Subscribe to specific wallet balance changes
+  subscribeToBalanceChanges: (address: string, callback: (data: BalanceChangeEvent) => void) =>
+    wsManager.subscribe(`balance:${address}`, callback),
+  
+  // Subscribe to NFT transfer events for a specific address
+  subscribeToNftTransfers: (address: string, callback: (data: NftTransferEvent) => void) =>
+    wsManager.subscribe(`nft:${address}`, callback),
+  
+  // Subscribe to token price updates
+  subscribeToTokenPrice: (callback: (data: TokenPriceEvent) => void) =>
+    wsManager.subscribe('token:price', callback),
+    
+  // Subscribe to staking rewards updates
+  subscribeToStakingUpdates: (positionId: string, callback: (data: StakingUpdateEvent) => void) =>
+    wsManager.subscribe(`staking:${positionId}`, callback),
+    
+  // Listen for system notifications
+  subscribeToNotifications: (callback: (data: NotificationEvent) => void) =>
+    wsManager.subscribe('notifications', callback),
+};
+
+// Event bus for app-wide communication
+export const events = {
+  on: eventBus.on.bind(eventBus),
+  off: eventBus.off.bind(eventBus),
+  emit: eventBus.emit.bind(eventBus),
+};
+
+// Helper function to set up WebSocket connection
+async function setupWebSocket(token: string): Promise<void> {
+  try {
+    await wsManager.connect(token);
+  } catch (error) {
+    console.error('Failed to establish WebSocket connection:', error);
+    // Still continue, as the WebSocketManager will automatically attempt reconnection
+  }
+}
+
+// Export the API client instance as default
+export default apiClient;

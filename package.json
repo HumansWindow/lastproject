@@ -21,12 +21,13 @@
     "postinstall": "echo 'Installation completed successfully!'"
   },
   "devDependencies": {
+    "@types/crypto-js": "^4.2.2",
     "@typescript-eslint/eslint-plugin": "5.62.0",
     "@typescript-eslint/parser": "5.62.0",
+    "chai": "^4.3.7",
     "concurrently": "^7.6.0",
     "eslint": "8.56.0",
-    "typescript": "^5.3.3",
-    "chai": "^4.3.7"
+    "typescript": "^5.3.3"
   },
   "resolutions": {
     "glob": "^10.3.10",

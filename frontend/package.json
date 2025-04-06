@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@types/node": "^18.15.11",
+    "@types/react-router-dom": "^5.3.3",
     "axios": "^1.8.4",
     "bootstrap": "^5.3.4",
     "date-fns": "^4.1.0",
@@ -20,16 +21,20 @@
     "next": "^13.3.0",
     "next-i18next": "^13.2.2",
     "next-themes": "^0.4.6",
+    "pako": "^2.1.0",
     "react": "^18.3.1",
     "react-bootstrap": "^2.10.9",
     "react-dom": "^18.3.1",
     "react-i18next": "^12.2.0",
     "react-quill": "^2.0.0",
+    "react-router-dom": "^6.30.0",
     "styled-jsx": "^5.1.6",
     "typescript": "^5.0.4",
     "web3modal": "^1.9.12"
   },
   "devDependencies": {
+    "@types/crypto-js": "^4.2.2",
+    "@types/pako": "^2.0.3",
     "@types/react": "^19.0.12",
     "@types/react-dom": "^19.0.4",
     "autoprefixer": "^10.4.14",

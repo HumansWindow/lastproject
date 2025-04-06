@@ -13,7 +13,7 @@ import { MerkleService } from './services/merkle.service';
 import { User } from '../users/entities/user.entity';
 import { EventEmitterModule } from '@nestjs/event-emitter';
 import { TokenEventsGateway } from './gateways/token-events.gateway';
-import { WsAuthGuard } from '../auth/guards/ws-auth.guard';
+import { WsJwtAuthGuard } from '../auth/guards/ws-auth.guard';
 import { JwtSharedModule } from '../auth/jwt.module';
 import { AuthModule } from '../auth/auth.module';
 import * as path from 'path';
@@ -111,7 +111,7 @@ if (fs.existsSync(contractsEnvPath)) {
     TokenExpiryTask,
     MerkleService,
     TokenEventsGateway,
-    WsAuthGuard,
+    WsJwtAuthGuard,
     StakingService,
     UserMintingQueueService,
   ],

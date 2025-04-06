@@ -1,5 +1,5 @@
 import { ethers } from 'ethers';
-import { apiClient } from '../services/api'; // Correct import path
+import apiClient from './api/api-client'; // Fixed import for apiClient
 
 // Add this type declaration for ethereum in the global window object
 declare global {
@@ -53,6 +53,33 @@ class WalletAuthService {
       return address;
     } catch (error) {
       console.error('Error connecting wallet:', error);
+      return null;
+    }
+  }
+  
+  // Sign a message with the connected wallet
+  async signMessage(message: string): Promise<string | null> {
+    try {
+      if (!this.isWalletAvailable()) {
+        throw new Error('No Ethereum wallet found in browser');
+      }
+      
+      if (!this.signer) {
+        // Connect wallet if not already connected
+        await this.connectWallet();
+        
+        if (!this.signer) {
+          throw new Error('Failed to connect wallet for signing');
+        }
+      }
+      
+      // Sign the message
+      console.log('Signing message:', message);
+      const signature = await this.signer.signMessage(message);
+      console.log('Message signed successfully');
+      return signature;
+    } catch (error) {
+      console.error('Error signing message:', error);
       return null;
     }
   }
@@ -122,11 +149,11 @@ class WalletAuthService {
       const response = await apiClient.post('/auth/wallet/authenticate', requestData, config);
       console.log('Authentication response:', response.data);
       
-      // Store tokens if authentication successful
+      // Store tokens if authentication successful - use standardized token naming
       if (response.data.accessToken) {
-        localStorage.setItem('access_token', response.data.accessToken);
+        localStorage.setItem('accessToken', response.data.accessToken);
         if (response.data.refreshToken) {
-          localStorage.setItem('refresh_token', response.data.refreshToken);
+          localStorage.setItem('refreshToken', response.data.refreshToken);
         }
         apiClient.defaults.headers.common['Authorization'] = `Bearer ${response.data.accessToken}`;
       }
@@ -219,11 +246,11 @@ class WalletAuthService {
       const authResponse = await apiClient.post('/auth/wallet/authenticate', authData, config);
       console.log('Authentication successful');
       
-      // Store tokens if authentication successful
+      // Store tokens if authentication successful - use standardized token naming
       if (authResponse.data.accessToken) {
-        localStorage.setItem('access_token', authResponse.data.accessToken);
+        localStorage.setItem('accessToken', authResponse.data.accessToken);
         if (authResponse.data.refreshToken) {
-          localStorage.setItem('refresh_token', authResponse.data.refreshToken);
+          localStorage.setItem('refreshToken', authResponse.data.refreshToken);
         }
         apiClient.defaults.headers.common['Authorization'] = `Bearer ${authResponse.data.accessToken}`;
       }
@@ -268,8 +295,10 @@ class WalletAuthService {
     
     this.provider = null;
     this.signer = null;
-    localStorage.removeItem('access_token');
-    localStorage.removeItem('refresh_token');
+    
+    // Clear tokens using standardized naming
+    localStorage.removeItem('accessToken');
+    localStorage.removeItem('refreshToken');
     delete apiClient.defaults.headers.common['Authorization'];
   }
   

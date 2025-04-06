@@ -7,18 +7,20 @@ interface WalletContextType {
   address: string | null;
   isConnecting: boolean;
   isConnected: boolean;
-  connect: (email?: string) => Promise<void>;
+  connect: (email?: string) => Promise<string | null>;
   disconnect: () => void;
   error: string | null;
+  signMessage: (message: string) => Promise<string | null>; // Added signMessage method
 }
 
 const WalletContext = createContext<WalletContextType>({
   address: null,
   isConnecting: false,
   isConnected: false,
-  connect: async () => {},
+  connect: async () => null,
   disconnect: () => {},
-  error: null
+  error: null,
+  signMessage: async () => null // Added default implementation
 });
 
 export const useWallet = () => useContext(WalletContext);
@@ -78,7 +80,7 @@ export const WalletProvider: React.FC<{children: ReactNode}> = ({ children }) =>
     };
   }, []);
   
-  const connect = async (email?: string) => {
+  const connect = async (email?: string): Promise<string | null> => {
     setIsConnecting(true);
     setError(null);
     
@@ -89,7 +91,7 @@ export const WalletProvider: React.FC<{children: ReactNode}> = ({ children }) =>
         if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
           setError('Please enter a valid email address or leave the field empty for wallet-only authentication');
           setIsConnecting(false);
-          return;
+          return null;
         }
         console.log('Connecting with wallet and email:', email);
       } else {
@@ -99,13 +101,16 @@ export const WalletProvider: React.FC<{children: ReactNode}> = ({ children }) =>
       }
       
       const result = await walletAuthService.authenticate(email);
-      setAddress(result.wallet || await walletAuthService.getCurrentAddress());
+      const walletAddress = result.wallet || await walletAuthService.getCurrentAddress();
+      setAddress(walletAddress);
       setIsConnected(true);
       
       // Update the auth context with the user data from wallet authentication
       if (result.user) {
         setUserFromWalletAuth(result.user);
       }
+      
+      return walletAddress;
     } catch (error: any) {
       console.error('Wallet connection error:', error);
       
@@ -121,6 +126,8 @@ export const WalletProvider: React.FC<{children: ReactNode}> = ({ children }) =>
       } else {
         setError('Failed to connect wallet. Please try again.');
       }
+      
+      return null;
     } finally {
       setIsConnecting(false);
     }
@@ -132,6 +139,31 @@ export const WalletProvider: React.FC<{children: ReactNode}> = ({ children }) =>
     setIsConnected(false);
   };
   
+  // Add signMessage implementation
+  const signMessage = async (message: string): Promise<string | null> => {
+    setError(null);
+    try {
+      if (!address) {
+        setError('No wallet connected. Please connect a wallet first.');
+        return null;
+      }
+      
+      // Use the wallet service to sign the message
+      const signature = await walletAuthService.signMessage(message);
+      return signature;
+    } catch (error: any) {
+      console.error('Message signing error:', error);
+      
+      if (error.message) {
+        setError(error.message);
+      } else {
+        setError('Failed to sign message. Please try again.');
+      }
+      
+      return null;
+    }
+  };
+  
   return (
     <WalletContext.Provider value={{
       address,
@@ -139,7 +171,8 @@ export const WalletProvider: React.FC<{children: ReactNode}> = ({ children }) =>
       isConnected,
       connect,
       disconnect,
-      error
+      error,
+      signMessage // Add signMessage to the context value
     }}>
       {children}
     </WalletContext.Provider>

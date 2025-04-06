@@ -4,14 +4,13 @@ import { AppModule } from './app/app.module';
 import { ConfigService } from '@nestjs/config';
 import * as dotenv from 'dotenv';
 import { Logger, ValidationPipe } from '@nestjs/common';
-import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
-import { getCorsConfig } from './shared/config/cors.config';
 import cookieParser from 'cookie-parser';
 import helmet from 'helmet';
+import { setupSwagger } from './swagger-config';
+import { GlobalExceptionFilter } from './shared/filters/global-exception.filter';
 
 // Load environment variables before any other imports
 dotenv.config();
-
 const logger = new Logger('Bootstrap');
 
 async function bootstrap() {
@@ -25,6 +24,9 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule, {
     logger: ['error', 'warn', 'log', 'debug', 'verbose'],
   });
+  
+  // Apply global exception filter for consistent error handling
+  app.useGlobalFilters(new GlobalExceptionFilter());
   
   const configService = app.get(ConfigService);
   const preferredPort = configService.get<number>('PORT') || 3001;
@@ -71,16 +73,8 @@ async function bootstrap() {
     }),
   );
   
-  // Setup Swagger
-  const options = new DocumentBuilder()
-    .setTitle('AliveHuman API')
-    .setDescription('The AliveHuman API documentation')
-    .setVersion('1.0')
-    .addBearerAuth()
-    .build();
-  
-  const document = SwaggerModule.createDocument(app, options);
-  SwaggerModule.setup('api', app, document);
+  // Setup Swagger documentation using our enhanced configuration
+  setupSwagger(app);
   
   // Use cookie parser
   app.use(cookieParser());
@@ -124,6 +118,7 @@ async function bootstrap() {
     try {
       await app.listen(port);
       logger.log(`Application is running on: http://localhost:${port}`);
+      logger.log(`Swagger documentation is available at: http://localhost:${port}/api/docs`);
       break;
     } catch (error) {
       if (error.code === 'EADDRINUSE') {
@@ -141,6 +136,25 @@ async function bootstrap() {
     logger.error(`Could not find an available port after ${maxRetries} attempts`);
     throw new Error(`Could not find an available port after ${maxRetries} attempts`);
   }
+}
+
+// Helper function to get CORS configuration
+function getCorsConfig() {
+  // Get allowed origins from environment variable
+  const allowedOrigins = process.env.ALLOWED_ORIGINS;
+  
+  // Default to development origins if none specified
+  const defaultOrigins = ['http://localhost:3000', 'http://localhost:3001', 'http://localhost:8000'];
+  
+  // Parse the comma-separated list of allowed origins
+  const origins = allowedOrigins ? 
+    allowedOrigins.split(',').map(origin => origin.trim()) : 
+    defaultOrigins;
+    
+  return {
+    origin: origins,
+    credentials: true
+  };
 }
 
 // Handle uncaught exceptions

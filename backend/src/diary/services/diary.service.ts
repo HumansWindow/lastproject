@@ -15,7 +15,7 @@ export class DiaryService {
   async create(userId: string, createDiaryDto: CreateDiaryDto): Promise<Diary> {
     const diary = this.diaryRepository.create({
       ...createDiaryDto,
-      userId: parseInt(userId, 10),
+      userId: userId, // Keep userId as string
     });
 
     // Generate encryption key if the diary has media
@@ -28,7 +28,7 @@ export class DiaryService {
 
   async findAll(userId: string): Promise<Diary[]> {
     return this.diaryRepository.find({
-      where: { userId: parseInt(userId, 10) },
+      where: { userId: userId }, // Keep userId as string
       order: { createdAt: 'DESC' },
     });
   }
@@ -42,7 +42,7 @@ export class DiaryService {
       throw new NotFoundException(`Diary with ID ${id} not found`);
     }
 
-    if (diary.userId !== parseInt(userId, 10)) {
+    if (diary.userId !== userId) { // Compare strings directly
       throw new UnauthorizedException('You do not have permission to access this diary entry');
     }
 

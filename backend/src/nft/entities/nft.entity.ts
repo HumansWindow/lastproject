@@ -26,11 +26,11 @@ export class NFT {
   @Column()
   chainId: number;
 
-  @Column()
+  @Column({ name: 'owner_id' })
   @Index()
   ownerId: string;
 
-  @Column({ nullable: false })
+  @Column({ name: 'user_id', nullable: false })
   userId: string;
 
   @Column({ nullable: true })
@@ -40,7 +40,11 @@ export class NFT {
   metadata?: Record<string, any>;
 
   @ManyToOne(() => User)
-  @JoinColumn({ name: 'ownerId' })
+  @JoinColumn({ name: 'user_id' })
+  user: User;
+  
+  @ManyToOne(() => User)
+  @JoinColumn({ name: 'owner_id' })
   owner: User;
 
   @Column({ default: true })

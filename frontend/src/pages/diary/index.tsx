@@ -10,6 +10,9 @@ import { useAuth } from '@/contexts/auth';
 import { useTranslation } from 'next-i18next';
 import { serverSideTranslations } from 'next-i18next/serverSideTranslations';
 
+// Add import for CSS styles
+import styles from '../../styles/DiaryList.module.css';
+
 const DiaryListPage: NextPage = () => {
   const { t } = useTranslation('common');
   const router = useRouter();
@@ -40,7 +43,6 @@ const DiaryListPage: NextPage = () => {
       setError(null);
     } catch (err: any) {
       console.error('Failed to fetch diaries:', err);
-
       // Handle authentication errors
       if (err.response?.status === 401) {
         setError('Please log in to access your diary entries');
@@ -105,8 +107,8 @@ const DiaryListPage: NextPage = () => {
 
   return (
     <Layout>
-      <div className="diary-list-container">
-        <div className="header-section">
+      <div className={styles.diaryListContainer}>
+        <div className={styles.headerSection}>
           <h1>{t('diary')}</h1>
           {isAuthenticated && (
             <Link href="/diary/create" className="btn btn-primary">
@@ -118,7 +120,6 @@ const DiaryListPage: NextPage = () => {
         {error && (
           <div className="alert alert-danger">{error}</div>
         )}
-
         {!isAuthenticated && (
           <div className="text-center mt-5">
             <p>You need to be logged in to view your diary entries.</p>
@@ -130,7 +131,7 @@ const DiaryListPage: NextPage = () => {
         
         {isAuthenticated && (
           <>
-            <div className="filters-container">
+            <div className={styles.filtersContainer}>
               <div className="row">
                 <div className="col-md-4">
                   <div className="form-group">
@@ -178,7 +179,7 @@ const DiaryListPage: NextPage = () => {
             </div>
             
             {loading ? (
-              <div className="loading-container">
+              <div className={styles.loadingContainer}>
                 <div className="spinner-border text-primary" role="status">
                   <span className="visually-hidden">Loading...</span>
                 </div>
@@ -186,14 +187,14 @@ const DiaryListPage: NextPage = () => {
             ) : (
               <>
                 {filteredDiaries.length === 0 ? (
-                  <div className="no-diaries">
+                  <div className={styles.noDiaries}>
                     <p>No diary entries found. Create your first entry!</p>
                     <Link href="/diary/create" className="btn btn-primary">
                       Create Diary Entry
                     </Link>
                   </div>
                 ) : (
-                  <div className="diary-grid">
+                  <div className={styles.diaryGrid}>
                     {filteredDiaries.map(diary => (
                       <DiaryCard 
                         key={diary.id} 
@@ -208,59 +209,6 @@ const DiaryListPage: NextPage = () => {
           </>
         )}
       </div>
-      <style jsx>{`
-        .diary-list-container {
-          max-width: 1200px;
-          margin: 0 auto;
-          padding: 20px;
-        }
-        
-        .header-section {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          margin-bottom: 20px;
-        }
-        
-        .filters-container {
-          background-color: #f8f9fa;
-          padding: 15px;
-          margin-bottom: 20px;
-          border-radius: 8px;
-        }
-        
-        .diary-grid {
-          display: grid;
-          grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-          gap: 20px;
-        }
-        
-        .loading-container {
-          display: flex;
-          justify-content: center;
-          padding: 50px 0;
-        }
-        
-        .no-diaries {
-          text-align: center;
-          padding: 50px 0;
-        }
-        
-        @media (max-width: 768px) {
-          .diary-grid {
-            grid-template-columns: 1fr;
-          }
-          
-          .header-section {
-            flex-direction: column;
-            align-items: flex-start;
-          }
-          
-          .header-section a {
-            margin-top: 10px;
-          }
-        }
-      `}</style>
     </Layout>
   );
 };

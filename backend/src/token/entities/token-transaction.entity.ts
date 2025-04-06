@@ -23,11 +23,15 @@ export class TokenTransaction {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Column()
+  // Standard user_id field to reference the primary user (usually sender)
+  @Column({ name: 'user_id', nullable: true })
+  userId?: string;
+
+  @Column({ name: 'sender_id' })
   @Index()
   senderId: string;
 
-  @Column({ nullable: true })
+  @Column({ name: 'receiver_id', nullable: true })
   @Index()
   receiverId?: string;
 
@@ -48,12 +52,17 @@ export class TokenTransaction {
   @Column({ type: 'jsonb', nullable: true })
   metadata?: Record<string, any>;
 
+  // Main user relationship (typically the transaction creator)
   @ManyToOne(() => User)
-  @JoinColumn({ name: 'senderId' })
+  @JoinColumn({ name: 'user_id' })
+  user: User;
+
+  @ManyToOne(() => User)
+  @JoinColumn({ name: 'sender_id' })
   sender: User;
 
   @ManyToOne(() => User, { nullable: true })
-  @JoinColumn({ name: 'receiverId' })
+  @JoinColumn({ name: 'receiver_id' })
   receiver?: User;
 
   @CreateDateColumn()

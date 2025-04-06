@@ -64,6 +64,20 @@ backend/
 │   │   ├── nft.controller.ts  # NFT REST endpoints
 │   │   ├── entities/          # NFT database entities
 │   │   └── services/          # Specialized NFT services
+│   ├── notification/          # Notification system module
+│   │   ├── notification.module.ts # Notification module configuration
+│   │   ├── notification.service.ts # Notification business logic
+│   │   ├── notification.controller.ts # Notification REST endpoints
+│   │   ├── notification.gateway.ts # WebSocket gateway for real-time notifications
+│   │   ├── dto/               # Data transfer objects for notifications
+│   │   │   ├── create-notification.dto.ts # DTO for creating notifications
+│   │   │   ├── update-notification.dto.ts # DTO for updating notifications
+│   │   │   └── notification.dto.ts # Response DTO for notifications
+│   │   ├── entities/          # Database entities for the notification system
+│   │   │   └── notification.entity.ts # Notification entity with user relationship
+│   │   └── services/          # Specialized notification services
+│   │       ├── notification-delivery.service.ts # Service for delivering notifications
+│   │       └── notification-template.service.ts # Service for notification templates
 │   ├── referral/              # Referral system module
 │   │   ├── referral.module.ts # Referral module configuration
 │   │   ├── referral.service.ts # Referral business logic
@@ -96,6 +110,21 @@ backend/
 │   │   ├── wallets.service.ts # Wallet business logic
 │   │   ├── wallets.controller.ts # Wallet REST endpoints
 │   │   └── entities/          # Wallet-related database entities
+│   ├── websocket/             # WebSocket module for real-time communication
+│   │   ├── websocket.module.ts # WebSocket module configuration
+│   │   ├── websocket.gateway.ts # Main WebSocket gateway
+│   │   ├── adapters/          # Custom adapters for Socket.IO
+│   │   │   └── redis.adapter.ts # Redis adapter for horizontal scaling
+│   │   ├── guards/            # WebSocket-specific guards
+│   │   │   └── ws-jwt.guard.ts # JWT authentication guard for WebSockets
+│   │   ├── decorators/        # Custom decorators for WebSocket handlers
+│   │   │   └── ws-user.decorator.ts # Get user from WebSocket connection
+│   │   ├── services/          # WebSocket-related services
+│   │   │   ├── channel-manager.service.ts # Service for channel management
+│   │   │   └── connection-store.service.ts # Service for tracking connections
+│   │   └── interfaces/        # TypeScript interfaces for WebSocket
+│   │       ├── ws-client.interface.ts # Interface for connected clients
+│   │       └── message.interface.ts # Interface for message structure
 │   └── __tests__/             # Test directory
 │       ├── setup.ts           # Test setup and configuration
 │       ├── test.module.ts     # Test module configuration
@@ -112,6 +141,403 @@ backend/
 ├── nest-cli.json              # NestJS CLI configuration
 └── jest.config.js             # Jest testing configuration
 ```
+
+## API Client Architecture
+
+The project implements a sophisticated, comprehensive API client that provides a unified interface for all applications (web, mobile, admin) to interact with the backend services. This client is built with TypeScript for type-safety and consistent behavior across platforms.
+
+### API Client Directory Structure
+
+```
+shared/
+├── api-client/               # Shared API client for all applications
+│   ├── src/
+│   │   ├── index.ts          # Main entry point and exports
+│   │   ├── api-client.ts     # Base API client with axios configuration
+│   │   ├── services/         # Service modules for specific API functionality
+│   │   │   ├── api.ts        # Core API service exports
+│   │   │   ├── auth-service.ts # Authentication service 
+│   │   │   ├── wallet-auth-service.ts # Wallet authentication service
+│   │   │   ├── diary-service.ts # Diary service
+│   │   │   ├── nft-service.ts  # NFT service
+│   │   │   ├── wallet-service.ts # Wallet service
+│   │   │   ├── token-service.ts # SHAHI token service
+│   │   │   ├── referral-service.ts # Referral service
+│   │   │   └── realtime-service.ts # WebSocket service
+│   │   ├── optimized-api/    # Performance-optimized API clients
+│   │   │   ├── cached-api.ts # Caching API client
+│   │   │   ├── batch-request.ts # Request batching client
+│   │   │   ├── selective-api.ts # Selective field fetching
+│   │   │   ├── compressed-api.ts # Response compression client
+│   │   │   └── offline-api.ts # Offline support client
+│   │   ├── security/         # Enhanced security features
+│   │   │   ├── device-fingerprint.ts # Device fingerprinting
+│   │   │   ├── security-service.ts # Security service
+│   │   │   ├── captcha-service.ts # CAPTCHA verification
+│   │   │   └── secure-api-client.ts # Secure API client
+│   │   ├── memory/           # Memory management
+│   │   │   ├── memory-manager.ts # Advanced memory management
+│   │   │   ├── cache-utils.ts # Cache eviction policies
+│   │   │   └── storage-monitor.ts # Storage monitoring
+│   │   ├── websocket.ts      # WebSocket connection management
+│   │   ├── notification/      # Notification system
+│   │   │   ├── notification.service.ts # Core notification service
+│   │   │   ├── notification.model.ts # Notification data model
+│   │   │   ├── notification-store.ts # Persistent notification storage
+│   │   │   └── notification-utils.ts # Utility functions for notifications
+│   │   └── utils/            # Utility functions
+│   │       ├── api-helpers.ts # API request helpers
+│   │       ├── auth-helpers.ts # Authentication helpers
+│   │       ├── storage.ts    # Local storage utilities
+│   │       └── validation.ts # Request validation helpers
+│   ├── package.json          # Package configuration
+│   └── tsconfig.json         # TypeScript configuration
+```
+
+### Core API Client Features
+
+1. **Base Client Configuration**
+   - Axios-based HTTP client with interceptors
+   - Automatic token management including:
+     - JWT token storage in localStorage
+     - Automatic token refresh on 401 errors
+     - Request queueing during token refresh
+   - Consistent error handling and response formatting
+   - Support for all HTTP methods (GET, POST, PUT, DELETE)
+
+2. **Service Modules**
+   - `AuthService` - Authentication operations (login, register, password reset)
+   - `WalletAuthService` - Blockchain wallet authentication
+   - `DiaryService` - CRUD operations for user diary entries
+   - `NFTService` - NFT management and metadata operations
+   - `WalletService` - Wallet management operations
+   - `TokenService` - SHAHI token operations (balance, minting)
+   - `ReferralService` - Referral code management and statistics
+   - `RealtimeService` - WebSocket subscriptions and real-time updates
+
+3. **Real-time Functionality**
+   - WebSocket connection management with automatic reconnection
+   - Subscription system for real-time updates
+   - Balance change notifications for wallet addresses
+   - NFT transfer events
+   - Connection status monitoring
+   - Authentication for secure WebSocket connections
+   - Message queuing during connection issues
+
+4. **Performance Optimizations**
+   - **Request Caching**: Automatic caching with TTL & tag-based invalidation
+   - **Request Batching**: Combines multiple API calls into a single HTTP request
+   - **Selective Field Fetching**: Reduces payload size by requesting only needed fields
+   - **Response Compression**: Bandwidth optimization for large responses
+   - **Offline Support**: Network connectivity monitoring with offline queueing
+   - **API Metrics**: Response time and request analytics with real-time monitoring
+   - **Advanced Memory Management**: Monitoring and cleanup to prevent memory issues
+   - **Cache Eviction Policies**: LRU, LFU, FIFO, and TTL-based strategies
+
+5. **Enhanced Security**
+   - **Device Fingerprinting**: Creates and manages unique device identifiers
+   - **Risk-Based Authentication**: Adjusts security requirements based on context
+   - **Security Event Logging**: Tracks login attempts and suspicious activities
+   - **CAPTCHA Protection**: Verification for high-risk operations
+   - **Secure API Client**: Adds security headers to all requests
+   - **End-to-End Encryption**: RSA/AES hybrid encryption for sensitive data
+     - Automatically encrypts data for sensitive routes
+     - Key generation and exchange mechanisms
+     - Digital signatures for data integrity verification
+
+### Implementation Details
+
+1. **Authentication Flow**
+   - Traditional email/password authentication
+   - WebSocket connection setup after successful login
+   - Token refresh mechanism with request queueing
+   - Automatic redirection to login on authentication failures
+
+2. **Wallet Authentication Flow**
+   - Two-step process (connect -> sign -> authenticate)
+   - Handles wallet connections via MetaMask and other providers
+   - Manages challenge signing and verification
+   - Optional email association with wallet accounts
+
+3. **Real-time Data Flow**
+   - WebSocket connection establishment with authentication
+   - Topic-based subscriptions (balance changes, NFT transfers)
+   - Event-based connection status updates
+   - Automatic reconnection with exponential backoff
+
+4. **Enhanced Security Implementation**
+   - Device fingerprinting using browser and hardware characteristics
+   - Risk assessment based on device, location, and behavior patterns
+   - Automatic CAPTCHA triggering for high-risk operations
+   - End-to-end encryption for sensitive data using hybrid approach:
+     - RSA-2048 for asymmetric key exchange
+     - AES-256-CBC/GCM for symmetric data encryption
+     - SHA-256 for data integrity verification
+
+5. **Optimization Strategies**
+   - Cache management with configurable TTL and eviction policies
+   - Request batching with automatic timeout-based execution
+   - Selective field requests with depth control for nested objects
+   - Compression thresholds to optimize bandwidth usage
+   - Memory monitoring with configurable cleanup triggers
+   - Offline operation queueing with conflict resolution
+
+### Security Considerations
+
+1. **Token Security**
+   - Tokens are stored in localStorage with expiration
+   - Automatic refresh mechanism with secure rotation
+   - Properly scoped tokens for different operations
+
+2. **Data Protection**
+   - End-to-end encryption for sensitive routes
+   - Client-side encryption with key management
+   - Digital signatures for data integrity
+
+3. **Risk Mitigation**
+   - Device binding for authentication
+   - CAPTCHA protection for sensitive operations
+   - Risk scoring for adaptive security measures
+
+4. **Memory Safety**
+   - Proper cleanup of sensitive data in memory
+   - Cache monitoring and management
+   - Memory leak prevention in WebSocket connections
+
+5. **Offline Data Security**
+   - Secure storage of queued operations
+   - Proper encryption of cached sensitive data
+   - Conflict resolution strategies
+
+## Real-time Communication System
+
+The project implements a comprehensive real-time communication system using WebSockets to provide instant updates to connected clients. This system is built with Socket.IO on both the backend and frontend.
+
+### WebSocket Architecture
+
+#### Backend Implementation
+
+1. **Core WebSocket Module** (`/backend/src/websocket/`)
+   - Main WebSocket gateway that serves as the entry point for all connections
+   - Authentication guard for secure WebSocket connections
+   - Channel-based subscription system for organized message distribution
+   - Connection tracking for managing client state
+   - Horizontal scaling support using Redis adapter
+
+2. **Feature-specific Gateways**
+   - Blockchain events gateway for token and NFT updates
+   - Notification gateway for system notifications
+   - User activity gateway for user presence tracking
+   - Chat gateway for direct messaging functionality
+
+3. **Connection Security**
+   - JWT token verification for each connection
+   - Device verification to prevent unauthorized access
+   - Permission checking for channel subscriptions
+   - Rate limiting to prevent abuse
+
+4. **Channel Management**
+   - Dynamic channel creation and cleanup
+   - User-specific channels for personalized updates
+   - Public channels for global updates
+   - Private channels for secure communications
+
+#### Frontend Implementation
+
+1. **WebSocketManager** (`/frontend/src/services/websocket-manager.ts`)
+   - Core manager class for WebSocket connections
+   - Implements connection lifecycle management
+   - Provides subscription management for different event types
+   - Handles automatic reconnection with exponential backoff
+   - Implements connection status monitoring
+   - Provides message queuing during disconnections
+   - Features health checking through ping/pong
+
+2. **RealTimeService** (`/shared/api-client/src/services/realtime-service.ts`)
+   - Higher-level abstraction for WebSocket functionality
+   - Provides domain-specific subscription methods
+   - Manages authentication and reconnection logic
+   - Ensures proper cleanup to prevent memory leaks
+
+3. **NotificationService** (`/shared/api-client/src/notification/notification.service.ts`)
+   - Manages system notifications using RxJS
+   - Integrates with the RealTimeService for real-time updates
+   - Provides methods for notification management
+   - Implements persistent storage for notifications
+   - Supports different notification categories (info, success, warning, error)
+
+### WebSocket Events
+
+1. **Authentication Events**
+   - `auth_error` - Authentication failures
+   - `auth_success` - Successful authentication
+
+2. **Subscription Events**
+   - `subscribe` - Subscribe to a specific channel
+   - `unsubscribe` - Unsubscribe from a channel
+
+3. **System Events**
+   - `connect` - Connection established
+   - `disconnect` - Connection lost
+   - `reconnect_attempt` - Attempting to reconnect
+   - `ping/pong` - Connection health checks
+
+4. **Domain-specific Events**
+   - `balance:${address}` - Balance updates for a specific wallet
+   - `nft:transfer:${address}` - NFT transfers for a specific address
+   - `token:price` - Token price updates
+   - `staking:${positionId}` - Staking position updates
+   - `notification` - System notifications
+
+### Implementation Features
+
+1. **Automatic Reconnection**
+   - Exponential backoff strategy for reconnection attempts
+   - Configurable maximum reconnection attempts
+   - Jitter to prevent reconnection storms
+
+2. **Message Queuing**
+   - Outgoing messages are queued during disconnections
+   - Automatic message processing when connection is restored
+   - Priority-based message processing
+
+3. **Connection Status Monitoring**
+   - Real-time status updates (connected, connecting, reconnecting, disconnected, error)
+   - Visual indicators for connection status
+   - Detailed error information for troubleshooting
+
+4. **Subscription Management**
+   - Automatic resubscribing to channels after reconnection
+   - Channel-based subscription organization
+   - Proper cleanup to prevent memory leaks
+
+5. **Error Handling**
+   - Comprehensive error detection and reporting
+   - Automatic recovery from common error conditions
+   - Detailed logging for troubleshooting
+
+### Security Considerations
+
+1. **Authentication Security**
+   - JWT token verification for each connection
+   - Automatic token refresh when expired
+   - Proper error handling for authentication failures
+
+2. **Channel Security**
+   - Permission checking for channel subscriptions
+   - User-specific channels to prevent data leakage
+   - Server-side validation of subscription requests
+
+3. **Connection Protection**
+   - Rate limiting to prevent abuse
+   - Automatic disconnection for suspicious activity
+   - IP-based blocking for repeated authentication failures
+
+4. **Data Security**
+   - Secure data transmission with TLS
+   - Proper input validation for all incoming messages
+   - Protection against common WebSocket vulnerabilities
+
+## Notification System
+
+The project implements a comprehensive notification system for delivering real-time updates and alerts to users across different platforms.
+
+### Notification Architecture
+
+#### Backend Implementation
+
+1. **Core Notification Module** (`/backend/src/notification/`)
+   - Main notification service that manages creation and delivery of notifications
+   - REST API endpoints for notification management
+   - WebSocket gateway for real-time notification delivery
+   - Database schema for permanent storage of notifications
+   - Template system for consistent notification formatting
+
+2. **Notification Categories**
+   - System notifications for application-level events
+   - User notifications for user-specific events
+   - Transaction notifications for blockchain transactions
+   - Security notifications for account security events
+   - Marketing notifications for promotional content
+
+3. **Delivery Methods**
+   - Real-time WebSocket delivery for immediate notifications
+   - Email delivery for important notifications
+   - Push notifications for mobile devices
+   - In-app notification center for historical notifications
+   - Persistent storage for offline viewing
+
+4. **Notification Management**
+   - Marking notifications as read/unread
+   - Bulk operations for notification management
+   - Automatic cleanup of old notifications
+   - User preferences for notification settings
+
+#### Frontend Implementation
+
+1. **NotificationService** (`/shared/api-client/src/notification/notification.service.ts`)
+   - Core service for managing notifications
+   - RxJS-based observable for notification updates
+   - Integration with WebSocket for real-time updates
+   - Local storage for notification persistence
+   - Methods for notification management (read, seen, delete)
+
+2. **NotificationStore** (`/shared/api-client/src/notification/notification-store.ts`)
+   - Persistent storage for notifications
+   - Cache management for notification data
+   - Synchronization with backend storage
+   - Automatic cleanup of old notifications
+
+3. **Notification Components**
+   - Notification center for viewing all notifications
+   - Toast notifications for immediate alerts
+   - Badge indicators for unread notification counts
+   - Detail views for notification content
+   - Action buttons for notification interactions
+
+### Notification Features
+
+1. **Real-time Delivery**
+   - Immediate delivery of new notifications
+   - Automatic UI updates when new notifications arrive
+   - Offline queueing for notifications during disconnections
+
+2. **Categorization**
+   - Visual differentiation by notification type
+   - Filtering options by category
+   - Priority levels for importance
+
+3. **Action Support**
+   - Interactive buttons within notifications
+   - Deep linking to relevant application sections
+   - Custom actions based on notification type
+
+4. **Personalization**
+   - User preference settings for notification types
+   - Notification frequency controls
+   - Quiet hours and do-not-disturb settings
+
+5. **Analytics**
+   - Tracking of notification engagement
+   - Metrics for delivery success rates
+   - Analysis of user response patterns
+
+### Security Considerations
+
+1. **Data Privacy**
+   - User-specific notifications are only delivered to the intended recipient
+   - Sensitive information is obfuscated in notification content
+   - Permission-based access to notification history
+
+2. **Authentication**
+   - Secure WebSocket connections for real-time delivery
+   - Authentication required for accessing notification history
+   - Token-based validation for notification actions
+
+3. **Rate Limiting**
+   - Protection against notification flooding
+   - Throttling for high-frequency notification sources
+   - Batching of notifications when appropriate
 
 ## SHAHI Coin Minting System
 
@@ -990,9 +1416,16 @@ The project implements a sophisticated device management security system to enfo
 - Main application component for Next.js
 - Sets up providers for authentication, blockchain, and UI framework
 
-**`/frontend/src/services/api.ts`**
-- API client configuration
-- Defines service methods for authentication, NFTs, and wallets
+**`/frontend/src/services/api/`**
+- Implementation of the shared API client for the Next.js frontend
+- Organizes API services into domain-specific modules
+- Includes optimized clients for performance enhancements
+- Implements security features like device fingerprinting and encryption
+
+**`/frontend/src/services/api/index.ts`**
+- Main entry point for the API client
+- Exports all service modules and client instances
+- Configures global API settings and interceptors
 
 **`/frontend/src/services/wallet-auth.service.ts`**
 - Implements wallet authentication flow on frontend side
@@ -1010,6 +1443,12 @@ The project implements a sophisticated device management security system to enfo
 - Root component for the React Native application
 - Sets up providers for authentication, blockchain, navigation, and theming
 
+**`/mobile/src/services/api/`**
+- Mobile-optimized implementation of the shared API client
+- Special focus on offline support and memory management
+- Adapts websocket connections for mobile environments
+- Implements platform-specific security features
+
 **`/mobile/src/config/environment.ts`**
 - Environment configuration for mobile app
 - Provides environment-specific API endpoints and settings
@@ -1020,11 +1459,91 @@ The project implements a sophisticated device management security system to enfo
 - Dashboard component for the admin panel
 - Displays statistics, charts, and tables for platform management
 
+**`/admin/src/services/api/`**
+- Admin-specific implementation of the shared API client
+- Includes enhanced security for administrative operations
+- Implements role-based access control for API calls
+- Uses monitoring features for administrative audit trails
+
 ## Shared Libraries
 
 **`/shared/api-client/src/index.ts`**
 - Shared API client used by all applications
 - Sets up request/response interceptors and authentication handling
+- Consolidates core functionality for frontend, mobile, and admin panel
+- Provides consistent interface and type definitions across platforms
+
+### WebSocket Client Architecture
+
+**`/frontend/src/services/websocket-manager.ts`**
+- Core WebSocket connection manager that:
+  - Handles WebSocket lifecycle (connect, disconnect, reconnect)
+  - Manages authentication with JWT tokens
+  - Implements automatic reconnection with exponential backoff
+  - Provides connection status monitoring and callbacks
+  - Manages message subscriptions by channel/type
+  - Handles message queuing during disconnections
+  - Implements health checking through ping/pong
+
+**`/frontend/src/services/api/realtime-service.ts`**
+- Higher-level real-time service that:
+  - Provides domain-specific subscription methods
+  - Implements strongly-typed event handlers
+  - Abstracts WebSocket complexity from components
+  - Exposes specific methods for each notification type:
+    - `subscribeToBalanceChanges`
+    - `subscribeToNftTransfers`
+    - `subscribeToTokenPrice`
+    - `subscribeToStakingUpdates`
+    - `subscribeToNotifications`
+
+**`/frontend/src/components/WebSocketStatus.tsx`**
+- UI component for displaying WebSocket connection status
+- Provides visual indicators for connection states:
+  - Connected (green)
+  - Connecting (blue)
+  - Reconnecting (yellow)
+  - Error (red)
+  - Disconnected (gray)
+- Offers both minimal (dot-only) and detailed display modes
+
+**`/frontend/src/types/api-types.ts`**
+- TypeScript interfaces for WebSocket events:
+  - `BalanceChangeEvent`
+  - `NftTransferEvent`
+  - `TokenPriceEvent`
+  - `StakingUpdateEvent`
+  - `NotificationEvent`
+  - `WebSocketAuthEvent`
+  - `WebSocketConnectionEvent`
+
+**`/frontend/src/pages/real-time-demo.tsx`**
+- Comprehensive demonstration page showing:
+  - Connection status monitoring
+  - Connection/disconnection controls
+  - Real-time notification display
+  - Wallet balance monitoring
+  - NFT transfer monitoring
+  - Testing instructions
+
+**WebSocket Integration Components**
+1. **NotificationsPanel**
+   - Real-time notification display component
+   - Shows system notifications by category (success, warning, error, info)
+   - Timestamps and organizes notifications chronologically
+   - Provides visual styling based on notification type
+
+2. **WalletBalanceMonitor**
+   - Real-time wallet balance tracking component
+   - Displays balance changes with increase/decrease indicators
+   - Shows transaction history from balance change events
+   - Formats amounts for human readability
+
+3. **NFTTransferMonitor**
+   - Real-time NFT transfer tracking component
+   - Displays sent and received NFTs with metadata
+   - Shows transaction details and timestamps
+   - Provides links to blockchain explorers
 
 ## DevOps and Configuration
 
@@ -1078,6 +1597,27 @@ The project implements a sophisticated device management security system to enfo
 - Implemented real-time WebSocket notifications for token events
 - Created rate-limited API endpoints with proper security measures
 - Built scheduled tasks for automated token maintenance operations
+
+### WebSocket Improvements
+- Implemented comprehensive WebSocket gateway with Socket.IO
+- Added secure channel-based subscription model
+- Created strongly-typed event definitions for all notification types
+- Built robust connection management with automatic reconnection
+- Implemented message queuing for offline/disconnected scenarios
+- Added TypeScript interfaces for all WebSocket events
+- Created connection status monitoring with visual feedback
+- Built demonstration components for real-time functionality
+- Added documentation for WebSocket usage patterns
+- Implemented proper cleanup to prevent memory leaks
+
+### API Client Real-time Extensions
+- Extended API client with real-time functionality
+- Added domain-specific subscription methods with proper typing
+- Implemented connection status monitoring and callbacks
+- Created comprehensive error handling for WebSocket operations
+- Added automatic token refresh during reconnection
+- Built ping/pong mechanism for connection health checks
+- Implemented best practices for WebSocket usage in React components
 
 ## Project Purpose
 
@@ -1145,6 +1685,16 @@ The project uses TypeScript throughout for type safety and follows a modular arc
 - Authentication endpoints fully functional and tested
 - Proper token validation and error handling
 - End-to-end user journey verified through tests
+
+✅ **API Client Implementation**
+- Comprehensive API client with service-based architecture
+- Performance optimizations (caching, batching, compression)
+- Security enhancements (device fingerprinting, end-to-end encryption)
+- Real-time functionality with WebSocket integration
+- Offline support with synchronization
+- Memory management for optimal performance
+- Extensive error handling and troubleshooting utilities
+- Consistent interface across all platform implementations
 
 ✅ **Referral System**
 - Complete implementation of referral code generation and validation
@@ -1274,4 +1824,15 @@ The project uses TypeScript throughout for type safety and follows a modular arc
    - Create analytics for wallet usage patterns
    - Implement session management UI for connected devices
    - Develop wallet profile completion flow to gather additional user data
+
+8. **API Client Enhancements**
+   - Complete implementation of end-to-end encryption for all sensitive data
+   - Implement comprehensive TypeScript type definitions for all API responses
+   - Add detailed JSDoc comments for better IDE integration
+   - Create example implementations for common use cases
+   - Implement comprehensive unit tests for all client modules
+   - Add automated regression testing for API client features
+   - Support GraphQL queries alongside REST for more flexible data fetching
+   - Implement rate limiting with retry strategies
+   - Add visualization tools for API performance monitoring
 

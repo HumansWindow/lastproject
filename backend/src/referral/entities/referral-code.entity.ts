@@ -12,7 +12,7 @@ export class ReferralCode {
   @Column({ default: true })
   isActive: boolean;
 
-  @Column({ name: 'referrer_id' })
+  @Column({ name: 'user_id' })
   referrerId: string;
 
   // Add userId as an alias for referrerId to maintain compatibility
@@ -26,7 +26,7 @@ export class ReferralCode {
   }
 
   @ManyToOne(() => User, user => user.referralCodes)
-  @JoinColumn({ name: 'referrer_id' })
+  @JoinColumn({ name: 'user_id' })
   referrer: User;
 
   @CreateDateColumn({ name: 'created_at' })
