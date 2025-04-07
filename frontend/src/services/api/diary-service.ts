@@ -14,6 +14,11 @@ export interface DiaryEntry {
   createdAt: string;
   updatedAt: string;
   userId: string;
+  // Additional properties needed by components
+  color?: string;
+  gameLevel?: number;
+  hasMedia?: boolean;
+  isStoredLocally?: boolean;
 }
 
 /**
@@ -216,7 +221,7 @@ class DiaryService {
    */
   async getDiaryLocations(): Promise<DiaryLocation[]> {
     try {
-      const response = await apiClient.get('/diary/locations');
+      const response = await apiClient.get('/diary/locations/list');
       return response.data;
     } catch (error) {
       console.error('Error fetching diary locations:', error);
@@ -251,6 +256,60 @@ class DiaryService {
       console.error(`Error searching diary entries with query "${query}":`, error);
       throw error;
     }
+  }
+
+  // ========================
+  // BACKWARD COMPATIBILITY METHODS
+  // These methods are kept to maintain compatibility with existing components
+  // ========================
+
+  /**
+   * @deprecated Use getDiaryEntries instead
+   * Get all diaries (compatibility method)
+   */
+  async getDiaries(): Promise<DiaryEntry[]> {
+    const result = await this.getDiaryEntries();
+    return Array.isArray(result) ? result : (result.data || []);
+  }
+
+  /**
+   * @deprecated Use getDiaryEntry instead
+   * Get a specific diary (compatibility method)
+   */
+  async getDiary(id: string): Promise<DiaryEntry> {
+    return this.getDiaryEntry(id);
+  }
+
+  /**
+   * @deprecated Use createDiaryEntry instead
+   * Create a new diary (compatibility method)
+   */
+  async createDiary(diary: any): Promise<DiaryEntry> {
+    return this.createDiaryEntry(diary);
+  }
+
+  /**
+   * @deprecated Use updateDiaryEntry instead
+   * Update a diary (compatibility method)
+   */
+  async updateDiary(id: string, diary: any): Promise<DiaryEntry> {
+    return this.updateDiaryEntry(id, diary);
+  }
+
+  /**
+   * @deprecated Use deleteDiaryEntry instead
+   * Delete a diary (compatibility method)
+   */
+  async deleteDiary(id: string): Promise<void> {
+    await this.deleteDiaryEntry(id);
+  }
+
+  /**
+   * @deprecated Use getDiaryLocations instead
+   * Get available locations (compatibility method)
+   */
+  async getLocations(): Promise<DiaryLocation[]> {
+    return this.getDiaryLocations();
   }
 }
 

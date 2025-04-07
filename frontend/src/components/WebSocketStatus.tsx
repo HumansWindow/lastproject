@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { realtimeService } from '../services/api';
-import { ConnectionStatus, WebSocketError } from '../services/websocket-manager';
+import { realtimeService } from '../services/realtime/websocket/realtime-service';
+import { ConnectionStatus, WebSocketError } from '../services/realtime/websocket/websocket-manager';
 import { Tooltip, Badge } from 'react-bootstrap';
 import OverlayTrigger from 'react-bootstrap/OverlayTrigger';
 

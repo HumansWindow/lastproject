@@ -3,14 +3,15 @@ import { NextPage } from 'next';
 import Layout from '../../../components/layout/Layout';
 import DiaryForm from '../../../components/diary/DiaryForm';
 import { useRouter } from 'next/router';
-import { diaryService } from '../../../services/diary.service';
+import { diaryService } from '../../../services/api/diary-service';
 import { Diary } from '../../../types/diary';
+import { ExtendedDiary } from '../../../types/diary-extended';
 import Link from 'next/link';
 
 const EditDiaryPage: NextPage = () => {
   const router = useRouter();
   const { id } = router.query;
-  const [diary, setDiary] = useState<Diary | null>(null);
+  const [diary, setDiary] = useState<ExtendedDiary | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -24,7 +25,8 @@ const EditDiaryPage: NextPage = () => {
   const fetchDiary = async (diaryId: string) => {
     try {
       const data = await diaryService.getDiary(diaryId);
-      setDiary(data);
+      // Convert to ExtendedDiary if needed
+      setDiary(data as unknown as ExtendedDiary);
     } catch (err) {
       console.error('Error fetching diary entry:', err);
       setError('Failed to load the diary entry. It may have been deleted or you don\'t have permission to view it.');

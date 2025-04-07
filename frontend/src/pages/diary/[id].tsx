@@ -2,8 +2,9 @@ import React, { useEffect, useState } from 'react';
 import { NextPage } from 'next';
 import Layout from '../../components/layout/Layout';
 import { useRouter } from 'next/router';
-import { diaryService } from '../../services/diary.service';
-import { Diary, DiaryLocationLabels, FeelingOptions } from '../../types/diary';
+import { diaryService } from '../../services/api/diary-service';
+import { Diary } from '../../types/diary';
+import { DiaryLocationLabels, FeelingOptions, ExtendedDiary } from "../../types/diary-extended";
 import Link from 'next/link';
 import { format } from 'date-fns';
 import { retrieveEncryptedMedia } from '../../utils/encryption';
@@ -11,7 +12,7 @@ import { retrieveEncryptedMedia } from '../../utils/encryption';
 const DiaryDetailPage: NextPage = () => {
   const router = useRouter();
   const { id } = router.query;
-  const [diary, setDiary] = useState<Diary | null>(null);
+  const [diary, setDiary] = useState<ExtendedDiary | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [mediaUrls, setMediaUrls] = useState<{
@@ -27,7 +28,7 @@ const DiaryDetailPage: NextPage = () => {
 
   const fetchDiary = async (diaryId: string) => {
     try {
-      const data = await diaryService.getDiary(diaryId);
+      const data = await diaryService.getDiary(diaryId) as ExtendedDiary;
       setDiary(data);
       
       // If this diary has locally stored media, try to retrieve it
@@ -113,6 +114,16 @@ const DiaryDetailPage: NextPage = () => {
     return luminance > 0.5 ? '#000000' : '#FFFFFF';
   };
 
+  // Get location label safely
+  const getLocationLabel = (location: any): string => {
+    if (!location) return 'Unknown';
+    if (typeof location === 'string') {
+      return DiaryLocationLabels[location] || location;
+    }
+    if (location.name) return location.name;
+    return 'Unknown';
+  };
+
   return (
     <Layout>
       <div className="container mt-4">
@@ -156,11 +167,13 @@ const DiaryDetailPage: NextPage = () => {
             </div>
             
             <div className="diary-meta">
+              {diary.gameLevel !== undefined && (
+                <div className="meta-item">
+                  <strong>Level:</strong> {diary.gameLevel}
+                </div>
+              )}
               <div className="meta-item">
-                <strong>Level:</strong> {diary.gameLevel}
-              </div>
-              <div className="meta-item">
-                <strong>Where:</strong> {DiaryLocationLabels[diary.location]}
+                <strong>Where:</strong> {getLocationLabel(diary.location)}
               </div>
               <div className="meta-item">
                 <strong>Created:</strong> {formattedDate}

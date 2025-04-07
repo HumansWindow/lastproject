@@ -1,15 +1,15 @@
 import React, { useEffect, useState } from 'react';
 import { NextPage } from 'next';
-import { Diary, DiaryLocation } from '../../types/diary';
-import { diaryService } from '../../services/diary.service';
+import { Diary } from '../../types/diary';
+import { diaryService } from '../../services/api/diary-service';
 import DiaryCard from '../../components/diary/DiaryCard';
 import Layout from '../../components/layout/Layout';
+import { DiaryLocationLabels, FeelingOptions, DiaryLocationEnum, ExtendedDiary } from "../../types/diary-extended";
 import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { useAuth } from '@/contexts/auth';
 import { useTranslation } from 'next-i18next';
 import { serverSideTranslations } from 'next-i18next/serverSideTranslations';
-
 // Add import for CSS styles
 import styles from '../../styles/DiaryList.module.css';
 
@@ -17,11 +17,11 @@ const DiaryListPage: NextPage = () => {
   const { t } = useTranslation('common');
   const router = useRouter();
   const { isAuthenticated } = useAuth();
-  const [diaries, setDiaries] = useState<Diary[]>([]);
+  const [diaries, setDiaries] = useState<ExtendedDiary[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState<{
-    location?: DiaryLocation;
+    location?: string;
     feeling?: string;
     gameLevel?: number;
   }>({});
@@ -39,7 +39,18 @@ const DiaryListPage: NextPage = () => {
     setLoading(true);
     try {
       const data = await diaryService.getDiaries();
-      setDiaries(data);
+      // Convert DiaryEntry[] to ExtendedDiary[]
+      const extendedData = data.map(entry => ({
+        ...entry,
+        // Ensure entry has the properties expected by ExtendedDiary
+        color: entry.color || '#ffffff',
+        feeling: entry.feeling || undefined,
+        gameLevel: typeof entry.gameLevel === 'number' ? entry.gameLevel : 1,
+        hasMedia: !!entry.hasMedia,
+        isStoredLocally: !!entry.isStoredLocally
+      } as ExtendedDiary));
+      
+      setDiaries(extendedData);
       setError(null);
     } catch (err: any) {
       console.error('Failed to fetch diaries:', err);
@@ -74,10 +85,20 @@ const DiaryListPage: NextPage = () => {
     }
   };
 
+  const getDiaryLocation = (diary: ExtendedDiary): string => {
+    // Handle both string locations (enum values) and complex DiaryLocation objects
+    if (typeof diary.location === 'string') {
+      return diary.location;
+    } else if (diary.location && typeof diary.location === 'object') {
+      return diary.location.name || 'Unknown';
+    }
+    return 'Unknown';
+  };
+
   const filteredDiaries = diaries.filter(diary => {
     let matches = true;
     
-    if (filter.location && diary.location !== filter.location) {
+    if (filter.location && getDiaryLocation(diary) !== filter.location) {
       matches = false;
     }
     
@@ -120,6 +141,7 @@ const DiaryListPage: NextPage = () => {
         {error && (
           <div className="alert alert-danger">{error}</div>
         )}
+
         {!isAuthenticated && (
           <div className="text-center mt-5">
             <p>You need to be logged in to view your diary entries.</p>
@@ -143,8 +165,10 @@ const DiaryListPage: NextPage = () => {
                       onChange={handleFilterChange}
                     >
                       <option value="">All Locations</option>
-                      {Object.values(DiaryLocation).map(loc => (
-                        <option key={loc} value={loc}>{loc}</option>
+                      {Object.values(DiaryLocationEnum).map(loc => (
+                        <option key={loc} value={loc}>
+                          {DiaryLocationLabels[loc] || loc}
+                        </option>
                       ))}
                     </select>
                   </div>

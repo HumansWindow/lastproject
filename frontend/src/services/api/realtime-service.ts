@@ -1,4 +1,4 @@
-import { WebSocketManager, ConnectionStatus } from '../websocket-manager';
+import { WebSocketManager, ConnectionStatus } from '../realtime/websocket/websocket-manager';
 
 /**
  * WebSocket URL - Using Next.js environment variables
@@ -147,7 +147,8 @@ class RealTimeService {
    * Get current connection status
    */
   public getConnectionStatus(): ConnectionStatus {
-    return this.wsManager.getConnectionStatus();
+    // Use the correct method name from WebSocketManager
+    return this.wsManager.getStatus();
   }
   
   /**
@@ -155,7 +156,13 @@ class RealTimeService {
    * @param token New token
    */
   public updateToken(token: string): void {
-    this.wsManager.updateToken(token);
+    // WebSocketManager doesn't have updateToken method, so we'll disconnect and reconnect
+    if (this.wsManager.isConnected()) {
+      this.wsManager.disconnect();
+      this.wsManager.connect(token).catch(err => {
+        console.error('Failed to reconnect with new token:', err);
+      });
+    }
   }
   
   /**
@@ -194,7 +201,8 @@ class RealTimeService {
    * Test connection with ping
    */
   public ping(): Promise<any> {
-    return this.wsManager.ping();
+    // Send a ping message to the server
+    return this.wsManager.send({ action: 'ping', timestamp: Date.now() });
   }
   
   /**
@@ -261,7 +269,8 @@ class RealTimeService {
    * Get list of active subscriptions
    */
   public getActiveSubscriptions(): string[] {
-    return this.wsManager.getActiveSubscriptions();
+    // This method doesn't exist in WebSocketManager, so we'll return an array of subscription channel names
+    return Array.from(this.wsManager['subscriptions']?.keys() || []);
   }
   
   /**
@@ -269,8 +278,15 @@ class RealTimeService {
    * @param channel Channel to send to
    * @param data Message data
    */
-  public sendMessage(channel: string, data: any): boolean {
-    return this.wsManager.send(channel, data);
+  public async sendMessage(channel: string, data: any): Promise<boolean> {
+    // Format the message as expected by the server and use the existing send method
+    const message = {
+      action: 'publish',
+      channel,
+      data
+    };
+    
+    return await this.wsManager.send(message);
   }
 }
 

@@ -1,10 +1,10 @@
 import React from 'react';
-import { Diary, DiaryLocationLabels, FeelingOptions } from '../../types/diary';
+import { ExtendedDiary, DiaryLocationLabels, FeelingOptions } from "../../types/diary-extended";
 import Link from 'next/link';
 import { formatDistanceToNow } from 'date-fns';
 
 interface DiaryCardProps {
-  diary: Diary;
+  diary: ExtendedDiary;
   onDelete?: (id: string) => void;
 }
 
@@ -47,6 +47,10 @@ const DiaryCard: React.FC<DiaryCardProps> = ({ diary, onDelete }) => {
 
   const cardBgColor = diary.color || '#ffffff';
   const textColor = getTextColor(cardBgColor);
+  
+  // Handle the location display, checking that it exists and is a string (not a DiaryLocation object)
+  const locationKey = typeof diary.location === 'string' ? diary.location : 'OTHER';
+  const locationLabel = DiaryLocationLabels[locationKey] || 'Unknown';
 
   return (
     <div 
@@ -62,9 +66,11 @@ const DiaryCard: React.FC<DiaryCardProps> = ({ diary, onDelete }) => {
       </div>
       
       <div className="diary-meta">
-        <span className="diary-level">Level {diary.gameLevel}</span>
+        {diary.gameLevel !== undefined && (
+          <span className="diary-level">Level {diary.gameLevel}</span>
+        )}
         <span className="diary-location">
-          {DiaryLocationLabels[diary.location]}
+          {locationLabel}
         </span>
         <span className="diary-date">{formattedDate}</span>
       </div>

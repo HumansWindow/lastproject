@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { realtimeService } from '../services/api';
-import { ConnectionStatus } from '../services/websocket-manager';
+import { realtimeService } from '../services/realtime/websocket/realtime-service';
+import { ConnectionStatus, WebSocketError } from '../services/realtime/websocket/websocket-manager';
 import WebSocketStatus from '../components/WebSocketStatus';
 import NotificationsPanel from '../components/NotificationsPanel';
 import WalletBalanceMonitor from '../components/WalletBalanceMonitor';
@@ -45,8 +45,8 @@ const RealTimeDemo: React.FC = () => {
       }
     });
     
-    const errorSubscription = realtimeService.onError((error) => {
-      setLastError(error.message);
+    const errorSubscription = realtimeService.onError((error: WebSocketError) => {
+      setLastError(error.message || error.reason || 'Unknown error');
       console.error('WebSocket error:', error);
     });
     
@@ -87,7 +87,7 @@ const RealTimeDemo: React.FC = () => {
   // Function to force a reconnection attempt
   const handleForceReconnect = () => {
     setReconnectAttempts(0);
-    realtimeService.reconnect();
+    realtimeService.connect(customToken);
   };
 
   // Function to subscribe to a channel
@@ -110,7 +110,8 @@ const RealTimeDemo: React.FC = () => {
   
   // Update the list of active subscriptions
   const updateSubscriptionsList = () => {
-    setActiveSubscriptions(realtimeService.getActiveSubscriptions());
+    const subscriptions = realtimeService.getActiveSubscriptions?.() || [];
+    setActiveSubscriptions(subscriptions);
   };
   
   // Test ping functionality

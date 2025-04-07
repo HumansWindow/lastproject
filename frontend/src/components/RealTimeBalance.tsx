@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { realtimeService } from '../services/api';
-import { BalanceChangeEvent } from '../types/api-types';
-import { ConnectionStatus } from '../services/websocket-manager';
+import { BalanceUpdateEvent } from "../types/api-types";
+import { realtimeService } from '../services/realtime/websocket/realtime-service';
+import { ConnectionStatus } from '../services/realtime/websocket/websocket-manager';
 import WebSocketStatus from './WebSocketStatus';
 
 interface RealTimeBalanceProps {
@@ -64,9 +64,9 @@ const RealTimeBalance: React.FC<RealTimeBalanceProps> = ({
     console.log(`Subscribing to balance updates for ${walletAddress}`);
     
     // Store the unsubscribe function
-    const unsubscribe = realtimeService.subscribeToBalanceChanges(
+    const unsubscribe = realtimeService.subscribeToBalanceUpdates(
       walletAddress,
-      (update: BalanceChangeEvent) => {
+      (update: BalanceUpdateEvent) => {
         console.log('Received balance update:', update);
         setPreviousBalance(balance);
         // Use formattedNewBalance if available, otherwise fall back to newBalance or keep current balance

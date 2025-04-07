@@ -1,13 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import { Diary, DiaryLocation, DiaryLocationLabels, FeelingOptions } from '../../types/diary';
-import { diaryService } from '../../services/diary.service';
+import { Diary, DiaryLocation } from '../../types/diary';
+import { DiaryLocationLabels, FeelingOptions, DiaryLocationEnum, ExtendedDiary } from "../../types/diary-extended";
+import { diaryService } from '../../services/api/diary-service';
 import RichTextEditor from './RichTextEditor';
 import MediaRecorderComponent from './MediaRecorder';
 import { storeEncryptedMedia } from '../../utils/encryption';
 import { useRouter } from 'next/router';
 
 interface DiaryFormProps {
-  initialData?: Diary;
+  initialData?: ExtendedDiary;
   isEdit?: boolean;
   onSubmitSuccess?: (diary: Diary) => void;
 }
@@ -20,23 +21,34 @@ const DiaryForm: React.FC<DiaryFormProps> = ({
   const router = useRouter();
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
-  const [formData, setFormData] = useState<Diary>(
-    initialData || {
-      title: '',
-      gameLevel: 1,
-      location: DiaryLocation.OTHER,
-      content: '',
-      hasMedia: false,
-      isStoredLocally: true,
-    }
-  );
+  
+  // Set default values for the form with a proper DiaryLocation object
+  const defaultFormData: ExtendedDiary = {
+    id: '',
+    title: '',
+    gameLevel: 1,
+    content: '',
+    location: {
+      latitude: 0, 
+      longitude: 0,
+      name: DiaryLocationEnum.OTHER 
+    },
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    userId: '',
+    hasMedia: false,
+    isStoredLocally: true,
+  };
+
+  const [formData, setFormData] = useState<ExtendedDiary>(initialData || defaultFormData);
+  
   const [showMediaRecorder, setShowMediaRecorder] = useState<boolean>(false);
   const [mediaBlobs, setMediaBlobs] = useState<{
     audio?: { blob: Blob, encrypted?: ArrayBuffer },
     video?: { blob: Blob, encrypted?: ArrayBuffer }
   }>({});
-  const [locationOptions, setLocationOptions] = useState<DiaryLocation[]>(
-    Object.values(DiaryLocation)
+  const [locationOptions, setLocationOptions] = useState<string[]>(
+    Object.values(DiaryLocationEnum)
   );
 
   // Fetch available locations from the backend
@@ -44,7 +56,11 @@ const DiaryForm: React.FC<DiaryFormProps> = ({
     const fetchLocations = async () => {
       try {
         const locations = await diaryService.getLocations();
-        setLocationOptions(locations);
+        // Convert DiaryLocation[] to string[] if needed
+        const locationStrings = locations.map(loc => 
+          typeof loc === 'string' ? loc : loc.name || 'Unknown'
+        );
+        setLocationOptions(locationStrings);
       } catch (err) {
         console.error('Failed to fetch diary locations:', err);
       }
@@ -63,6 +79,16 @@ const DiaryForm: React.FC<DiaryFormProps> = ({
       setFormData({
         ...formData,
         [name]: parseInt(value, 10) || 1,
+      });
+    } else if (name === 'location') {
+      // Handle location change by creating a proper DiaryLocation object
+      setFormData({
+        ...formData,
+        location: {
+          latitude: 0, // Default values for now
+          longitude: 0,
+          name: value
+        }
       });
     } else {
       setFormData({
@@ -151,6 +177,13 @@ const DiaryForm: React.FC<DiaryFormProps> = ({
     }
   };
 
+  // Helper function to safely get location name regardless of type
+  const getLocationName = () => {
+    if (!formData.location) return 'OTHER';
+    if (typeof formData.location === 'string') return formData.location;
+    return formData.location.name || 'OTHER';
+  };
+  
   return (
     <div className="diary-form-container">
       <h2>{isEdit ? 'Edit Diary Entry' : 'Create New Diary Entry'}</h2>
@@ -193,13 +226,13 @@ const DiaryForm: React.FC<DiaryFormProps> = ({
             id="location"
             name="location"
             className="form-select"
-            value={formData.location}
+            value={getLocationName()}
             onChange={handleInputChange}
             required
           >
             {locationOptions.map((location) => (
               <option key={location} value={location}>
-                {DiaryLocationLabels[location]}
+                {DiaryLocationLabels[location] || location}
               </option>
             ))}
           </select>

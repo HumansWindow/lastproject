@@ -1,48 +1,22 @@
-export enum DiaryLocation {
-  IN_DREAM = 'in_dream',
-  IN_SLEEP = 'in_sleep',
-  IN_MEMORIES = 'in_memories',
-  IN_AWAKING = 'in_awaking',
-  IN_MEDITATION = 'in_meditation',
-  IN_CONVERSATION = 'in_conversation',
-  OTHER = 'other',
+// Diary types
+
+export interface DiaryLocation {
+  latitude: number;
+  longitude: number;
+  name?: string;
+  address?: string;
 }
+
+// Extended type for location to handle both string enum values and location objects
+export type DiaryLocationField = DiaryLocation | string;
 
 export interface Diary {
-  id?: string;
+  id: string;
   title: string;
-  gameLevel: number;
-  createdAt?: Date;
-  updatedAt?: Date;
-  location: DiaryLocation;
-  feeling?: string;
-  color?: string;
   content: string;
-  hasMedia: boolean;
-  mediaPaths?: string[];
-  isStoredLocally: boolean;
-  userId?: string;
+  location?: DiaryLocationField;
+  images?: string[];
+  createdAt: string;
+  updatedAt: string;
+  userId: string;
 }
-
-export const DiaryLocationLabels: Record<DiaryLocation, string> = {
-  [DiaryLocation.IN_DREAM]: 'In Dream',
-  [DiaryLocation.IN_SLEEP]: 'In Sleep',
-  [DiaryLocation.IN_MEMORIES]: 'In Memories (By Thinking)',
-  [DiaryLocation.IN_AWAKING]: 'In Awaking',
-  [DiaryLocation.IN_MEDITATION]: 'In Meditation (By Light)',
-  [DiaryLocation.IN_CONVERSATION]: 'In a Talking/Conversation',
-  [DiaryLocation.OTHER]: 'Other',
-};
-
-export const FeelingOptions = [
-  { value: 'happy', label: 'Happy', emoji: '😊' },
-  { value: 'sad', label: 'Sad', emoji: '😢' },
-  { value: 'angry', label: 'Angry', emoji: '😠' },
-  { value: 'surprised', label: 'Surprised', emoji: '😲' },
-  { value: 'excited', label: 'Excited', emoji: '🤩' },
-  { value: 'confused', label: 'Confused', emoji: '😕' },
-  { value: 'calm', label: 'Calm', emoji: '😌' },
-  { value: 'anxious', label: 'Anxious', emoji: '😰' },
-  { value: 'fearful', label: 'Fearful', emoji: '😨' },
-  { value: 'neutral', label: 'Neutral', emoji: '😐' },
-];

@@ -1,6 +1,6 @@
 import React, { createContext, useState, useContext, useEffect, useRef, ReactNode } from 'react';
 import { ethers } from 'ethers';
-import { walletAuthService } from '../services/wallet-auth.service';
+import { walletAuthService } from '../services/api/modules/auth/wallet-auth-service';
 import { useAuth } from './auth'; // Import the auth context
 
 interface WalletContextType {

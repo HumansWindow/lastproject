@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { realtimeService } from '../services/api';
+import { realtimeService } from '../services/realtime/websocket/realtime-service';
 import { NftTransferEvent } from '../types/api-types';
 import WebSocketStatus from './WebSocketStatus';
 
@@ -16,8 +16,8 @@ const NFTTransferMonitor: React.FC<NFTTransferMonitorProps> = ({ walletAddress }
       walletAddress,
       (event) => {
         // Add to transfer history
-        setTransfers(prev => {
-          const updated = [event, ...prev].slice(0, 10);
+        setTransfers((prev: NftTransferEvent[]) => {
+          const updated = [event as NftTransferEvent, ...prev].slice(0, 10);
           return updated;
         });
       }

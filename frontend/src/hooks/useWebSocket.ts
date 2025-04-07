@@ -1,6 +1,11 @@
 import { useEffect, useState } from 'react';
-import { realtimeService } from '../services/api';
-import { ConnectionStatus } from '../services/websocket-manager';
+import { realtimeService } from '../services/realtime/websocket/realtime-service';
+import { ConnectionStatus } from '../services/realtime/websocket/websocket-manager';
+
+/**
+ * Check if the code is running in browser environment
+ */
+const isBrowser = typeof window !== 'undefined';
 
 /**
  * Custom hook to handle WebSocket connection lifecycle
@@ -11,6 +16,9 @@ export const useWebSocket = () => {
   const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>(ConnectionStatus.DISCONNECTED);
 
   useEffect(() => {
+    // Skip WebSocket initialization on server-side
+    if (!isBrowser || !realtimeService) return;
+
     // Initialize WebSocket connection if user is already logged in
     const accessToken = localStorage?.getItem('accessToken');
     if (accessToken) {
@@ -26,7 +34,7 @@ export const useWebSocket = () => {
     // Handle online/offline events
     function handleOnline() {
       const token = localStorage?.getItem('accessToken');
-      if (token && realtimeService.getConnectionStatus() === ConnectionStatus.DISCONNECTED) {
+      if (token && realtimeService && realtimeService.getConnectionStatus() === ConnectionStatus.DISCONNECTED) {
         realtimeService.connect(token).catch(console.error);
       }
     }
@@ -37,14 +45,10 @@ export const useWebSocket = () => {
     });
     
     // Add online event listener for reconnection
-    if (typeof window !== 'undefined') {
-      window.addEventListener('online', handleOnline);
-    }
+    window.addEventListener('online', handleOnline);
     
     return () => {
-      if (typeof window !== 'undefined') {
-        window.removeEventListener('online', handleOnline);
-      }
+      window.removeEventListener('online', handleOnline);
       
       // Unsubscribe from status updates
       unsubscribeFromStatus();
@@ -56,9 +60,9 @@ export const useWebSocket = () => {
 
   return {
     connectionStatus,
-    isConnected: realtimeService.isConnected(),
-    connect: realtimeService.connect.bind(realtimeService),
-    disconnect: realtimeService.disconnect.bind(realtimeService)
+    isConnected: isBrowser && realtimeService ? realtimeService.isConnected() : false,
+    connect: isBrowser && realtimeService ? realtimeService.connect.bind(realtimeService) : (() => Promise.resolve(false)),
+    disconnect: isBrowser && realtimeService ? realtimeService.disconnect.bind(realtimeService) : (() => {})
   };
 };
 

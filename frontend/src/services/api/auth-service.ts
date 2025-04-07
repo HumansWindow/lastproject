@@ -39,10 +39,10 @@ class AuthService {
       const response = await apiClient.post<AuthTokens>('/auth/login', { email, password });
       
       // Store tokens in localStorage
-      localStorage.setItem('accessToken', response.accessToken);
-      localStorage.setItem('refreshToken', response.refreshToken);
+      localStorage.setItem('accessToken', response.data.accessToken);
+      localStorage.setItem('refreshToken', response.data.refreshToken);
       
-      return response;
+      return response.data;
     } catch (error) {
       console.error('Login error:', error);
       throw error;
@@ -69,10 +69,10 @@ class AuthService {
       });
       
       // Store tokens in localStorage
-      localStorage.setItem('accessToken', response.accessToken);
-      localStorage.setItem('refreshToken', response.refreshToken);
+      localStorage.setItem('accessToken', response.data.accessToken);
+      localStorage.setItem('refreshToken', response.data.refreshToken);
       
-      return response;
+      return response.data;
     } catch (error) {
       console.error('Registration error:', error);
       throw error;
@@ -87,7 +87,7 @@ class AuthService {
   async forgotPassword(email: string): Promise<any> {
     try {
       const response = await apiClient.post('/auth/forgot-password', { email });
-      return response;
+      return response.data;
     } catch (error) {
       console.error('Forgot password error:', error);
       throw error;
@@ -106,7 +106,7 @@ class AuthService {
         token, 
         newPassword
       });
-      return response;
+      return response.data;
     } catch (error) {
       console.error('Reset password error:', error);
       throw error;
@@ -125,7 +125,7 @@ class AuthService {
         currentPassword,
         newPassword
       });
-      return response;
+      return response.data;
     } catch (error) {
       console.error('Change password error:', error);
       throw error;
@@ -139,7 +139,7 @@ class AuthService {
   async getUserInfo(): Promise<UserInfo> {
     try {
       const response = await apiClient.get<UserInfo>('/auth/me');
-      return response;
+      return response.data;
     } catch (error) {
       console.error('Error fetching user info:', error);
       throw error;
@@ -156,10 +156,10 @@ class AuthService {
       const response = await apiClient.post<AuthTokens>('/auth/refresh', { refreshToken });
       
       // Store new tokens
-      localStorage.setItem('accessToken', response.accessToken);
-      localStorage.setItem('refreshToken', response.refreshToken);
+      localStorage.setItem('accessToken', response.data.accessToken);
+      localStorage.setItem('refreshToken', response.data.refreshToken);
       
-      return response;
+      return response.data;
     } catch (error) {
       console.error('Token refresh error:', error);
       
@@ -184,7 +184,7 @@ class AuthService {
       localStorage.removeItem('accessToken');
       localStorage.removeItem('refreshToken');
       
-      return response;
+      return response.data;
     } catch (error) {
       console.error('Logout error:', error);
       

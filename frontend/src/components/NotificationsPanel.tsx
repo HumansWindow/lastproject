@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { realtimeService } from '../services/api';
-import { ConnectionStatus } from '../services/websocket-manager';
+import { realtimeService } from '../services/realtime/websocket/realtime-service';
+import { ConnectionStatus } from '../services/realtime/websocket/websocket-manager';
 import { NotificationEvent } from '../types/api-types';
 import WebSocketStatus from './WebSocketStatus';
 
@@ -14,9 +14,9 @@ const NotificationsPanel: React.FC<NotificationsPanelProps> = ({ maxNotification
   useEffect(() => {
     // Subscribe to notifications via WebSocket
     const unsubscribe = realtimeService.subscribeToNotifications((notification) => {
-      setNotifications(prev => {
+      setNotifications((prev: NotificationEvent[]) => {
         // Add new notification and limit to maxNotifications
-        const updated = [notification, ...prev].slice(0, maxNotifications);
+        const updated = [notification as NotificationEvent, ...prev].slice(0, maxNotifications);
         return updated;
       });
     });

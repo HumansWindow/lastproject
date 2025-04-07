@@ -4,9 +4,9 @@ import WebSocketStatus from '../components/WebSocketStatus';
 import WebSocketIndicator from '../components/WebSocketIndicator';
 import RealTimeBalance from '../components/RealTimeBalance';
 import NotificationBell from '../components/NotificationBell';
-import { realtimeService } from '../services/api';
-import { ConnectionStatus } from '../services/websocket-manager';
-import { notificationService } from '../services/notification-service';
+import { realtimeService } from '../services/realtime/websocket/realtime-service';
+import { ConnectionStatus } from '../services/realtime/websocket/websocket-manager';
+import { notificationService } from '../services/notifications/notification-service';
 
 /**
  * Demo page for WebSocket functionality

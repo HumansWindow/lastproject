@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { BellIcon } from './icons/BellIcon'; 
 import { Dropdown } from 'react-bootstrap';
-import { notificationService, AppNotification } from '../services/notification-service';
+import { notificationService, AppNotification } from '../services/notifications/notification-service';
 import { useObservable } from '../hooks/useObservable';
 
 /**

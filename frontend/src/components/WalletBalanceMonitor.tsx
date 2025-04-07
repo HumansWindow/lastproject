@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { realtimeService } from '../services/api';
-import { BalanceChangeEvent } from '../types/api-types';
+import { realtimeService } from '../services/realtime/websocket/realtime-service';
+import { BalanceChangeEvent, BalanceUpdateEvent } from '../types/api-types';
 import WebSocketStatus from './WebSocketStatus';
 
 interface WalletBalanceMonitorProps {
@@ -19,21 +19,33 @@ const WalletBalanceMonitor: React.FC<WalletBalanceMonitorProps> = ({
 
   useEffect(() => {
     // Subscribe to balance changes for the specified wallet
-    const unsubscribe = realtimeService.subscribeToBalanceChanges(
+    const unsubscribe = realtimeService.subscribeToBalanceUpdates(
       walletAddress,
-      (event) => {
+      (event: BalanceUpdateEvent) => {
         // Update current balance
         setCurrentBalance(event.newBalance);
         setFormattedBalance(event.formattedNewBalance || `${event.newBalance} ETH`);
         
         // Determine if balance is increasing or decreasing
         const isIncrease = 
-          BigInt(event.newBalance) > BigInt(event.previousBalance);
+          parseFloat(event.newBalance) > parseFloat(event.previousBalance);
         setIsIncreasing(isIncrease);
         
         // Add to history
-        setBalanceChanges(prev => {
-          const updated = [event, ...prev].slice(0, 5);
+        setBalanceChanges((prev: BalanceChangeEvent[]) => {
+          const updatedEvent = {
+            address: walletAddress,
+            previousBalance: event.previousBalance,
+            newBalance: event.newBalance,
+            formattedNewBalance: event.formattedNewBalance,
+            txHash: event.txHash,
+            blockNumber: 0, // This field might not be available in BalanceUpdateEvent
+            timestamp: event.timestamp,
+            chainId: 1, // Default to Ethereum mainnet
+            networkName: networkName,
+            type: isIncrease ? 'credit' as const : 'debit' as const
+          };
+          const updated = [updatedEvent, ...prev].slice(0, 5);
           return updated;
         });
 
@@ -48,7 +60,7 @@ const WalletBalanceMonitor: React.FC<WalletBalanceMonitorProps> = ({
     return () => {
       unsubscribe();
     };
-  }, [walletAddress]);
+  }, [walletAddress, networkName]);
 
   const formatAddress = (address: string): string => {
     return `${address.substring(0, 6)}...${address.substring(address.length - 4)}`;
@@ -100,7 +112,7 @@ const WalletBalanceMonitor: React.FC<WalletBalanceMonitorProps> = ({
                 <div className="flex justify-between">
                   <div>
                     <span className="font-medium">
-                      {BigInt(change.newBalance) > BigInt(change.previousBalance) 
+                      {parseFloat(change.newBalance) > parseFloat(change.previousBalance) 
                         ? 'Received' 
                         : 'Sent'}
                     </span>
@@ -112,17 +124,17 @@ const WalletBalanceMonitor: React.FC<WalletBalanceMonitorProps> = ({
                   </div>
                   <div className="text-right">
                     <div className={
-                      BigInt(change.newBalance) > BigInt(change.previousBalance)
+                      parseFloat(change.newBalance) > parseFloat(change.previousBalance)
                         ? 'text-green-600 dark:text-green-400'
                         : 'text-red-600 dark:text-red-400'
                     }>
-                      {BigInt(change.newBalance) > BigInt(change.previousBalance) ? '+' : '-'}
+                      {parseFloat(change.newBalance) > parseFloat(change.previousBalance) ? '+' : '-'}
                       {Math.abs(
-                        Number(BigInt(change.newBalance) - BigInt(change.previousBalance))
-                      ) / Math.pow(10, 18)} ETH
+                        parseFloat(change.newBalance) - parseFloat(change.previousBalance)
+                      ).toFixed(6)} ETH
                     </div>
                     <div className="text-xs text-gray-500 dark:text-gray-400">
-                      Block {change.blockNumber}
+                      {change.blockNumber ? `Block ${change.blockNumber}` : new Date(change.timestamp).toLocaleTimeString()}
                     </div>
                   </div>
                 </div>
