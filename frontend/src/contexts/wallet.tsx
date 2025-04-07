@@ -1,6 +1,6 @@
 import React, { createContext, useState, useContext, useEffect, useRef, ReactNode } from 'react';
 import { ethers } from 'ethers';
-import { walletAuthService } from '../services/api/modules/auth/wallet-auth-service';
+import { walletAuthService, WalletAuthResult } from '../services/api/modules/auth/wallet-auth-service';
 import { useAuth } from './auth'; // Import the auth context
 
 interface WalletContextType {
@@ -10,7 +10,9 @@ interface WalletContextType {
   connect: (email?: string) => Promise<string | null>;
   disconnect: () => void;
   error: string | null;
-  signMessage: (message: string) => Promise<string | null>; // Added signMessage method
+  signMessage: (message: string) => Promise<string | null>;
+  resetConnection: () => Promise<string | null>;
+  networkName: string | null;
 }
 
 const WalletContext = createContext<WalletContextType>({
@@ -20,7 +22,9 @@ const WalletContext = createContext<WalletContextType>({
   connect: async () => null,
   disconnect: () => {},
   error: null,
-  signMessage: async () => null // Added default implementation
+  signMessage: async () => null,
+  resetConnection: async () => null,
+  networkName: null
 });
 
 export const useWallet = () => useContext(WalletContext);
@@ -30,6 +34,7 @@ export const WalletProvider: React.FC<{children: ReactNode}> = ({ children }) =>
   const [isConnecting, setIsConnecting] = useState<boolean>(false);
   const [isConnected, setIsConnected] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+  const [networkName, setNetworkName] = useState<string | null>(null);
   
   // Use the auth context to update user state when wallet connects
   const { setUserFromWalletAuth } = useAuth();
@@ -38,14 +43,28 @@ export const WalletProvider: React.FC<{children: ReactNode}> = ({ children }) =>
   const accountsCleanupRef = useRef<() => void>(() => {});
   const chainCleanupRef = useRef<() => void>(() => {});
   
+  // Update network name when connection changes
+  const updateNetworkName = async () => {
+    if (isConnected) {
+      const name = await walletAuthService.getNetworkName();
+      setNetworkName(name);
+    } else {
+      setNetworkName(null);
+    }
+  };
+  
   // Check if a wallet is already connected on mount
   useEffect(() => {
     const checkConnection = async () => {
       try {
-        const currentAddress = await walletAuthService.getCurrentAddress();
-        if (currentAddress) {
-          setAddress(currentAddress);
-          setIsConnected(true);
+        const isConnected = await walletAuthService.checkConnection();
+        if (isConnected) {
+          const currentAddress = await walletAuthService.getCurrentAddress();
+          if (currentAddress) {
+            setAddress(currentAddress);
+            setIsConnected(true);
+            await updateNetworkName();
+          }
         }
       } catch (err) {
         console.error('Error checking wallet connection:', err);
@@ -64,12 +83,14 @@ export const WalletProvider: React.FC<{children: ReactNode}> = ({ children }) =>
         } else if (accounts[0] !== address) {
           // User switched accounts
           setAddress(accounts[0]);
+          updateNetworkName();
         }
       });
       
       chainCleanupRef.current = walletAuthService.setupChainChangeListener((chainId) => {
         console.log('Chain changed to:', chainId);
-        // You can add specific logic for chain changes if needed
+        // Update network name when chain changes
+        updateNetworkName();
       });
     }
     
@@ -101,13 +122,32 @@ export const WalletProvider: React.FC<{children: ReactNode}> = ({ children }) =>
       }
       
       const result = await walletAuthService.authenticate(email);
-      const walletAddress = result.wallet || await walletAuthService.getCurrentAddress();
+      
+      if (!result.success) {
+        // Authentication failed
+        const errorMessage = result.error || 'Failed to connect wallet';
+        setError(errorMessage);
+        return null;
+      }
+      
+      // Authentication successful
+      const walletAddress = result.walletAddress || await walletAuthService.getCurrentAddress();
+      if (!walletAddress) {
+        setError('Unable to get wallet address after authentication');
+        return null;
+      }
+      
       setAddress(walletAddress);
       setIsConnected(true);
+      await updateNetworkName();
       
-      // Update the auth context with the user data from wallet authentication
-      if (result.user) {
-        setUserFromWalletAuth(result.user);
+      // Check if user data is available in the result
+      if (result.userId) {
+        setUserFromWalletAuth({
+          id: result.userId,
+          walletAddress: walletAddress,
+          isNewUser: result.isNewUser || false
+        });
       }
       
       return walletAddress;
@@ -137,6 +177,7 @@ export const WalletProvider: React.FC<{children: ReactNode}> = ({ children }) =>
     walletAuthService.disconnect();
     setAddress(null);
     setIsConnected(false);
+    setNetworkName(null);
   };
   
   // Add signMessage implementation
@@ -164,6 +205,34 @@ export const WalletProvider: React.FC<{children: ReactNode}> = ({ children }) =>
     }
   };
   
+  // Reset wallet connection (useful for troubleshooting)
+  const resetConnection = async (): Promise<string | null> => {
+    setIsConnecting(true);
+    setError(null);
+    
+    try {
+      // Disconnect and reconnect
+      disconnect();
+      const newAddress = await walletAuthService.resetConnection();
+      
+      if (newAddress) {
+        setAddress(newAddress);
+        setIsConnected(true);
+        await updateNetworkName();
+        return newAddress;
+      } else {
+        setError('Failed to reset wallet connection');
+        return null;
+      }
+    } catch (error: any) {
+      console.error('Error resetting wallet connection:', error);
+      setError(error.message || 'Failed to reset connection');
+      return null;
+    } finally {
+      setIsConnecting(false);
+    }
+  };
+  
   return (
     <WalletContext.Provider value={{
       address,
@@ -172,7 +241,9 @@ export const WalletProvider: React.FC<{children: ReactNode}> = ({ children }) =>
       connect,
       disconnect,
       error,
-      signMessage // Add signMessage to the context value
+      signMessage,
+      resetConnection,
+      networkName
     }}>
       {children}
     </WalletContext.Provider>

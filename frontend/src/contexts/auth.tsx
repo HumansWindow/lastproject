@@ -15,6 +15,7 @@ interface ExtendedUserProfile extends UserProfile {
   walletAddress?: string;
   lastLoginAt?: string;
   roles?: string[];
+  isNewUser?: boolean; // Add this property to fix TypeScript error
 }
 
 interface AuthContextType {

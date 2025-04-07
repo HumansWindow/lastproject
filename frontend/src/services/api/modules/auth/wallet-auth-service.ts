@@ -1,11 +1,34 @@
 import { ethers } from 'ethers';
-import { apiClient } from '../../api-client'; // Fixed import path for apiClient
+import { apiClient } from '../../api-client';
 
-// Add this type declaration for ethereum in the global window object
+/**
+ * Global type declarations
+ */
 declare global {
   interface Window {
     ethereum?: any;
+    solana?: any;
+    BinanceChain?: any;
   }
+}
+
+/**
+ * Define types for wallet service
+ */
+export interface WalletConnectionResult {
+  address: string | null;
+  success: boolean;
+  error?: string;
+}
+
+export interface WalletAuthResult {
+  success: boolean;
+  token?: string;
+  refreshToken?: string;
+  walletAddress?: string;
+  userId?: string;
+  isNewUser?: boolean;
+  error?: string;
 }
 
 /**
@@ -17,6 +40,8 @@ class WalletAuthService {
   private signer: ethers.Signer | null = null;
   private accountsChangedListeners: Set<(accounts: string[]) => void> = new Set();
   private chainChangedListeners: Set<(chainId: string) => void> = new Set();
+  private connectionAttemptInProgress: boolean = false;
+  private connectionPromise: Promise<string | null> | null = null;
   
   constructor() {
     // Set max listeners to prevent warnings
@@ -25,15 +50,108 @@ class WalletAuthService {
         window.ethereum.setMaxListeners(100); // Increase max listeners
       }
     }
+    
+    // Check if we need to restore wallet connection on startup
+    this.restoreConnection();
   }
   
-  // Check if wallet is available in the browser
+  /**
+   * Attempt to restore a previous wallet connection
+   */
+  private async restoreConnection(): Promise<void> {
+    if (!this.isWalletAvailable()) return;
+    
+    try {
+      // Check if wallet has accounts available without prompting
+      const accounts = await window.ethereum.request({ 
+        method: 'eth_accounts' // This doesn't prompt the user
+      });
+      
+      if (accounts && accounts.length > 0) {
+        // Silently connect without prompting
+        this.provider = new ethers.providers.Web3Provider(window.ethereum, 'any');
+        this.signer = this.provider.getSigner();
+        
+        // Set up event listeners
+        this.setupListeners();
+      }
+    } catch (error) {
+      console.error('Failed to restore wallet connection:', error);
+    }
+  }
+  
+  /**
+   * Set up wallet event listeners
+   */
+  private setupListeners(): void {
+    if (!this.isWalletAvailable()) return;
+    
+    // Account changed handler
+    const handleAccountsChanged = (accounts: string[]) => {
+      if (accounts.length === 0) {
+        // User disconnected their wallet
+        this.disconnect();
+      }
+      // Notify all account change listeners
+      this.accountsChangedListeners.forEach(listener => {
+        try {
+          listener(accounts);
+        } catch (error) {
+          console.error('Error in accounts changed listener:', error);
+        }
+      });
+    };
+    
+    // Chain changed handler
+    const handleChainChanged = (chainId: string) => {
+      // Notify all chain change listeners
+      this.chainChangedListeners.forEach(listener => {
+        try {
+          listener(chainId);
+        } catch (error) {
+          console.error('Error in chain changed listener:', error);
+        }
+      });
+    };
+    
+    // Add listeners to wallet
+    window.ethereum.on('accountsChanged', handleAccountsChanged);
+    window.ethereum.on('chainChanged', handleChainChanged);
+  }
+  
+  /**
+   * Check if wallet is available in the browser
+   */
   isWalletAvailable(): boolean {
     return typeof window !== 'undefined' && !!window.ethereum;
   }
   
-  // Connect to user's wallet and return the address
+  /**
+   * Connect to user's wallet and return the address
+   */
   async connectWallet(): Promise<string | null> {
+    // If a connection is already in progress, return the existing promise
+    if (this.connectionAttemptInProgress && this.connectionPromise) {
+      return this.connectionPromise;
+    }
+    
+    // Set up connection state and promise
+    this.connectionAttemptInProgress = true;
+    this.connectionPromise = this._connectWalletInternal();
+    
+    try {
+      return await this.connectionPromise;
+    } finally {
+      // Reset connection state after completion (success or failure)
+      this.connectionAttemptInProgress = false;
+      this.connectionPromise = null;
+    }
+  }
+  
+  /**
+   * Internal connection method
+   */
+  private async _connectWalletInternal(): Promise<string | null> {
     try {
       if (!this.isWalletAvailable()) {
         console.error('No Ethereum wallet found in browser');
@@ -44,20 +162,38 @@ class WalletAuthService {
       await window.ethereum.request({ method: 'eth_requestAccounts' });
       
       // Get provider and signer
-      this.provider = new ethers.providers.Web3Provider(window.ethereum);
+      this.provider = new ethers.providers.Web3Provider(window.ethereum, 'any');
+      await this.provider.ready; // Ensure provider is ready
+      
       this.signer = this.provider.getSigner();
+      
+      // Set up event listeners
+      this.setupListeners();
       
       // Get the connected wallet address
       const address = await this.signer.getAddress();
       console.log('Wallet connected:', address);
       return address;
-    } catch (error) {
-      console.error('Error connecting wallet:', error);
+    } catch (error: any) {
+      // Enhanced error handling with specific messages
+      let errorMessage = 'Error connecting wallet';
+      
+      if (error.code === 4001) {
+        errorMessage = 'User rejected the connection request';
+      } else if (error.code === -32002) {
+        errorMessage = 'Wallet connection already pending. Check your wallet extension';
+      } else if (error.message) {
+        errorMessage = `Wallet error: ${error.message}`;
+      }
+      
+      console.error(errorMessage, error);
       return null;
     }
   }
   
-  // Sign a message with the connected wallet
+  /**
+   * Sign a message with the connected wallet
+   */
   async signMessage(message: string): Promise<string | null> {
     try {
       if (!this.isWalletAvailable()) {
@@ -78,27 +214,52 @@ class WalletAuthService {
       const signature = await this.signer.signMessage(message);
       console.log('Message signed successfully');
       return signature;
-    } catch (error) {
-      console.error('Error signing message:', error);
+    } catch (error: any) {
+      // Enhanced error handling with specific messages
+      let errorMessage = 'Error signing message';
+      
+      if (error.code === 4001) {
+        errorMessage = 'User rejected the signing request';
+      } else if (error.message) {
+        errorMessage = `Signing error: ${error.message}`;
+      }
+      
+      console.error(errorMessage, error);
       return null;
     }
   }
   
-  // First step: Connect wallet and request challenge from backend
+  /**
+   * First step: Connect wallet and request challenge from backend
+   */
   async initiateWalletConnection(address: string): Promise<{ exists: boolean; challenge: string }> {
     try {
       console.log('Initiating wallet connection for:', address);
-      // Make sure to use the connect endpoint
+      
+      // Make sure to use the connect endpoint with proper error handling
       const response = await apiClient.post('/auth/wallet/connect', { address });
+      
       console.log('Challenge received:', response.data);
       return response.data;
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error initiating wallet connection:', error);
+      
+      // More detailed error handling for specific cases
+      if (error.response) {
+        console.error('Server response error:', error.response.data);
+      } else if (error.request) {
+        console.error('No response received from server. Check network connection.');
+      } else {
+        console.error('Request setup error:', error.message);
+      }
+      
       throw error;
     }
   }
   
-  // Second step: Sign the challenge and authenticate
+  /**
+   * Second step: Sign the challenge and authenticate
+   */
   async authenticateWithSignature(address: string, challenge: string, email?: string): Promise<any> {
     try {
       if (!this.signer) {
@@ -110,7 +271,8 @@ class WalletAuthService {
       console.log('Signature created:', signature);
       
       console.log('Authenticating with signature');
-      // Step 2: Send the address, message (challenge), signature, and optionally email
+      
+      // Prepare authentication data
       const requestData: {
         address: string;
         message: string;
@@ -124,64 +286,41 @@ class WalletAuthService {
       
       // Only add email if provided (completely optional)
       if (email) {
-        console.log('Including optional email in authentication request');
         requestData.email = email;
       }
       
-      // Log detailed request data for debugging
-      console.log('Authentication request payload:', {
-        address: requestData.address,
-        message: requestData.message,
-        messageLength: requestData.message.length,
-        signature: requestData.signature,
-        signatureLength: requestData.signature.length,
-        hasEmail: !!requestData.email
-      });
-      
-      // Set proper headers
-      const config = {
-        headers: {
-          'Content-Type': 'application/json',
-        }
-      };
-      
       // Make sure we're using the authenticate endpoint
-      const response = await apiClient.post('/auth/wallet/authenticate', requestData, config);
+      const response = await apiClient.post('/auth/wallet/authenticate', requestData);
       console.log('Authentication response:', response.data);
       
-      // Store tokens if authentication successful - use standardized token naming
+      // Store tokens if authentication successful
       if (response.data.accessToken) {
-        localStorage.setItem('accessToken', response.data.accessToken);
+        apiClient.setToken(response.data.accessToken);
+        
         if (response.data.refreshToken) {
           localStorage.setItem('refreshToken', response.data.refreshToken);
         }
-        apiClient.defaults.headers.common['Authorization'] = `Bearer ${response.data.accessToken}`;
       }
       
       return response.data;
     } catch (error: any) {
       console.error('Error authenticating with signature:', error);
-      // Add more detailed error logging
-      if (error.response) {
-        console.error('Error response data:', error.response.data);
-        console.error('Error response status:', error.response.status);
-        console.error('Error response headers:', error.response.headers);
-      } else if (error.request) {
-        console.error('No response received:', error.request);
-      } else {
-        console.error('Error message:', error.message);
-      }
       throw error;
     }
   }
   
-  // Complete wallet authentication flow
-  async authenticate(email?: string): Promise<any> {
+  /**
+   * Complete wallet authentication flow
+   */
+  async authenticate(email?: string): Promise<WalletAuthResult> {
     try {
       // Connect wallet and get address
       const address = await this.connectWallet();
       if (!address) {
-        throw new Error('Failed to connect wallet');
+        return {
+          success: false,
+          error: 'Failed to connect wallet'
+        };
       }
       
       console.log('Connected wallet address:', address);
@@ -190,15 +329,22 @@ class WalletAuthService {
       console.log('Requesting challenge from backend...');
       const connectResponse = await this.initiateWalletConnection(address);
       if (!connectResponse || !connectResponse.challenge) {
-        throw new Error('Failed to get challenge from server');
+        return {
+          success: false,
+          error: 'Failed to get challenge from server'
+        };
       }
       console.log('Received challenge:', connectResponse.challenge);
       
       // Step 2: Sign the challenge with wallet
       console.log('Signing challenge...');
       if (!this.signer) {
-        throw new Error('No signer available');
+        return {
+          success: false,
+          error: 'No signer available'
+        };
       }
+      
       const signature = await this.signer.signMessage(connectResponse.challenge);
       console.log('Challenge signed successfully');
       
@@ -218,77 +364,54 @@ class WalletAuthService {
       };
       
       // Only add email if provided AND it's valid
-      // Otherwise, we can authenticate with just the wallet
       if (email && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
         authData.email = email;
       } else if (email) {
         console.warn('Email format is invalid, proceeding with wallet-only authentication');
-      } else {
-        console.log('No email provided, proceeding with wallet-only authentication');
       }
       
-      // Full logging of request data
-      console.log('Full authentication request data:', {
-        address: authData.address,
-        challenge: authData.message,
-        signature: authData.signature.substring(0, 30) + '...',
-        hasEmail: !!authData.email
-      });
-      
-      // Set explicit content type header
-      const config = {
-        headers: {
-          'Content-Type': 'application/json',
-        }
-      };
-      
-      // Use the authenticate endpoint (not the connect endpoint)
-      const authResponse = await apiClient.post('/auth/wallet/authenticate', authData, config);
+      // Use the authenticate endpoint
+      const authResponse = await apiClient.post('/auth/wallet/authenticate', authData);
       console.log('Authentication successful');
       
-      // Store tokens if authentication successful - use standardized token naming
+      // Store tokens if authentication successful
       if (authResponse.data.accessToken) {
-        localStorage.setItem('accessToken', authResponse.data.accessToken);
+        apiClient.setToken(authResponse.data.accessToken);
+        
         if (authResponse.data.refreshToken) {
           localStorage.setItem('refreshToken', authResponse.data.refreshToken);
         }
-        apiClient.defaults.headers.common['Authorization'] = `Bearer ${authResponse.data.accessToken}`;
       }
       
-      return authResponse.data;
+      return {
+        success: true,
+        token: authResponse.data.accessToken,
+        refreshToken: authResponse.data.refreshToken,
+        walletAddress: address,
+        userId: authResponse.data.userId,
+        isNewUser: authResponse.data.isNewUser
+      };
     } catch (error: any) {
       console.error('Wallet authentication failed:', error);
       
-      // Enhanced error logging
-      if (error.response) {
-        console.error('Error response data:', error.response.data);
-        console.error('Error response status:', error.response.status);
-        console.error('Error response headers:', error.response.headers);
-        
-        // Check if there's a specific error message from the server
-        if (error.response.data && error.response.data.message) {
-          console.error('Server error message:', error.response.data.message);
-        }
-      } else if (error.request) {
-        console.error('No response received from server');
-      } else {
-        console.error('Error during request setup:', error.message);
-      }
+      // Get best error message
+      const errorMessage = error.response?.data?.message || error.message || 'Unknown error during wallet authentication';
       
-      throw error;
+      return {
+        success: false,
+        error: errorMessage
+      };
     }
   }
   
-  // Disconnect wallet
+  /**
+   * Disconnect wallet
+   */
   disconnect(): void {
     // Clean up event listeners when disconnecting
     if (this.isWalletAvailable()) {
-      this.accountsChangedListeners.forEach(listener => {
-        window.ethereum.removeListener('accountsChanged', listener);
-      });
-      this.chainChangedListeners.forEach(listener => {
-        window.ethereum.removeListener('chainChanged', listener);
-      });
+      window.ethereum.removeAllListeners('accountsChanged');
+      window.ethereum.removeAllListeners('chainChanged');
       this.accountsChangedListeners.clear();
       this.chainChangedListeners.clear();
     }
@@ -296,13 +419,13 @@ class WalletAuthService {
     this.provider = null;
     this.signer = null;
     
-    // Clear tokens using standardized naming
-    localStorage.removeItem('accessToken');
-    localStorage.removeItem('refreshToken');
-    delete apiClient.defaults.headers.common['Authorization'];
+    // Clear authorization tokens
+    apiClient.clearToken();
   }
   
-  // Get current wallet address
+  /**
+   * Get current wallet address
+   */
   async getCurrentAddress(): Promise<string | null> {
     try {
       if (!this.signer) {
@@ -314,44 +437,102 @@ class WalletAuthService {
     }
   }
   
-  // Listen for account changes
+  /**
+   * Listen for account changes
+   */
   setupAccountChangeListener(callback: (accounts: string[]) => void): () => void {
     if (this.isWalletAvailable()) {
-      // Remove previous instances of the same callback if any
-      window.ethereum.removeListener('accountsChanged', callback);
-      
-      // Add the listener
-      window.ethereum.on('accountsChanged', callback);
+      // Add the listener to our set
       this.accountsChangedListeners.add(callback);
       
       // Return cleanup function
       return () => {
-        window.ethereum.removeListener('accountsChanged', callback);
-        this.accountsChangedListeners.delete(callback);
+        if (window.ethereum) {
+          this.accountsChangedListeners.delete(callback);
+        }
       };
     }
     return () => {};
   }
   
-  // Listen for chain changes
+  /**
+   * Listen for chain changes
+   */
   setupChainChangeListener(callback: (chainId: string) => void): () => void {
     if (this.isWalletAvailable()) {
-      // Remove previous instances of the same callback if any
-      window.ethereum.removeListener('chainChanged', callback);
-      
-      // Add the listener
-      window.ethereum.on('chainChanged', callback);
+      // Add the listener to our set
       this.chainChangedListeners.add(callback);
       
       // Return cleanup function
       return () => {
-        window.ethereum.removeListener('chainChanged', callback);
-        this.chainChangedListeners.delete(callback);
+        if (window.ethereum) {
+          this.chainChangedListeners.delete(callback);
+        }
       };
     }
     return () => {};
+  }
+
+  /**
+   * Force disconnect and reconnect (useful for troubleshooting)
+   */
+  async resetConnection(): Promise<string | null> {
+    this.disconnect();
+    return await this.connectWallet();
+  }
+
+  /**
+   * Check connection status
+   */
+  async checkConnection(): Promise<boolean> {
+    try {
+      if (!this.isWalletAvailable()) {
+        return false;
+      }
+      
+      // Check if wallet has accounts available
+      const accounts = await window.ethereum.request({ 
+        method: 'eth_accounts' // This doesn't prompt the user
+      });
+      
+      return accounts && accounts.length > 0;
+    } catch (error) {
+      console.error('Error checking wallet connection:', error);
+      return false;
+    }
+  }
+  
+  /**
+   * Get the network name for the currently connected wallet
+   */
+  async getNetworkName(): Promise<string> {
+    try {
+      if (!this.provider) {
+        return 'Not connected';
+      }
+      
+      const network = await this.provider.getNetwork();
+      
+      // Map network IDs to common names
+      const networkNames: Record<number, string> = {
+        1: 'Ethereum Mainnet',
+        3: 'Ropsten Testnet',
+        4: 'Rinkeby Testnet',
+        5: 'Goerli Testnet',
+        42: 'Kovan Testnet',
+        56: 'Binance Smart Chain',
+        97: 'BSC Testnet',
+        137: 'Polygon Mainnet',
+        80001: 'Mumbai Testnet',
+      };
+      
+      return networkNames[network.chainId] || `Network ${network.chainId}`;
+    } catch (error) {
+      return 'Unknown network';
+    }
   }
 }
 
 // Create and export a singleton instance
 export const walletAuthService = new WalletAuthService();
+export default walletAuthService;

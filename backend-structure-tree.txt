@@ -1,0 +1,377 @@
+  │   add-missing-columns.sql
+  │   add-token-expiry-fields.sql
+  │   apply-database-fixes.sh
+  │   apply-minting-queue-table.sh
+  │   build-and-deploy.sh
+  │   build.sh
+  │   bulk-delete-database.sql
+  │   check-dist.js
+  │   check-src.js
+  │   check-tsconfig.js
+  │   clean.js
+  │   clean-user-data.sql
+  │   clear-all-tables.sql
+  │   complete-db-fix.sql
+  │     │   test.ts
+  │   create-diary-table.sql
+  │   create-minting-queue-table.sql
+  │   database-init.js
+  │   debug-ts.ts
+  │   delete-users.sql
+  │   dev-start.sh
+  │   .env
+  │   .env.development
+  │   .env.production
+  │   .env.test
+  │   .eslintrc.js
+  │   extract-wallet-key.js
+  │   find-main.js
+  │   fix-all-deps.js
+  │   fix-database-schema.sql
+  │   fix-database.sql
+  │   fix-db-permissions.sh
+  │   fix-db-schema.sql
+  │   fix-dependencies.sh
+  │   fix-deps.sh
+  │   fix-dist-permissions.sh
+  │   fix-node-modules.js
+  │   fix-pg-auth.sh
+  │   fix-swagger-install.sh
+  │   fix-ts-errors.sh
+  │   fix-user-devices-schema.sql
+  │   fix-user-sessions-schema.sql
+  │   fix-websockets.js
+  │   .gitignore
+  │   improved-bulk-delete.sql
+  │   install-deps.sh
+  │   install-local.js
+  │   install-swagger.sh
+  │   jest.config.js
+  │   jest-global.d.ts
+  │   JEST-SETUP.md
+  │   jest-types.d.ts
+  │   main.ts.patch
+  │   nest-cli.json
+  │   .node-args
+  │   node-types.d.ts
+  │   .npmrc
+  │   package.json
+  │     │   fix-schedule-explorer.js
+  │   patch-schedule.js
+  │   .prettierrc
+  │   print-build.js
+  │   README.md
+  │   reset-postgres-passwords.sh
+  │   run-app.sh
+  │   runbackend.txt
+  │   run-clean-data.sh
+  │   run-tests.sh
+  │     │   build-and-run.sh
+  │     │   build-debug.js
+  │     │   build.js
+  │     │   build-strict.ts
+  │     │   check-db.js
+  │     │   check-id-consistency.js
+  │     │   config-loader.js
+  │     │   create-dist-package.js
+  │     │   create-test-db.js
+  │     │   deploy-production.js
+  │     │   fix-modules.js
+  │     │   init-db.js
+  │     │   install-jest-types.js
+  │     │   quick-setup.js
+  │     │   setup-db.sh
+  │     │   test-wallet-login.js
+  │   setup-admin-wallet.sh
+  │   simple-build.sh
+  │     │     │   accounts.module.ts
+  │     │     │     │   accounts.controller.ts
+  │     │     │     │   account.entity.ts
+  │     │     │     │   accounts.service.ts
+  │     │     │   app.controller.ts
+  │     │     │   app.module.ts
+  │     │     │   app.service.ts
+  │     │     │   base.controller.ts
+  │     │     │     │   base.controller.ts
+  │     │   app.module.ts
+  │     │     │   auth.controller.spec.ts
+  │     │     │   auth.controller.ts
+  │     │     │   auth.module.ts
+  │     │     │   auth.service.ts
+  │     │     │     │   wallet-auth.controller.ts
+  │     │     │     │   wallet-auth-debug.controller.ts
+  │     │     │     │   get-user.decorator.ts
+  │     │     │     │   roles.decorator.ts
+  │     │     │     │   ws-user.decorator.ts
+  │     │     │     │   auth.dto.ts
+  │     │     │     │   forgot-password.dto.ts
+  │     │     │     │   login.dto.ts
+  │     │     │     │   refresh-token.dto.ts
+  │     │     │     │   refresh-token.entity.ts
+  │     │     │     │   register.dto.ts
+  │     │     │     │   reset-password.dto.ts
+  │     │     │     │   wallet-connect-response.dto.ts
+  │     │     │     │   wallet-login.dto.ts
+  │     │     │     │   refresh-token.entity.ts
+  │     │     │     │   access-token.guard.ts
+  │     │     │     │   jwt-auth.guard.ts
+  │     │     │     │   local-auth.guard.ts
+  │     │     │     │   refresh-token.guard.ts
+  │     │     │     │   roles.guard.ts
+  │     │     │     │   ws-auth.guard.ts
+  │     │     │     │   jwt-payload.interface.ts
+  │     │     │     │   request-with-user.interface.ts
+  │     │     │   jwt.module.ts
+  │     │     │     │   jwt.strategy.ts
+  │     │     │     │   local.strategy.ts
+  │     │     │     │   wallet.strategy.ts
+  │     │     │     │   passport-custom.d.ts
+  │     │     │     │   tokens.type.ts
+  │     │     │   batch.controller.ts
+  │     │     │   batch.interfaces.ts
+  │     │     │   batch.module.ts
+  │     │     │   batch.service.ts
+  │     │     │     │   shahi-token.abi.json
+  │     │     │     │   shahiToken.json
+  │     │     │   blockchain.module.ts
+  │     │     │   blockchain.service.ts
+  │     │     │     │   blockchain-environment.ts
+  │     │     │   constants.ts
+  │     │     │     │   4deploysmartcontract.md
+  │     │     │     │     │   SHAHICoin.ts
+  │     │     │     │     │   deployment-info-polygon-mumbai.json
+  │     │     │     │     │   SHAHICoin-abi.json
+  │     │     │     │   connecttobackend.md
+  │     │     │     │     │   bitcoin-integration.md
+  │     │     │     │     │   bridge-config.js
+  │     │     │     │     │   contract-addresses.json
+  │     │     │     │     │   deploy-all.js
+  │     │     │     │     │   deploy-base.js
+  │     │     │     │     │   deploy-bsc.js
+  │     │     │     │     │   deploy-ethereum.js
+  │     │     │     │     │   DEPLOYMENT_GUIDE.md
+  │     │     │     │     │   deploy-polygon-direct.js
+  │     │     │     │     │   deploy-polygon.js
+  │     │     │     │     │   deploy-polygon-simulate.js
+  │     │     │     │     │   deploy-rsk.js
+  │     │     │     │     │   phase2-networks.md
+  │     │     │     │   deploy-recompile.sh
+  │     │     │     │     │   run-real-deployment.sh
+  │     │     │     │   deploy.txt
+  │     │     │     │     │   update-addresses.js
+  │     │     │     │     │   verify-contracts.js
+  │     │     │     │   direct-compile.sh
+  │     │     │     │   .env
+  │     │     │     │   .env.example
+  │     │     │     │   forSHAHI.md
+  │     │     │     │   hardhat.config.js
+  │     │     │     │   Marketplace.sol
+  │     │     │     │   NFT.sol
+  │     │     │     │   package.json
+  │     │     │     │   package-lock.json
+  │     │     │     │   README-MULTICHAIN.md
+  │     │     │     │   rpc-connectivity-results.json
+  │     │     │     │     │   deploy.js
+  │     │     │     │   SHAHICoin.sol
+  │     │     │     │   SHAHIStorage.sol
+  │     │     │     │   shahi-token.abi.json
+  │     │     │     │   .solhintignore
+  │     │     │     │   test-rpc-connectivity.js
+  │     │     │     │   test-rpc-fallback.js
+  │     │     │     │   minting.controller.ts
+  │     │     │     │   rpc-status.controller.ts
+  │     │     │     │   staking.controller.ts
+  │     │     │     │   token.controller.ts
+  │     │     │     │   token-minting.controller.ts
+  │     │     │     │   apy-tier.entity.ts
+  │     │     │     │   device-fingerprint.entity.ts
+  │     │     │     │   minting-queue-item.entity.ts
+  │     │     │     │   minting-record.entity.ts
+  │     │     │     │   staking-position.entity.ts
+  │     │     │     │   wallet.entity.ts
+  │     │     │     │   minting-status.enum.ts
+  │     │     │     │   minting-type.enum.ts
+  │     │     │   fileReferences.d.ts
+  │     │     │     │   token-events.gateway.ts
+  │     │     │     │   websocket.gateway.ts
+  │     │     │     │   rate-limit.guard.ts
+  │     │     │     │   cli-tools.mjs
+  │     │     │     │   config.js
+  │     │     │     │     │   marketplaceConfig.ts
+  │     │     │   hot-wallet.controller.ts
+  │     │     │     │   .env
+  │     │     │     │     │   ChainHandlers.ts
+  │     │     │     │   index.ts
+  │     │     │     │     │   auth.middleware.ts
+  │     │     │   hot-wallet.module.ts
+  │     │     │     │   package.json
+  │     │     │     │   README.md
+  │     │     │     │     │   BalanceService.ts
+  │     │     │     │     │   GasService.ts
+  │     │     │     │     │   .~lock.monit.rtf#
+  │     │     │     │     │   MarketplaceAccountService.ts
+  │     │     │     │     │   MarketplaceWebhookService.ts
+  │     │     │     │     │   MonitoringService.ts
+  │     │     │     │     │   monit.rtf
+  │     │     │     │     │   NFTService.ts
+  │     │     │     │     │   RPCLoadBalancer.ts
+  │     │     │     │     │   TransactionHistoryService.ts
+  │     │     │     │     │   TransactionService.ts
+  │     │     │   hot-wallet.service.ts
+  │     │     │     │   setup.sh
+  │     │     │     │     │   api-config.ts
+  │     │     │     │     │   circuitBreaker.ts
+  │     │     │     │     │   encryption.ts
+  │     │     │     │     │   errors.ts
+  │     │     │     │     │   rateLimiter.ts
+  │     │     │     │   WalletManager.ts
+  │     │     │     │   nft.interfaces.ts
+  │     │     │   README.md
+  │     │     │     │   merkle.service.ts
+  │     │     │     │   minting.service.ts
+  │     │     │     │   rpc-provider.service.ts
+  │     │     │     │   shahi-token.service.ts
+  │     │     │     │   staking.service.ts
+  │     │     │     │   user-minting-queue.service.ts
+  │     │     │     │   token-expiry.task.ts
+  │     │     │   wallet.controller.ts
+  │   src-check.js
+  │     │     │   cors.config.ts
+  │     │     │   development.config.ts
+  │     │     │   test-database.config.ts
+  │     │     │   typeorm.config.ts
+  │     │     │   api.constants.ts
+  │     │     │   database.module.ts
+  │     │     │   data-source.ts
+  │     │     │     │   1711369000000-FixUserDevicesTable.ts
+  │     │     │   run-migrations.ts
+  │     │     │   initialize-schema.ts
+  │     │     │   reset-database.ts
+  │     │   db-test.ts
+  │     │     │     │   diary.controller.ts
+  │     │     │   diary.module.ts
+  │     │     │     │   diary.dto.ts
+  │     │     │     │   diary.entity.ts
+  │     │     │     │   diary.service.ts
+  │     │   fix-swagger.ts
+  │     │   generate-admin-wallet.ts
+  │     │     │   i18n.module.ts
+  │     │     │   i18n.service.ts
+  │     │     │   mail.module.ts
+  │     │     │   mail.service.ts
+  │     │   main.ts
+  │     │   main.ts.new
+  │     │     │   1714384861234-InitialSchema.ts
+  │     │     │   1714384962345-AddNftAndTokenTables.ts
+  │     │     │   1714386000000-AddSecurityTables.ts
+  │     │     │   1743120000000-FixWalletUserIdInconsistency.ts
+  │     │     │   1743281500000-FixUserSessionsAndDevicesTables.ts
+  │     │     │   1743281728126-AddMissingColumns.ts
+  │     │     │   1743283000000-FixDbTables.ts
+  │     │     │   1743400000000-FixColumnInconsistencies.ts
+  │     │     │   1743500000000-FixUserColumnsNames.ts
+  │     │     │   1743600000000-UpdateUsersTableToUUID.ts
+  │     │     │   1750000000000-StandardizeUserIds.ts
+  │     │     │     │   nft.entity.ts
+  │     │     │   nft.controller.ts
+  │     │     │   nft.module.ts
+  │     │     │   nft.service.ts
+  │     │     │     │   create-referral.dto.ts
+  │     │     │     │   toggle-referral-code.dto.ts
+  │     │     │     │   referral-code.entity.ts
+  │     │     │     │   referral.entity.ts
+  │     │     │   referral.controller.ts
+  │     │     │   referral.module.ts
+  │     │     │   referral.service.ts
+  │     │   run-migration.ts
+  │     │     │   diagnose-wallet-auth.ts
+  │     │     │   reset-db.ts
+  │     │     │     │   cors.config.ts
+  │     │     │     │   domain.exceptions.ts
+  │     │     │     │   global-exception.filter.ts
+  │     │     │     │   dev-bypass.middleware.ts
+  │     │     │     │   device-detector.module.ts
+  │     │     │     │   bcrypt.service.ts
+  │     │     │     │   device-detector.service.ts
+  │     │     │     │   memory-monitor.service.ts
+  │     │     │   shared.module.ts
+  │     │     │     │   debug-logger.util.ts
+  │     │   swagger-config.ts
+  │     │   swagger.config.ts
+  │     │   test-alive-connection.ts
+  │     │     │   api.spec.ts
+  │     │     │     │   auth.spec.ts
+  │     │     │     │   password-reset.spec.ts
+  │     │     │     │   session-management.spec.ts
+  │     │     │   auth.spec2.ts
+  │     │     │   basic.spec.ts
+  │     │     │     │   hotwallet-basic.spec.ts
+  │     │     │     │   hotwallet.spec.js
+  │     │     │     │   hotwallet.spec.ts
+  │     │     │     │   hotwallet-wrapper.ts
+  │     │     │     │   mock-providers.js
+  │     │     │     │   mock-providers.legacy.js
+  │     │     │     │   mock-providers.ts
+  │     │     │     │   nft.spec.ts
+  │     │     │     │   shahi-token.service.spec.ts
+  │     │     │   integration.spec.ts
+  │     │     │   minimal.spec.ts
+  │     │     │   mock-app.module.ts
+  │     │     │     │   auth.service.mock.ts
+  │     │     │     │   blockchain.module.mock.ts
+  │     │     │     │   blockchain.service.mock.ts
+  │     │     │     │   device-detector.service.mock.ts
+  │     │     │     │   user-devices.service.mock.ts
+  │     │     │     │   user.entity.mock.ts
+  │     │     │     │   user-sessions.service.mock.ts
+  │     │     │     │   wallet.entity.mock.ts
+  │     │     │   referral.controller.spec.ts
+  │     │     │   referral.service.spec.ts
+  │     │     │   setup.js
+  │     │     │   setup.ts
+  │     │     │   test-app.module.ts
+  │     │     │   test.module.ts
+  │     │     │   test-overrides.ts
+  │     │     │   test-utils.ts
+  │     │     │     │   test-utils.ts
+  │     │     │     │   token-transaction.entity.ts
+  │     │     │   token.controller.ts
+  │     │     │   token.module.ts
+  │     │     │   token.service.ts
+  │     │     │   express.d.ts
+  │     │     │   jest.d.ts
+  │     │     │     │   index.d.ts
+  │     │     │   keccak256.d.ts
+  │     │     │   merkletreejs.d.ts
+  │     │     │     │   user-devices.controller.ts
+  │     │     │     │   create-user.dto.ts
+  │     │     │     │   update-user.dto.ts
+  │     │     │     │   user-device.entity.ts
+  │     │     │     │   user.entity.ts
+  │     │     │     │   user-session.entity.ts
+  │     │     │     │   user-devices.service.ts
+  │     │     │     │   user-sessions.service.ts
+  │     │     │   users.controller.ts
+  │     │     │   users.md
+  │     │     │   users.module.ts
+  │     │     │   users.service.ts
+  │     │     │     │   wallet.entity.ts
+  │     │     │   wallets.controller.ts
+  │     │     │   wallets.module.ts
+  │     │     │   wallets.service.ts
+  │   start-app.js
+  │   start-memory-safe.sh
+  │   start-optimized.sh
+  │   superuser-db-fix.sql
+  │   swagger-test.js
+  │   tsconfig.build.json
+  │   tsconfig.build.simple.json
+  │   tsconfig.build.tsbuildinfo
+  │   tsconfig.json
+  │   tsconfig.test.json
+  │   tsconfig.tsbuildinfo
+  │   typeorm.config.ts
+  │   update-database.js
+  │   update-deps.js
+  │   update-id-fields.sql
+  │   webpack.config.js

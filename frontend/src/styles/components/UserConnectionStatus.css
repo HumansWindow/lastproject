@@ -1,0 +1,53 @@
+.user-connection-status {
+  padding: 10px;
+  border-radius: 4px;
+  font-family: sans-serif;
+  margin: 10px 0;
+}
+
+.status-indicator {
+  display: inline-flex;
+  align-items: center;
+  padding: 5px 10px;
+  border-radius: 20px;
+  font-weight: 500;
+}
+
+.status-indicator::before {
+  content: '';
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  margin-right: 8px;
+}
+
+.status-indicator.connected {
+  background-color: rgba(39, 174, 96, 0.2);
+  color: #27ae60;
+}
+
+.status-indicator.connected::before {
+  background-color: #27ae60;
+  box-shadow: 0 0 0 2px rgba(39, 174, 96, 0.3);
+}
+
+.status-indicator.disconnected {
+  background-color: rgba(231, 76, 60, 0.2);
+  color: #e74c3c;
+}
+
+.status-indicator.disconnected::before {
+  background-color: #e74c3c;
+  box-shadow: 0 0 0 2px rgba(231, 76, 60, 0.3);
+}
+
+.connection-details {
+  margin-top: 10px;
+  font-size: 14px;
+  color: #666;
+}
+
+.connection-details p {
+  margin: 4px 0;
+}
