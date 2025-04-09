@@ -1,33 +1,59 @@
-import { ConnectionStatus, WebSocketError } from './websocket-manager';
-import { BalanceChangeEvent, BalanceUpdateEvent, NftTransferEvent, NotificationEvent } from '../../../types/api-types';
+import { 
+  ConnectionStatus, 
+  MessageHandler, 
+  NftTransferEvent, 
+  BalanceUpdateEvent, 
+  NotificationEvent, 
+  WebSocketError 
+} from '../../../types/realtime-types';
 
-// Define a consistent interface for the realtime service
-export interface RealTimeService {
-  // Connection methods
-  isConnected(): boolean;
-  connect(token: string): Promise<boolean>;
+// Export the imported ConnectionStatus
+export { ConnectionStatus };
+
+export interface SubscriptionCallback {
+  (data: any): void;
+}
+
+export interface IRealtimeService {
+  connect(token: string): Promise<void>;
   disconnect(): void;
-  
-  // Status methods
+  subscribe(channel: string, callback: SubscriptionCallback): () => void;
+  unsubscribe(channel: string, callback?: SubscriptionCallback): void;
   getConnectionStatus(): ConnectionStatus;
-  onConnectionStatusChange(callback: (status: ConnectionStatus) => void): () => void;
-  onError(callback: (error: WebSocketError) => void): () => void;
+  onConnectionStatusChange?(callback: (status: ConnectionStatus) => void): () => void;
+  onStatusChange?(callback: (status: ConnectionStatus) => void): () => void;
+  onMessage?(callback: (message: any) => void): () => void;
+  onError?(callback: (error: WebSocketError) => void): () => void;
+}
+
+export interface RealtimeServiceInterface {
+  connect(token?: string): Promise<void>;
+  disconnect(): void;
+  isConnected(): boolean;
+  getConnectionStatus(): ConnectionStatus;
   
-  // Message handling
-  onMessage(callback: (message: any) => void): () => void;
-  send(message: any): Promise<boolean>;
-  
-  // Subscription methods
-  subscribe(channel: string, callback: (data: any) => void): () => void;
+  subscribe(channel: string, callback: MessageHandler): () => void;
   unsubscribe(channel: string): void;
+  
+  subscribeToNftTransfers(walletAddress: string, callback: MessageHandler<NftTransferEvent>): () => void;
+  subscribeToBalanceUpdates(walletAddress: string, callback: MessageHandler<BalanceUpdateEvent>): () => void;
+  subscribeToNotifications(userId: string, callback: MessageHandler<NotificationEvent>): () => void;
+  
+  onError(callback: (error: WebSocketError) => void): () => void;
+  onMessage(callback: MessageHandler): () => void;
+  onStatusChange(callback: (status: ConnectionStatus) => void): () => void;
+  
+  ping(): Promise<boolean>;
   getActiveSubscriptions(): string[];
-  
-  // Specialized subscription methods
-  subscribeToNotifications(callback: (notification: NotificationEvent) => void): () => void;
-  subscribeToBalanceUpdates(walletAddress: string, callback: (update: BalanceUpdateEvent) => void): () => void;
-  subscribeToNftTransfers(walletAddress: string, callback: (event: NftTransferEvent) => void): () => void;
-  
-  // Configuration methods
-  setAutoReconnect(enabled: boolean, maxAttempts?: number): void;
-  ping(): Promise<any>;
+  setAutoReconnect(enabled: boolean, maxRetries?: number): void;
+  setToken(token: string): void;
+}
+
+// Configuration options interface
+export interface RealTimeServiceOptions {
+  url: string;
+  autoReconnect?: boolean;
+  reconnectInterval?: number;
+  maxReconnectAttempts?: number;
+  debug?: boolean;
 }

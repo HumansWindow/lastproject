@@ -1,245 +1,122 @@
-import React, { useState, useEffect } from 'react';
-import { Container, Row, Col, Card, Button, Form } from 'react-bootstrap';
+import React, { useEffect, useState } from 'react';
+import { realtimeService, ConnectionStatus } from '../services/realtime';
 import WebSocketStatus from '../components/WebSocketStatus';
-import WebSocketIndicator from '../components/WebSocketIndicator';
-import RealTimeBalance from '../components/RealTimeBalance';
-import NotificationBell from '../components/NotificationBell';
-import { realtimeService } from '../services/realtime/websocket/realtime-service';
-import { ConnectionStatus } from '../services/realtime/websocket/websocket-manager';
-import { notificationService } from '../services/notifications/notification-service';
 
-/**
- * Demo page for WebSocket functionality
- */
+interface ConnectionStatusData {
+  status: ConnectionStatus;
+  isConnected: boolean;
+}
+
 const WebSocketDemo: React.FC = () => {
-  const [walletAddress, setWalletAddress] = useState<string>('');
-  const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>(
-    realtimeService.getConnectionStatus()
-  );
-  const [testNotification, setTestNotification] = useState({
-    title: 'Test Notification',
-    message: 'This is a test notification message',
-    category: 'info' as 'info' | 'success' | 'warning' | 'error'
-  });
+  const [messages, setMessages] = useState<string[]>([]);
+  const [status, setStatus] = useState<ConnectionStatus>(ConnectionStatus.DISCONNECTED);
+  const [address, setAddress] = useState<string>('');
   
   useEffect(() => {
-    // Initialize wallet address from localStorage if available
-    const savedAddress = localStorage.getItem('demoWalletAddress');
-    if (savedAddress) {
-      setWalletAddress(savedAddress);
-    }
-    
-    // Track connection status
-    const unsubscribe = realtimeService.onConnectionStatusChange((status) => {
-      setConnectionStatus(status);
+    // Subscribe to connection status changes
+    const unsubscribe = realtimeService?.subscribe('connectionStatus', (data: ConnectionStatusData) => {
+      setStatus(data.status);
+      addMessage(`Connection status changed: ${data.status}`);
     });
     
     return () => {
-      unsubscribe();
+      if (unsubscribe) unsubscribe();
     };
   }, []);
   
-  // Save wallet address to localStorage
-  const handleWalletChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const address = e.target.value;
-    setWalletAddress(address);
-    localStorage.setItem('demoWalletAddress', address);
+  const addMessage = (msg: string) => {
+    setMessages(prev => [
+      `[${new Date().toLocaleTimeString()}] ${msg}`, 
+      ...prev.slice(0, 49)
+    ]);
   };
-  
-  // Handle manual connection/disconnection
-  const toggleConnection = () => {
-    if (realtimeService.isConnected()) {
-      realtimeService.disconnect();
-    } else {
-      const token = localStorage.getItem('accessToken');
-      if (token) {
-        realtimeService.connect(token)
-          .catch(error => console.error('Connection error:', error));
-      } else {
-        alert('No access token available. Please log in first.');
-      }
+
+  const handleConnect = () => {
+    // Connect without token parameter
+    realtimeService?.connect();
+    addMessage('Attempting to connect...');
+  };
+
+  const handleDisconnect = () => {
+    realtimeService?.disconnect();
+    addMessage('Disconnected from WebSocket server');
+  };
+
+  const handleSubscribe = () => {
+    if (!address) {
+      addMessage('Please enter a wallet address to subscribe to');
+      return;
     }
-  };
-  
-  // Create a test notification
-  const createTestNotification = () => {
-    const notification = {
-      id: `test-${Date.now()}`,
-      title: testNotification.title,
-      message: testNotification.message,
-      timestamp: Date.now(),
-      category: testNotification.category,
-      link: '',
-      read: false,
-      userId: '',
-      seen: false
-    };
     
-    // Use the correct method that we've added to the notification service
-    notificationService.handleNewNotification(notification);
+    const channel = `balance:${address}`;
+    const unsubscribe = realtimeService?.subscribe(channel, (data: any) => {
+      addMessage(`Received balance update for ${address}: ${JSON.stringify(data)}`);
+    });
+    
+    addMessage(`Subscribed to ${channel}`);
   };
 
   return (
-    <Container className="py-5">
-      <h1 className="mb-4">WebSocket Demo</h1>
-      <p className="mb-4">
-        This page demonstrates WebSocket integration with various components.
-      </p>
+    <div className="container mx-auto p-4">
+      <h1 className="text-2xl font-bold mb-4">WebSocket Demo</h1>
       
-      <Row className="mb-5">
-        <Col md={6}>
-          <Card>
-            <Card.Header>
-              <h5 className="mb-0">WebSocket Connection</h5>
-            </Card.Header>
-            <Card.Body>
-              <div className="d-flex justify-content-between align-items-center mb-3">
-                <div>
-                  <strong>Connection Status:</strong>{' '}
-                  <span className={connectionStatus === ConnectionStatus.CONNECTED ? 'text-success' : 'text-danger'}>
-                    {connectionStatus}
-                  </span>
-                </div>
-                <WebSocketStatus showDetails showDiagnosticInfo showConnectionDuration />
-              </div>
-              
-              <div className="d-flex align-items-center mb-4">
-                <strong className="me-2">Status Indicator:</strong>
-                <WebSocketIndicator />
-              </div>
-              
-              <Button 
-                variant={realtimeService.isConnected() ? 'danger' : 'success'}
-                onClick={toggleConnection}
-              >
-                {realtimeService.isConnected() ? 'Disconnect' : 'Connect'}
-              </Button>
-            </Card.Body>
-          </Card>
-        </Col>
+      <div className="mb-6 p-4 border rounded">
+        <h2 className="text-xl mb-2">Connection Status</h2>
+        <WebSocketStatus showDetails={true} />
         
-        <Col md={6}>
-          <Card>
-            <Card.Header>
-              <h5 className="mb-0">Real-time Balance</h5>
-            </Card.Header>
-            <Card.Body>
-              <Form.Group className="mb-3">
-                <Form.Label>Wallet Address</Form.Label>
-                <Form.Control
-                  type="text"
-                  placeholder="Enter wallet address"
-                  value={walletAddress}
-                  onChange={handleWalletChange}
-                />
-                <Form.Text className="text-muted">
-                  Enter a wallet address to monitor its balance.
-                </Form.Text>
-              </Form.Group>
-              
-              {walletAddress && (
-                <div className="mt-4">
-                  <RealTimeBalance walletAddress={walletAddress} showDetailedStatus />
-                </div>
-              )}
-            </Card.Body>
-          </Card>
-        </Col>
-      </Row>
+        <div className="flex space-x-2 mt-4">
+          <button 
+            onClick={handleConnect}
+            className="px-4 py-2 bg-green-500 text-white rounded"
+            disabled={status === ConnectionStatus.CONNECTED || status === ConnectionStatus.CONNECTING}
+          >
+            Connect
+          </button>
+          <button
+            onClick={handleDisconnect}
+            className="px-4 py-2 bg-red-500 text-white rounded"
+            disabled={status === ConnectionStatus.DISCONNECTED}
+          >
+            Disconnect
+          </button>
+        </div>
+      </div>
       
-      <Row>
-        <Col md={6}>
-          <Card>
-            <Card.Header>
-              <h5 className="mb-0">Notifications</h5>
-            </Card.Header>
-            <Card.Body>
-              <div className="d-flex align-items-center mb-4">
-                <strong className="me-2">Notification Bell:</strong>
-                <NotificationBell />
-              </div>
-              
-              <div className="mb-3">
-                <h6>Create Test Notification</h6>
-                
-                <Form.Group className="mb-3">
-                  <Form.Label>Title</Form.Label>
-                  <Form.Control
-                    type="text"
-                    value={testNotification.title}
-                    onChange={(e) => setTestNotification({
-                      ...testNotification,
-                      title: e.target.value
-                    })}
-                  />
-                </Form.Group>
-                
-                <Form.Group className="mb-3">
-                  <Form.Label>Message</Form.Label>
-                  <Form.Control
-                    as="textarea"
-                    rows={2}
-                    value={testNotification.message}
-                    onChange={(e) => setTestNotification({
-                      ...testNotification,
-                      message: e.target.value
-                    })}
-                  />
-                </Form.Group>
-                
-                <Form.Group className="mb-3">
-                  <Form.Label>Category</Form.Label>
-                  <Form.Select
-                    value={testNotification.category}
-                    onChange={(e) => setTestNotification({
-                      ...testNotification,
-                      category: e.target.value as any
-                    })}
-                  >
-                    <option value="info">Info</option>
-                    <option value="success">Success</option>
-                    <option value="warning">Warning</option>
-                    <option value="error">Error</option>
-                  </Form.Select>
-                </Form.Group>
-                
-                <Button variant="primary" onClick={createTestNotification}>
-                  Create Test Notification
-                </Button>
-              </div>
-            </Card.Body>
-          </Card>
-        </Col>
-        
-        <Col md={6}>
-          <Card>
-            <Card.Header>
-              <h5 className="mb-0">WebSocket Information</h5>
-            </Card.Header>
-            <Card.Body>
-              <h6>Implementation Details</h6>
-              <ul className="mb-4">
-                <li>Uses Socket.IO for WebSocket communication</li>
-                <li>Authenticates connections with JWT tokens</li>
-                <li>Automatically reconnects when disconnected</li>
-                <li>Supports channel-based subscriptions</li>
-                <li>Includes connection health monitoring</li>
-                <li>Handles token refreshes automatically</li>
-              </ul>
-              
-              <h6>Subscriptions Currently Available</h6>
-              <ul>
-                <li><code>balance:[wallet-address]</code> - Real-time balance updates</li>
-                <li><code>nft:[wallet-address]</code> - NFT transfers</li>
-                <li><code>staking:[position-id]</code> - Staking rewards updates</li>
-                <li><code>token:price</code> - Token price updates</li>
-                <li><code>notifications</code> - System notifications</li>
-              </ul>
-            </Card.Body>
-          </Card>
-        </Col>
-      </Row>
-    </Container>
+      <div className="mb-6 p-4 border rounded">
+        <h2 className="text-xl mb-2">Subscribe to Balance Updates</h2>
+        <div className="flex space-x-2">
+          <input
+            type="text"
+            placeholder="Enter wallet address"
+            value={address}
+            onChange={(e) => setAddress(e.target.value)}
+            className="flex-1 px-4 py-2 border rounded"
+          />
+          <button
+            onClick={handleSubscribe}
+            className="px-4 py-2 bg-blue-500 text-white rounded"
+            disabled={!address || status !== ConnectionStatus.CONNECTED}
+          >
+            Subscribe
+          </button>
+        </div>
+      </div>
+      
+      <div className="p-4 border rounded">
+        <h2 className="text-xl mb-2">Event Log</h2>
+        <div className="h-80 overflow-y-auto bg-gray-100 p-2 rounded">
+          {messages.length === 0 ? (
+            <p className="text-gray-500">No events yet. Try connecting to WebSocket.</p>
+          ) : (
+            <ul className="space-y-1">
+              {messages.map((msg, index) => (
+                <li key={index} className="font-mono text-sm">{msg}</li>
+              ))}
+            </ul>
+          )}
+        </div>
+      </div>
+    </div>
   );
 };
 

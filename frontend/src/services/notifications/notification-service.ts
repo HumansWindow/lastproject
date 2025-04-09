@@ -1,5 +1,9 @@
 import { BehaviorSubject } from 'rxjs';
-import { realtimeService } from '../realtime/websocket/realtime-service';
+import { realtimeService, NotificationEvent } from '../realtime';
+
+// Define UserId type since it's missing from ../types
+type UserId = string;
+
 // Define our own version of NotificationEvent to avoid import errors
 // This is a simplified version of what we expect from realtime service
 export interface RealtimeNotificationEvent {
@@ -30,11 +34,12 @@ export interface AppNotification {
 /**
  * Service for managing application notifications
  */
-class NotificationService {
+export class NotificationService {
   private notifications$ = new BehaviorSubject<AppNotification[]>([]);
   private isInitialized = false;
   private unsubscribe: (() => void) | null = null;
   private storageKey = 'app_notifications';
+  private userId: UserId | null = null;
 
   /**
    * Initialize the notification service
@@ -44,13 +49,6 @@ class NotificationService {
     
     // Load stored notifications
     this.loadNotifications();
-    
-    // Subscribe to real-time notifications if WebSocket is available
-    if (realtimeService) {
-      this.unsubscribe = realtimeService.subscribeToNotifications(
-        (data: any) => this.handleNotification(data as RealtimeNotificationEvent)
-      );
-    }
     
     this.isInitialized = true;
   }
@@ -244,6 +242,35 @@ class NotificationService {
     } catch (error) {
       console.error('Failed to save notifications to storage:', error);
     }
+  }
+
+  /**
+   * Initialize the notification service with user ID
+   * @param userId User ID
+   */
+  public init(userId: UserId): void {
+    this.userId = userId;
+    
+    // If already subscribed, unsubscribe first
+    if (this.unsubscribe) {
+      this.unsubscribe();
+    }
+    
+    // Subscribe to notifications for this user
+    // Use type assertion to make TypeScript happy with different event structures
+    this.unsubscribe = realtimeService.subscribeToNotifications(
+      (event: NotificationEvent) => {
+        // Convert NotificationEvent to RealtimeNotificationEvent
+        this.handleNotification({
+          id: event.id,
+          title: event.type || 'Notification', // Use type as title if available
+          message: event.message,
+          type: event.type,
+          timestamp: event.timestamp,
+          data: {}
+        });
+      }
+    );
   }
 }
 

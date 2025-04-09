@@ -5,17 +5,15 @@ import { WalletProvider } from '../contexts/wallet';
 import Layout from '../components/layout/Layout';
 import type { AppProps } from 'next/app';
 import { ThemeProvider } from 'next-themes';
-import useWebSocket from '../hooks/useWebSocket';
+import { WebSocketProvider } from '../contexts/websocket';
 // Import bootstrap CSS
 import 'bootstrap/dist/css/bootstrap.min.css';
 import '../styles/globals.css';
-// Import the simpler i18n configuration that doesn't depend on external packages
-import '../i18n'; 
+// Import our i18n configuration
+import '../i18n';
+import nextI18NextConfig from '../../next-i18next.config.js';
 
 function MyApp({ Component, pageProps }: AppProps) {
-  // Initialize WebSocket connection
-  useWebSocket();
-  
   // Initialize Bootstrap JavaScript on client side
   useEffect(() => {
     // Import Bootstrap JS only on client side
@@ -28,12 +26,16 @@ function MyApp({ Component, pageProps }: AppProps) {
     <ThemeProvider attribute="data-bs-theme" defaultTheme="light">
       <AuthProvider>
         <WalletProvider>
-          <Layout>
-            <Component {...pageProps} />
-          </Layout>
+          <WebSocketProvider autoConnect={true}>
+            <Layout>
+              <Component {...pageProps} />
+            </Layout>
+          </WebSocketProvider>
         </WalletProvider>
       </AuthProvider>
     </ThemeProvider>
   );
 }
-export default appWithTranslation(MyApp);
+
+// Wrap with next-i18next's appWithTranslation, passing the config
+export default appWithTranslation(MyApp, nextI18NextConfig);

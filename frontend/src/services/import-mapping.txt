@@ -6,7 +6,7 @@ to help with updating import statements in your code.
 ## Common Imports
 
 from '../services/api' → from '../services/realtime/websocket/realtime-service'
-from '../services/websocket-manager' → from '../services/realtime/websocket/websocket-manager'
+from '../services/websocket-manager' → from '../services/realtime'
 from '../services/notification-service' → from '../services/notifications/notification-service'
 from '../services/wallet-auth.service' → from '../services/api/modules/auth/wallet-auth-service'
 from '../services/auth-service' → from '../services/api/modules/auth/auth-service'

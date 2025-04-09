@@ -1,0 +1,108 @@
+=== API File Comparison Report ===
+Flat file: src/services/api/diary-service.ts (319 lines)
+Modular file: src/services/api/modules/diary/diary-service.ts (260 lines)
+
+The flat structure file appears to be more complete (has more lines).
+
+=== Differences Summary ===
+
+=== Detailed Differences ===
+@@ -1,4 +1,4 @@
+-import { apiClient } from './api-client';
++import { apiClient } from '../../api-client';
+ 
+ /**
+  * Interface for diary entry
+@@ -14,11 +14,6 @@
+   createdAt: string;
+   updatedAt: string;
+   userId: string;
+-  // Additional properties needed by components
+-  color?: string;
+-  gameLevel?: number;
+-  hasMedia?: boolean;
+-  isStoredLocally?: boolean;
+ }
+ 
+ /**
+@@ -221,7 +216,7 @@
+    */
+   async getDiaryLocations(): Promise<DiaryLocation[]> {
+     try {
+-      const response = await apiClient.get('/diary/locations/list');
++      const response = await apiClient.get('/diary/locations');
+       return response.data;
+     } catch (error) {
+       console.error('Error fetching diary locations:', error);
+@@ -257,60 +252,6 @@
+       throw error;
+     }
+   }
+-
+-  // ========================
+-  // BACKWARD COMPATIBILITY METHODS
+-  // These methods are kept to maintain compatibility with existing components
+-  // ========================
+-
+-  /**
+-   * @deprecated Use getDiaryEntries instead
+-   * Get all diaries (compatibility method)
+-   */
+-  async getDiaries(): Promise<DiaryEntry[]> {
+-    const result = await this.getDiaryEntries();
+-    return Array.isArray(result) ? result : (result.data || []);
+-  }
+-
+-  /**
+-   * @deprecated Use getDiaryEntry instead
+-   * Get a specific diary (compatibility method)
+-   */
+-  async getDiary(id: string): Promise<DiaryEntry> {
+-    return this.getDiaryEntry(id);
+-  }
+-
+-  /**
+-   * @deprecated Use createDiaryEntry instead
+-   * Create a new diary (compatibility method)
+-   */
+-  async createDiary(diary: any): Promise<DiaryEntry> {
+-    return this.createDiaryEntry(diary);
+-  }
+-
+-  /**
+-   * @deprecated Use updateDiaryEntry instead
+-   * Update a diary (compatibility method)
+-   */
+-  async updateDiary(id: string, diary: any): Promise<DiaryEntry> {
+-    return this.updateDiaryEntry(id, diary);
+-  }
+-
+-  /**
+-   * @deprecated Use deleteDiaryEntry instead
+-   * Delete a diary (compatibility method)
+-   */
+-  async deleteDiary(id: string): Promise<void> {
+-    await this.deleteDiaryEntry(id);
+-  }
+-
+-  /**
+-   * @deprecated Use getDiaryLocations instead
+-   * Get available locations (compatibility method)
+-   */
+-  async getLocations(): Promise<DiaryLocation[]> {
+-    return this.getDiaryLocations();
+-  }
+ }
+ 
+ // Create singleton instance
+
+=== Method Comparison ===
+Methods in flat file but not in modular file:
+async createDiary(
+async deleteDiary(
+async getDiaries(
+async getDiary(
+async getLocations(
+async updateDiary(
+
+Methods in modular file but not in flat file:

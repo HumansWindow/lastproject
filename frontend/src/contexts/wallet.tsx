@@ -1,4 +1,4 @@
-import React, { createContext, useState, useContext, useEffect, useRef, ReactNode } from 'react';
+import React, { createContext, useState, useContext, useEffect, useRef, ReactNode, useCallback } from 'react';
 import { ethers } from 'ethers';
 import { walletAuthService, WalletAuthResult } from '../services/api/modules/auth/wallet-auth-service';
 import { useAuth } from './auth'; // Import the auth context
@@ -43,15 +43,15 @@ export const WalletProvider: React.FC<{children: ReactNode}> = ({ children }) =>
   const accountsCleanupRef = useRef<() => void>(() => {});
   const chainCleanupRef = useRef<() => void>(() => {});
   
-  // Update network name when connection changes
-  const updateNetworkName = async () => {
+  // Update network name when connection changes - wrapped in useCallback
+  const updateNetworkName = useCallback(async () => {
     if (isConnected) {
       const name = await walletAuthService.getNetworkName();
       setNetworkName(name);
     } else {
       setNetworkName(null);
     }
-  };
+  }, [isConnected]);
   
   // Check if a wallet is already connected on mount
   useEffect(() => {
@@ -99,7 +99,7 @@ export const WalletProvider: React.FC<{children: ReactNode}> = ({ children }) =>
       accountsCleanupRef.current();
       chainCleanupRef.current();
     };
-  }, []);
+  }, [address, updateNetworkName]); // Add missing dependencies
   
   const connect = async (email?: string): Promise<string | null> => {
     setIsConnecting(true);
@@ -146,7 +146,13 @@ export const WalletProvider: React.FC<{children: ReactNode}> = ({ children }) =>
         setUserFromWalletAuth({
           id: result.userId,
           walletAddress: walletAddress,
-          isNewUser: result.isNewUser || false
+          isNewUser: result.isNewUser || false,
+          // Add required properties with default values
+          email: '',
+          role: 'user',
+          emailVerified: false,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
         });
       }
       

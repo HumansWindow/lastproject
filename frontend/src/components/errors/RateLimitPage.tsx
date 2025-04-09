@@ -23,7 +23,7 @@ const RateLimitPage: React.FC = () => {
   return (
     <div className="error-container">
       <h1>Too Many Requests</h1>
-      <p>You've made too many requests recently. Please wait before trying again.</p>
+      <p>You&apos;ve made too many requests recently. Please wait before trying again.</p>
       <p>You can try again in: {countdown} seconds</p>
     </div>
   );

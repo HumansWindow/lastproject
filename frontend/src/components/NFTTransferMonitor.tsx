@@ -1,31 +1,32 @@
 import React, { useEffect, useState } from 'react';
-import { realtimeService } from '../services/realtime/websocket/realtime-service';
-import { NftTransferEvent } from '../types/api-types';
-import WebSocketStatus from './WebSocketStatus';
+import { realtimeService, NftTransferEvent } from '../services/realtime';
+import Image from 'next/image';
+import WebSocketStatus from './WebSocketStatus'; // Import WebSocketStatus component
 
-interface NFTTransferMonitorProps {
+interface Props {
   walletAddress: string;
 }
 
-const NFTTransferMonitor: React.FC<NFTTransferMonitorProps> = ({ walletAddress }) => {
+export const NFTTransferMonitor: React.FC<Props> = ({ walletAddress }) => {
   const [transfers, setTransfers] = useState<NftTransferEvent[]>([]);
-
+  
   useEffect(() => {
-    // Subscribe to NFT transfer events for the specified wallet
-    const unsubscribe = realtimeService.subscribeToNftTransfers(
-      walletAddress,
-      (event) => {
-        // Add to transfer history
-        setTransfers((prev: NftTransferEvent[]) => {
-          const updated = [event as NftTransferEvent, ...prev].slice(0, 10);
+    if (!walletAddress) return;
+    
+    // Use optional chaining for realtimeService
+    const unsubscribe = realtimeService?.subscribeToNftTransfers?.(
+      walletAddress, 
+      (event: any) => {
+        setTransfers(prev => {
+          // Already typed as NftTransferEvent from the method signature
+          const updated = [event, ...prev].slice(0, 10);
           return updated;
         });
       }
-    );
+    ) || (() => {}); // Provide fallback empty function
     
-    // Clean up subscription when component unmounts
     return () => {
-      unsubscribe();
+      if (unsubscribe) unsubscribe();
     };
   }, [walletAddress]);
 
@@ -70,7 +71,7 @@ const NFTTransferMonitor: React.FC<NFTTransferMonitorProps> = ({ walletAddress }
               <div className="flex items-start space-x-3">
                 {transfer.metadata?.image && (
                   <div className="flex-shrink-0 w-16 h-16 rounded overflow-hidden">
-                    <img 
+                    <Image 
                       src={transfer.metadata.image} 
                       alt={transfer.metadata.name || 'NFT'} 
                       className="w-full h-full object-cover"

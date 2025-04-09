@@ -1,0 +1,5 @@
+=== API File Comparison Report ===
+Flat file: src/services/api/realtime-service.ts (319 lines)
+Modular file: src/services/api/modules/realtime/realtime-service.ts (MISSING)
+
+WARNING: The modular file is missing. You should not remove the flat file without creating its modular counterpart.

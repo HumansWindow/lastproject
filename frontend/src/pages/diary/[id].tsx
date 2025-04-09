@@ -1,8 +1,8 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { NextPage } from 'next';
 import Layout from '../../components/layout/Layout';
 import { useRouter } from 'next/router';
-import { diaryService } from '../../services/api/diary-service';
+import { diaryService } from '../../services/api/modules/diary';
 import { Diary } from '../../types/diary';
 import { DiaryLocationLabels, FeelingOptions, ExtendedDiary } from "../../types/diary-extended";
 import Link from 'next/link';
@@ -20,29 +20,26 @@ const DiaryDetailPage: NextPage = () => {
     video?: string;
   }>({});
 
-  useEffect(() => {
-    if (id) {
-      fetchDiary(id as string);
-    }
-  }, [id]);
-
-  const fetchDiary = async (diaryId: string) => {
+  const fetchDiary = useCallback(async () => {
+    if (!id) return;
+    
     try {
-      const data = await diaryService.getDiary(diaryId) as ExtendedDiary;
-      setDiary(data);
-      
-      // If this diary has locally stored media, try to retrieve it
-      if (data.hasMedia && data.isStoredLocally) {
-        loadLocalMedia(diaryId);
-      }
-    } catch (err) {
-      console.error('Error fetching diary entry:', err);
-      setError('Failed to load the diary entry. It may have been deleted or you don\'t have permission to view it.');
+      setLoading(true);
+      const response = await diaryService.getDiaryEntry(id as string);
+      const content = response.content; // Access content directly from response
+      setDiary(response);
+    } catch (error) {
+      console.error('Error fetching diary entry:', error);
+      setError('Failed to load diary entry');
     } finally {
       setLoading(false);
     }
-  };
-  
+  }, [id]);
+
+  useEffect(() => {
+    fetchDiary();
+  }, [fetchDiary]);
+
   const loadLocalMedia = (diaryId: string) => {
     // Try to load audio
     try {

@@ -1,66 +1,59 @@
 import React, { useEffect, useState } from 'react';
-import { realtimeService } from '../services/realtime/websocket/realtime-service';
-import { BalanceChangeEvent, BalanceUpdateEvent } from '../types/api-types';
+import { realtimeService, BalanceUpdateEvent } from '../services/realtime';
+import { BalanceChangeEvent } from '../types/api-types';
 import WebSocketStatus from './WebSocketStatus';
 
-interface WalletBalanceMonitorProps {
+interface Props {
   walletAddress: string;
   networkName?: string;
 }
 
-const WalletBalanceMonitor: React.FC<WalletBalanceMonitorProps> = ({ 
-  walletAddress, 
-  networkName = 'Ethereum'
-}) => {
+export const WalletBalanceMonitor: React.FC<Props> = ({ walletAddress, networkName = 'Ethereum' }) => {
   const [currentBalance, setCurrentBalance] = useState<string>('0.0');
   const [formattedBalance, setFormattedBalance] = useState<string>('0.0 ETH');
   const [balanceChanges, setBalanceChanges] = useState<BalanceChangeEvent[]>([]);
   const [isIncreasing, setIsIncreasing] = useState<boolean | null>(null);
+  const [balanceUpdates, setBalanceUpdates] = useState<BalanceUpdateEvent[]>([]);
 
   useEffect(() => {
-    // Subscribe to balance changes for the specified wallet
-    const unsubscribe = realtimeService.subscribeToBalanceUpdates(
-      walletAddress,
-      (event: BalanceUpdateEvent) => {
-        // Update current balance
-        setCurrentBalance(event.newBalance);
-        setFormattedBalance(event.formattedNewBalance || `${event.newBalance} ETH`);
-        
-        // Determine if balance is increasing or decreasing
-        const isIncrease = 
-          parseFloat(event.newBalance) > parseFloat(event.previousBalance);
-        setIsIncreasing(isIncrease);
-        
-        // Add to history
-        setBalanceChanges((prev: BalanceChangeEvent[]) => {
-          const updatedEvent = {
-            address: walletAddress,
-            previousBalance: event.previousBalance,
-            newBalance: event.newBalance,
-            formattedNewBalance: event.formattedNewBalance,
-            txHash: event.txHash,
-            blockNumber: 0, // This field might not be available in BalanceUpdateEvent
-            timestamp: event.timestamp,
-            chainId: 1, // Default to Ethereum mainnet
-            networkName: networkName,
-            type: isIncrease ? 'credit' as const : 'debit' as const
-          };
-          const updated = [updatedEvent, ...prev].slice(0, 5);
-          return updated;
-        });
+    if (walletAddress) {
+      const unsubscribe = realtimeService.subscribeToBalanceUpdates(
+        walletAddress,
+        (event: BalanceUpdateEvent) => {
+          // Ensure newBalance is handled as a string
+          setCurrentBalance(String(event.newBalance));
+          // Use formattedNewBalance if available, otherwise format it
+          setFormattedBalance(event.formattedNewBalance || `${event.newBalance} ETH`);
 
-        // Reset direction indicator after 3 seconds
-        setTimeout(() => {
-          setIsIncreasing(null);
-        }, 3000);
-      }
-    );
-    
-    // Clean up subscription when component unmounts
-    return () => {
-      unsubscribe();
-    };
-  }, [walletAddress, networkName]);
+          // Determine if this is a credit or debit
+          const isCredit = event.previousBalance ? 
+            parseFloat(String(event.newBalance)) > parseFloat(String(event.previousBalance)) :
+            true;
+
+          // Update balance changes history
+          setBalanceChanges((prev: BalanceChangeEvent[]) => {
+            return [
+              {
+                address: event.address,
+                previousBalance: String(event.previousBalance || '0'),
+                newBalance: String(event.newBalance),
+                formattedNewBalance: event.formattedNewBalance || `${event.newBalance} ETH`,
+                txHash: event.txHash || '',
+                blockNumber: event.blockNumber,
+                timestamp: event.timestamp,
+                chainId: event.chainId,
+                networkName: event.networkName,
+                type: isCredit ? 'credit' : 'debit'
+              },
+              ...prev.slice(0, 9) // Keep last 10 changes
+            ];
+          });
+        }
+      );
+
+      return unsubscribe;
+    }
+  }, [walletAddress]);
 
   const formatAddress = (address: string): string => {
     return `${address.substring(0, 6)}...${address.substring(address.length - 4)}`;

@@ -1,7 +1,7 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { NextPage } from 'next';
 import { Diary } from '../../types/diary';
-import { diaryService } from '../../services/api/diary-service';
+import { diaryService } from '../../services/api/modules/diary';
 import DiaryCard from '../../components/diary/DiaryCard';
 import Layout from '../../components/layout/Layout';
 import { DiaryLocationLabels, FeelingOptions, DiaryLocationEnum, ExtendedDiary } from "../../types/diary-extended";
@@ -26,6 +26,20 @@ const DiaryListPage: NextPage = () => {
     gameLevel?: number;
   }>({});
 
+  // Move fetchDiaries declaration before it's used in useEffect
+  const fetchDiaries = useCallback(async () => {
+    try {
+      setLoading(true);
+      const response = await diaryService.getDiaryEntries();
+      setDiaries(response.data);
+    } catch (error) {
+      console.error('Error fetching diaries:', error);
+      setError('Failed to load diaries');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
     // Only fetch diaries if the user is authenticated
     if (isAuthenticated) {
@@ -33,45 +47,7 @@ const DiaryListPage: NextPage = () => {
     } else if (!loading) {
       setError('Please log in to access your diary entries');
     }
-  }, [isAuthenticated]);
-
-  const fetchDiaries = async () => {
-    setLoading(true);
-    try {
-      const data = await diaryService.getDiaries();
-      // Convert DiaryEntry[] to ExtendedDiary[]
-      const extendedData = data.map(entry => ({
-        ...entry,
-        // Ensure entry has the properties expected by ExtendedDiary
-        color: entry.color || '#ffffff',
-        feeling: entry.feeling || undefined,
-        gameLevel: typeof entry.gameLevel === 'number' ? entry.gameLevel : 1,
-        hasMedia: !!entry.hasMedia,
-        isStoredLocally: !!entry.isStoredLocally
-      } as ExtendedDiary));
-      
-      setDiaries(extendedData);
-      setError(null);
-    } catch (err: any) {
-      console.error('Failed to fetch diaries:', err);
-      // Handle authentication errors
-      if (err.response?.status === 401) {
-        setError('Please log in to access your diary entries');
-        // Clear tokens if they are invalid
-        localStorage.removeItem('access_token');
-        localStorage.removeItem('refresh_token');
-        
-        // Redirect to login after a short delay
-        setTimeout(() => {
-          router.push('/login?returnUrl=/diary');
-        }, 3000);
-      } else {
-        setError('Failed to load your diary entries. Please try again later.');
-      }
-    } finally {
-      setLoading(false);
-    }
-  };
+  }, [isAuthenticated, fetchDiaries, loading]);
 
   const handleDelete = async (id: string) => {
     if (window.confirm('Are you sure you want to delete this diary entry?')) {

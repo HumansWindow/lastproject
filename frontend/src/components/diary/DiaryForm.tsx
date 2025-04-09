@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Diary, DiaryLocation } from '../../types/diary';
 import { DiaryLocationLabels, FeelingOptions, DiaryLocationEnum, ExtendedDiary } from "../../types/diary-extended";
-import { diaryService } from '../../services/api/diary-service';
+import { diaryService } from '../../services/api/modules/diary';
 import RichTextEditor from './RichTextEditor';
 import MediaRecorderComponent from './MediaRecorder';
 import { storeEncryptedMedia } from '../../utils/encryption';

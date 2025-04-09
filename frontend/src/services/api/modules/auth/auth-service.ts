@@ -107,6 +107,121 @@ class AuthService {
   isLoggedIn(): boolean {
     return !!localStorage.getItem('accessToken');
   }
+
+  // ========================
+  // BACKWARDS COMPATIBILITY METHODS
+  // These methods are kept to maintain compatibility with existing components
+  // ========================
+
+  /**
+   * @deprecated Use getUserProfile instead
+   * Get current user info
+   * @returns Promise with user info
+   */
+  async getUserInfo(): Promise<UserInfo> {
+    try {
+      const response = await apiClient.get<UserInfo>(`${this.authEndpoint}/me`);
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching user info:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Request password reset email
+   * @param email User email
+   * @returns Promise with success message
+   */
+  async forgotPassword(email: string): Promise<any> {
+    try {
+      const response = await apiClient.post(`${this.authEndpoint}/forgot-password`, { email });
+      return response.data;
+    } catch (error) {
+      console.error('Forgot password error:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Reset password with token
+   * @param token Reset token
+   * @param newPassword New password
+   * @returns Promise with success message
+   */
+  async resetPassword(token: string, newPassword: string): Promise<any> {
+    try {
+      const response = await apiClient.post(`${this.authEndpoint}/reset-password`, { 
+        token, 
+        newPassword
+      });
+      return response.data;
+    } catch (error) {
+      console.error('Reset password error:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Update user password
+   * @param currentPassword Current password
+   * @param newPassword New password
+   * @returns Promise with success message
+   */
+  async changePassword(currentPassword: string, newPassword: string): Promise<any> {
+    try {
+      const response = await apiClient.post(`${this.authEndpoint}/change-password`, {
+        currentPassword,
+        newPassword
+      });
+      return response.data;
+    } catch (error) {
+      console.error('Change password error:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Refresh authentication token
+   * @param refreshToken Refresh token
+   * @returns Promise with new tokens
+   */
+  async refreshToken(refreshToken: string): Promise<AuthTokens> {
+    try {
+      const response = await apiClient.post<AuthTokens>(`${this.authEndpoint}/refresh`, { refreshToken });
+      
+      // Store new tokens
+      localStorage.setItem('accessToken', response.data.accessToken);
+      localStorage.setItem('refreshToken', response.data.refreshToken);
+      
+      return response.data;
+    } catch (error) {
+      console.error('Token refresh error:', error);
+      
+      // Remove invalid tokens
+      localStorage.removeItem('accessToken');
+      localStorage.removeItem('refreshToken');
+      
+      throw error;
+    }
+  }
+
+  /**
+   * @deprecated Use isLoggedIn instead
+   * Check if user is authenticated
+   * @returns Whether user has a valid token
+   */
+  isAuthenticated(): boolean {
+    return this.isLoggedIn();
+  }
+
+  /**
+   * Get stored access token
+   * @returns Access token or null
+   */
+  getAccessToken(): string | null {
+    return localStorage.getItem('accessToken');
+  }
 }
 
 export const authService = new AuthService();

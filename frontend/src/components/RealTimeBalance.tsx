@@ -1,8 +1,8 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { BalanceUpdateEvent } from "../types/api-types";
-import { realtimeService } from '../services/realtime/websocket/realtime-service';
-import { ConnectionStatus } from '../services/realtime/websocket/websocket-manager';
+import { realtimeService } from '../services/realtime';
 import WebSocketStatus from './WebSocketStatus';
+import { clientOnly } from '../utils/clientOnly';
 
 interface RealTimeBalanceProps {
   walletAddress: string;
@@ -28,77 +28,40 @@ const RealTimeBalance: React.FC<RealTimeBalanceProps> = ({
   const [showChangeAnimation, setShowChangeAnimation] = useState<boolean>(false);
   const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
   const [isSubscribed, setIsSubscribed] = useState(false);
-  const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>(
-    realtimeService.getConnectionStatus()
-  );
 
-  useEffect(() => {
-    // Subscribe to balance updates for this wallet
-    if (walletAddress && realtimeService.isConnected()) {
-      // Subscribe to connection status changes
-      const statusUnsubscribe = realtimeService.onConnectionStatusChange((status) => {
-        setConnectionStatus(status);
-        
-        // If we just connected and have a wallet address, subscribe to balance updates
-        if (status === ConnectionStatus.CONNECTED && !isSubscribed) {
-          subscribeToBalanceUpdates();
-        }
-      });
-      
-      // Subscribe to balance updates if already connected
-      if (realtimeService.isConnected() && !isSubscribed) {
-        subscribeToBalanceUpdates();
-      }
-      
-      return () => {
-        statusUnsubscribe();
-        // Unsubscribe from balance updates when component unmounts
-        unsubscribeFromBalanceUpdates();
-      };
-    }
-  }, [walletAddress, isSubscribed]);
-  
-  const subscribeToBalanceUpdates = () => {
+  const handleBalanceUpdate = useCallback((data: BalanceUpdateEvent) => {
+    // Update component state with the new balance
+    setBalance(data.formattedNewBalance || data.newBalance);
+    setLastUpdate(new Date());
+    
+    // Show animation
+    setShowChangeAnimation(true);
+    setTimeout(() => setShowChangeAnimation(false), 3000);
+  }, []);
+
+  const subscribeToBalanceUpdates = useCallback(() => {
     if (!walletAddress) return;
     
-    console.log(`Subscribing to balance updates for ${walletAddress}`);
+    // Subscribe to real-time balance updates
+    const channel = `balance:${walletAddress.toLowerCase()}`;
+    const unsubscribe = realtimeService.subscribe(channel, handleBalanceUpdate);
     
-    // Store the unsubscribe function
-    const unsubscribe = realtimeService.subscribeToBalanceUpdates(
-      walletAddress,
-      (update: BalanceUpdateEvent) => {
-        console.log('Received balance update:', update);
-        setPreviousBalance(balance);
-        // Use formattedNewBalance if available, otherwise fall back to newBalance or keep current balance
-        setBalance(update.formattedNewBalance || update.newBalance || balance);
-        setLastUpdate(new Date(update.timestamp));
-        
-        // Determine if this is an increase or decrease
-        if (parseFloat(update.newBalance) > parseFloat(update.previousBalance)) {
-          setChangeType('increase');
-        } else if (parseFloat(update.newBalance) < parseFloat(update.previousBalance)) {
-          setChangeType('decrease');
-        }
-        
-        // Trigger animation
-        if (showChanges) {
-          setShowChangeAnimation(true);
-          
-          // Reset animation after a delay
-          setTimeout(() => {
-            setShowChangeAnimation(false);
-          }, 2000);
-        }
+    return unsubscribe;
+  }, [walletAddress, handleBalanceUpdate]);
+
+  useEffect(() => {
+    if (walletAddress && !isSubscribed) {
+      subscribeToBalanceUpdates();
+    }
+
+    return () => {
+      if (window.__balanceUnsubscribe) {
+        window.__balanceUnsubscribe();
+        delete window.__balanceUnsubscribe;
       }
-    );
-    
-    // Store the unsubscribe function in component state
-    setIsSubscribed(true);
-    
-    // Store the unsubscribe function in window for cleanup
-    window.__balanceUnsubscribe = unsubscribe;
-  };
-  
+    };
+  }, [walletAddress, isSubscribed, subscribeToBalanceUpdates]);
+
   const unsubscribeFromBalanceUpdates = () => {
     if (window.__balanceUnsubscribe) {
       window.__balanceUnsubscribe();
@@ -106,11 +69,11 @@ const RealTimeBalance: React.FC<RealTimeBalanceProps> = ({
       setIsSubscribed(false);
     }
   };
-  
+
   const formatDate = (date: Date) => {
     return date.toLocaleTimeString();
   };
-  
+
   const handleManualSubscription = () => {
     if (isSubscribed) {
       unsubscribeFromBalanceUpdates();
@@ -119,10 +82,9 @@ const RealTimeBalance: React.FC<RealTimeBalanceProps> = ({
     }
   };
 
-  // Get CSS classes based on change type and animation state
   const getChangeClasses = () => {
     if (!showChangeAnimation || !changeType) return '';
-    
+
     if (changeType === 'increase') {
       return 'text-green-500 transition-all';
     } else {
@@ -146,7 +108,7 @@ const RealTimeBalance: React.FC<RealTimeBalanceProps> = ({
         <p className="font-mono text-xs truncate">{walletAddress}</p>
       </div>
       
-      {connectionStatus === ConnectionStatus.CONNECTED ? (
+      {isSubscribed ? (
         <div>
           <div className="flex justify-between items-center mb-2">
             <p className="text-sm text-gray-500">Current Balance:</p>
@@ -175,27 +137,11 @@ const RealTimeBalance: React.FC<RealTimeBalanceProps> = ({
       ) : (
         <div className="text-center py-4">
           <p className="text-amber-500">
-            {connectionStatus === ConnectionStatus.CONNECTING || 
-             connectionStatus === ConnectionStatus.RECONNECTING
-              ? 'Connecting to server...'
-              : 'Not connected to server'}
+            Not subscribed to updates
           </p>
-          {(connectionStatus === ConnectionStatus.ERROR ||
-            connectionStatus === ConnectionStatus.DISCONNECTED) && (
-            <button
-              onClick={() => {
-                const token = localStorage.getItem('accessToken');
-                if (token) realtimeService.connect(token);
-              }}
-              className="mt-2 px-4 py-2 text-sm font-medium text-white bg-blue-500 hover:bg-blue-600 rounded"
-            >
-              Reconnect
-            </button>
-          )}
         </div>
       )}
       
-      {/* Show change animation if enabled */}
       {showChangeAnimation && previousBalance && (
         <div 
           className={`absolute top-0 left-0 ml-4 transition-all ${
@@ -213,11 +159,10 @@ const RealTimeBalance: React.FC<RealTimeBalanceProps> = ({
   );
 };
 
-// Add TypeScript definition for the unsubscribe function
 declare global {
   interface Window {
     __balanceUnsubscribe?: () => void;
   }
 }
 
-export default RealTimeBalance;
+export default clientOnly(RealTimeBalance);

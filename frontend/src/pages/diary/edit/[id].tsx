@@ -3,7 +3,7 @@ import { NextPage } from 'next';
 import Layout from '../../../components/layout/Layout';
 import DiaryForm from '../../../components/diary/DiaryForm';
 import { useRouter } from 'next/router';
-import { diaryService } from '../../../services/api/diary-service';
+import { diaryService } from '../../../services/api/modules/diary';
 import { Diary } from '../../../types/diary';
 import { ExtendedDiary } from '../../../types/diary-extended';
 import Link from 'next/link';

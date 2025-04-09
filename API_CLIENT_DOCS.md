@@ -307,43 +307,31 @@ notificationService.dispose();
 ```
 
 ## Real-time Functionality
-The API client includes a comprehensive WebSocket system for real-time updates from the backend server. This functionality is implemented through the `realtimeService` module and the underlying `WebSocketManager` class.
+The API client includes a comprehensive WebSocket system for real-time updates from the backend server. This functionality is implemented through the `realtimeService` singleton from the `RealtimeService` class.
 
 ### WebSocket Architecture
 The real-time system is built with the following components:
 
-1. **WebSocketManager** (`src/services/websocket-manager.ts`)
-   - Core low-level manager that handles the Socket.IO connection
-   - Manages authentication, reconnection, and message routing
-   - Provides a channel-based subscription system
-   - Implements connection status monitoring
-   - Handles automatic reconnection with exponential backoff
-   - Provides message queuing during disconnections
+1. **RealtimeService** (`src/services/realtime/websocket/realtime-service.ts`)
+   - Core service that handles the WebSocket connection
+   - Manages subscriptions to different channels
+   - Provides connection status monitoring and events
+   - Implements automatic reconnection with exponential backoff
+   - Handles authentication via URL token parameter
+   - Exposes methods for subscribing to real-time updates
 
-2. **RealTimeService** (`src/services/api/realtime-service.ts`)
-   - Higher-level service that provides domain-specific subscription methods
-   - Offers strongly typed events with proper TypeScript interfaces
-   - Abstracts the complexity of the WebSocketManager for components
-   - Provides simplified methods for each notification type
-
-3. **NotificationService** (`src/services/notification-service.ts`)
-   - Manages application notifications using RxJS
-   - Integrates with the RealTimeService for real-time notifications
-   - Provides methods to manage notification status (read, seen)
-   - Stores notifications in localStorage for persistence
-   - Implements automatic notification cleanup
-
-4. **WebSocketStatus Component** (`src/components/WebSocketStatus.tsx`)
+2. **WebSocketStatus Component** (`src/components/WebSocketStatus.tsx`)
    - Visual indicator for WebSocket connection status
    - Color-coded status representation (green, yellow, red)
    - Available in minimal (dot only) and detailed modes
 
 ### WebSocket Connection
-The API client includes a robust WebSocket system for real-time updates. After authentication, you should establish a WebSocket connection:
+After authentication, you should establish a WebSocket connection:
 
 ```typescript
 // After successful login
-import { authService, realtimeService } from './services/api';
+import { authService } from './services/api';
+import { realtimeService } from './services/realtime';
 
 // In your login handler
 const response = await authService.login(email, password);
@@ -354,68 +342,46 @@ if (response.data && response.data.accessToken) {
   
   // Establish WebSocket connection
   try {
-    await realtimeService.connect(response.data.accessToken);
+    realtimeService.connect(response.data.accessToken);
     console.log('WebSocket connected successfully');
   } catch (error) {
     console.error('WebSocket connection failed:', error);
-    // The WebSocketManager will automatically attempt reconnection
+    // The service will automatically attempt reconnection
   }
 }
 ```
 
-### Notification Events
-The WebSocket system includes support for system notifications that are automatically handled by the NotificationService:
+### Subscribing to Events
+Subscribe to real-time events on specific channels:
 
 ```typescript
-import { notificationService } from '../services/notification-service';
+import { realtimeService } from './services/realtime';
 
-// Initialize both services
-realtimeService.connect(accessToken);
-notificationService.initialize();
+// Subscribe to a specific channel
+const unsubscribe = realtimeService.subscribe(
+  'balance:0x1234...', 
+  (data) => {
+    console.log('Balance update received:', data);
+    updateUI(data);
+  }
+);
 
-// The notification service automatically subscribes to the WebSocket channel
-// No need to manually subscribe to notification events
-
-// Get notifications as an observable
-const notifications$ = notificationService.getNotifications();
-
-// Subscribe to the notifications in a component
+// Always unsubscribe when component unmounts
 useEffect(() => {
-  const subscription = notifications$.subscribe(notifications => {
-    setNotifications(notifications);
-  });
-  
-  return () => subscription.unsubscribe();
+  return () => unsubscribe();
 }, []);
 ```
-
-### Notification Types
-
-Notifications are categorized into four types:
-- **info**: General information notifications
-- **success**: Successful operation notifications
-- **warning**: Warning notifications
-- **error**: Error notifications
-
-Each notification includes:
-- **id**: Unique identifier
-- **title**: Notification title
-- **message**: Notification content
-- **category**: One of the four categories above
-- **timestamp**: Creation time
-- **read**: Whether the notification has been read
-- **seen**: Whether the notification has been seen (viewed but not necessarily read)
-- **link** (optional): URL to navigate to when clicked
-- **data** (optional): Additional data associated with the notification
 
 ### Monitoring Connection Status
 Monitor the WebSocket connection status to provide feedback to users:
 
 ```typescript
-import { realtimeService, ConnectionStatus } from './services/api';
+import { realtimeService, ConnectionStatus } from './services/realtime';
 
 // Listen for connection status changes
-const unsubscribe = realtimeService.onConnectionStatusChange((status) => {
+const unsubscribe = realtimeService.subscribe('connectionStatus', (data) => {
+  const status = data.status;
+  
   switch (status) {
     case ConnectionStatus.CONNECTED:
       hideOfflineBanner();
@@ -443,7 +409,6 @@ useEffect(() => {
 ```
 
 ### Using the WebSocketStatus Component
-
 For a quick way to display connection status, use the pre-built WebSocketStatus component:
 
 ```tsx
@@ -456,69 +421,28 @@ import WebSocketStatus from '../components/WebSocketStatus';
   
   {/* Detailed status with text */}
   <WebSocketStatus showDetails={true} />
+  
+  {/* With additional options */}
+  <WebSocketStatus 
+    showDetails={true}
+    showConnectionDuration={true}
+    showDiagnosticInfo={true}
+    className="custom-status"
+  />
 </div>
 ```
 
-### Subscribing to Balance Changes
-Listen for real-time wallet balance updates:
+### Error Handling
+Register callbacks for WebSocket errors:
 
 ```typescript
-import { realtimeService } from './services/api';
+import { realtimeService, WebSocketError } from './services/realtime';
 
-// Subscribe to balance changes for a specific wallet address
-const walletAddress = '0x123...abc';
-const unsubscribe = realtimeService.subscribeToBalanceChanges(
-  walletAddress, 
-  (balanceUpdate) => {
-    console.log('Balance changed!');
-    console.log(`Previous: ${balanceUpdate.formattedPreviousBalance}`);
-    console.log(`New: ${balanceUpdate.formattedNewBalance}`);
-    
-    // Update UI with new balance
-    updateBalanceUI(balanceUpdate.newBalance);
-    
-    // Show notification for significant changes
-    if (parseFloat(balanceUpdate.newBalance) > parseFloat(balanceUpdate.previousBalance)) {
-      showNotification('Received funds', `+${balanceUpdate.formattedNewBalance}`);
-    }
-  }
-);
-
-// Always clean up subscriptions when component unmounts
-useEffect(() => {
-  return () => unsubscribe();
-}, []);
-```
-
-### Listening for NFT Transfers
-Track NFT transfers in real-time:
-
-```typescript
-import { realtimeService } from './services/api';
-
-// Subscribe to NFT transfers for the user's wallet
-const walletAddress = '0x123...abc';
-const unsubscribe = realtimeService.subscribeToNftTransfers(
-  walletAddress,
-  (transferEvent) => {
-    if (transferEvent.to.toLowerCase() === walletAddress.toLowerCase()) {
-      // User received an NFT
-      showNotification(
-        `You received a new NFT: ${transferEvent.metadata?.name || 'NFT'}`,
-        'View your collection',
-        () => navigateToNftCollection()
-      );
-      refreshNftCollection();
-    } else if (transferEvent.from.toLowerCase() === walletAddress.toLowerCase()) {
-      // User sent an NFT
-      showNotification(
-        `NFT transfer complete: ${transferEvent.metadata?.name || 'NFT'}`,
-        'View transaction',
-        () => openExplorer(transferEvent.txHash)
-      );
-    }
-  }
-);
+// Listen for WebSocket errors
+const unsubscribe = realtimeService.onError((error: WebSocketError) => {
+  console.error('WebSocket error:', error);
+  showErrorNotification(`Connection error: ${error.message}`);
+});
 
 // Clean up when component unmounts
 useEffect(() => {
@@ -526,163 +450,30 @@ useEffect(() => {
 }, []);
 ```
 
-### Monitoring Token Price Updates
-Keep users informed of token price changes:
+### Connection Health Monitoring
+You can check the connection health with a ping:
 
 ```typescript
-import { realtimeService } from './services/api';
+import { realtimeService } from './services/realtime';
 
-// Subscribe to SHAHI token price updates
-const unsubscribe = realtimeService.subscribeToTokenPrice((priceEvent) => {
-  // Update price display
-  updateTokenPrice(priceEvent.price);
-  
-  // Show change percentage
-  if (priceEvent.changePercent24h > 0) {
-    showPositivePriceChange(`+${priceEvent.changePercent24h.toFixed(2)}%`);
-  } else {
-    showNegativePriceChange(`${priceEvent.changePercent24h.toFixed(2)}%`);
+// Check connection health
+async function checkConnectionHealth() {
+  try {
+    await realtimeService.ping();
+    console.log('Connection is healthy');
+    return true;
+  } catch (error) {
+    console.error('Connection ping failed:', error);
+    return false;
   }
-  
-  // Update price chart
-  addPriceDataPoint(priceEvent.timestamp, priceEvent.price);
-});
-
-// Clean up subscription
-useEffect(() => {
-  return () => unsubscribe();
-}, []);
-```
-
-### Receiving System Notifications
-Handle system-wide notifications:
-
-```typescript
-import { notificationService } from '../services/notification-service';
-import { useEffect, useState } from 'react';
-
-function NotificationsList() {
-  const [notifications, setNotifications] = useState([]);
-  
-  useEffect(() => {
-    // Initialize the notification service if not already initialized
-    notificationService.initialize();
-    
-    // Subscribe to notifications
-    const subscription = notificationService.getNotifications().subscribe(
-      notificationsList => {
-        setNotifications(notificationsList);
-      }
-    );
-    
-    // Clean up subscription when component unmounts
-    return () => {
-      subscription.unsubscribe();
-    };
-  }, []);
-  
-  const handleMarkAsRead = (id) => {
-    notificationService.markAsRead(id);
-  };
-  
-  const handleRemove = (id) => {
-    notificationService.removeNotification(id);
-  };
-  
-  const handleMarkAllAsRead = () => {
-    notificationService.markAllAsRead();
-  };
-  
-  return (
-    <div className="notifications-list">
-      <div className="notifications-header">
-        <h3>Notifications ({notifications.length})</h3>
-        {notifications.length > 0 && (
-          <button onClick={handleMarkAllAsRead}>Mark all as read</button>
-        )}
-      </div>
-      
-      {notifications.length === 0 ? (
-        <p>No notifications</p>
-      ) : (
-        <ul className="notifications-items">
-          {notifications.map(notification => (
-            <li 
-              key={notification.id}
-              className={`notification-item ${notification.read ? 'read' : 'unread'} ${notification.category}`}
-            >
-              <div className="notification-content">
-                <h4>{notification.title}</h4>
-                <p>{notification.message}</p>
-                <small>{new Date(notification.timestamp).toLocaleString()}</small>
-              </div>
-              <div className="notification-actions">
-                {!notification.read && (
-                  <button onClick={() => handleMarkAsRead(notification.id)}>
-                    Mark as read
-                  </button>
-                )}
-                <button onClick={() => handleRemove(notification.id)}>
-                  Remove
-                </button>
-              </div>
-            </li>
-          ))}
-        </ul>
-      )}
-    </div>
-  );
 }
 ```
 
-### Tracking Staking Rewards Updates
-Monitor staking position rewards in real-time:
-
-```typescript
-import { realtimeService } from './services/api';
-
-// Subscribe to updates for a specific staking position
-const positionId = 'stake-12345';
-const unsubscribe = realtimeService.subscribeToStakingUpdates(
-  positionId,
-  (update) => {
-    // Update rewards display
-    updateRewardsAmount(update.formattedRewards);
-    
-    // Update APY if changed
-    updateApyDisplay(update.apy);
-    
-    // Update time remaining
-    updateTimeRemaining(update.daysRemaining);
-  }
-);
-
-// Clean up subscription
-useEffect(() => {
-  return () => unsubscribe();
-}, []);
-```
-
-### WebSocket Authentication and Security
-
-The WebSocket connections are automatically authenticated using JWT tokens:
-
-1. **Initial Authentication**: The token is passed during connection
-2. **Token Refresh**: Automatically updated during reconnections
-3. **Connection Security**:
-   - All connections are secured with TLS
-   - Authentication uses the same JWT tokens as REST API
-   - Channel-based authorization enforces access control
-4. **Subscription Security**:
-   - Users can only subscribe to their own wallet addresses
-   - System enforces proper authorization for each channel
-   - Invalid subscriptions are automatically rejected
-
 ### Handling Offline Scenarios
-The WebSocketManager automatically handles connection issues, but you can provide additional feedback to users:
+The RealtimeService automatically handles connection issues, but you can provide additional feedback to users:
 
 ```typescript
-import { realtimeService, ConnectionStatus } from './services/api';
+import { realtimeService, ConnectionStatus } from './services/realtime';
 
 // Listen for online/offline events
 useEffect(() => {
@@ -691,7 +482,7 @@ useEffect(() => {
       // Try to reconnect when device comes back online
       const token = localStorage.getItem('accessToken');
       if (token) {
-        realtimeService.connect(token).catch(console.error);
+        realtimeService.connect(token);
       }
     }
   }
@@ -707,226 +498,6 @@ useEffect(() => {
   };
 }, []);
 ```
-
-### Authentication Errors
-Handle token expiration and authentication errors:
-
-```typescript
-import { realtimeService, authService } from './services/api';
-
-// Subscribe to authentication errors
-const unsubscribe = realtimeService.onAuthError(async (error) => {
-  console.error('WebSocket authentication error:', error);
-  
-  // Try to refresh the token
-  try {
-    const refreshToken = localStorage.getItem('refreshToken');
-    if (refreshToken) {
-      const newTokens = await authService.refreshToken(refreshToken);
-      
-      // Update WebSocket connection with new token
-      await realtimeService.connect(newTokens.accessToken);
-    } else {
-      // No refresh token, redirect to login
-      redirectToLogin();
-    }
-  } catch (refreshError) {
-    console.error('Token refresh failed:', refreshError);
-    redirectToLogin();
-  }
-});
-
-// Clean up subscription
-useEffect(() => {
-  return () => unsubscribe();
-}, []);
-```
-
-### Connection Health Monitoring
-
-You can check the connection health with a ping/pong mechanism:
-
-```typescript
-import { realtimeService } from './services/api';
-
-// Check connection health
-async function checkConnectionHealth() {
-  try {
-    const response = await realtimeService.ping();
-    console.log('Connection is healthy, round-trip time:', response.timestamp - Date.now(), 'ms');
-    return true;
-  } catch (error) {
-    console.error('Connection ping failed:', error);
-    return false;
-  }
-}
-
-// Set up periodic health checks
-useEffect(() => {
-  const interval = setInterval(checkConnectionHealth, 30000); // Every 30 seconds
-  
-  return () => clearInterval(interval);
-}, []);
-```
-
-## Best Practices for WebSocket Usage
-
-1. **Always clean up subscriptions** when components unmount to prevent memory leaks:
-
-```typescript
-useEffect(() => {
-  const unsubscribe = realtimeService.subscribeToBalanceChanges(address, handleBalance);
-  return () => unsubscribe();
-}, [address]);
-```
-
-2. **Handle connection status changes** to provide feedback to users:
-
-```typescript
-realtimeService.onConnectionStatusChange(status => setConnectionStatus(status));
-```
-
-3. **Automatically reconnect** when the application regains focus or internet connectivity:
-
-```typescript
-useEffect(() => {
-  const handleVisibilityChange = () => {
-    if (document.visibilityState === 'visible' && 
-        realtimeService.getConnectionStatus() === ConnectionStatus.DISCONNECTED) {
-      realtimeService.connect(localStorage.getItem('accessToken'));
-    }
-  };
-  
-  document.addEventListener('visibilitychange', handleVisibilityChange);
-  return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
-}, []);
-```
-
-4. **Implement fallback mechanisms** for critical features when real-time updates are unavailable:
-
-```typescript
-// If WebSocket is disconnected, use polling as fallback
-if (realtimeService.getConnectionStatus() === ConnectionStatus.DISCONNECTED) {
-  const interval = setInterval(async () => {
-    const balance = await tokenService.getBalance();
-    updateBalanceUI(balance);
-  }, 30000); // Poll every 30 seconds
-  
-  return () => clearInterval(interval);
-}
-```
-
-5. **Provide visual indicators** for connection status:
-
-```tsx
-// Simple connection indicator component
-<ConnectionIndicator status={realtimeService.getConnectionStatus()} />
-
-// Or use the pre-built component:
-<WebSocketStatus showDetails={true} />
-```
-
-6. **Handle reconnection seamlessly** without user intervention:
-
-```typescript
-// Setup in your app initialization
-useEffect(() => {
-  // The WebSocketManager handles reconnection automatically,
-  // but you might want to show/hide UI elements based on status
-  const unsubscribe = realtimeService.onConnectionStatusChange((status) => {
-    setIsConnected(status === ConnectionStatus.CONNECTED);
-    
-    if (status === ConnectionStatus.RECONNECTING) {
-      showReconnectingIndicator();
-    } else {
-      hideReconnectingIndicator();
-    }
-  });
-  
-  return () => unsubscribe();
-}, []);
-```
-
-7. **Group subscriptions logically** by component or feature:
-
-```typescript
-// In a wallet component that shows balance and NFTs
-useEffect(() => {
-  if (!walletAddress) return;
-  
-  // Create multiple subscriptions
-  const unsubscribeBalance = realtimeService.subscribeToBalanceChanges(
-    walletAddress, handleBalanceUpdate
-  );
-  
-  const unsubscribeNfts = realtimeService.subscribeToNftTransfers(
-    walletAddress, handleNftTransfer
-  );
-  
-  // Return a cleanup function that unsubscribes from all
-  return () => {
-    unsubscribeBalance();
-    unsubscribeNfts();
-  };
-}, [walletAddress]);
-```
-
-8. **Use React's dependency array correctly** with subscriptions:
-
-```typescript
-// This will properly resubscribe if the wallet address changes
-useEffect(() => {
-  if (!walletAddress) return;
-  
-  const unsubscribe = realtimeService.subscribeToBalanceChanges(
-    walletAddress,
-    handleBalanceUpdate
-  );
-  
-  return () => unsubscribe();
-}, [walletAddress]); // Include the address in dependencies
-```
-
-### Troubleshooting WebSocket Issues
-
-1. **Connection Failures**
-   - Check network connectivity
-   - Verify authentication token is valid and not expired
-   - Ensure backend WebSocket service is running
-   - Check browser console for connection error details
-   - Verify the WebSocket server URL is correct
-
-2. **Disconnections**
-   - Automatic reconnection will attempt to restore the connection
-   - Check for network issues or firewall restrictions
-   - The UI should reflect connection status changes
-   - If persistent, check server logs for connection rejections
-
-3. **Missing Updates**
-   - Verify you're subscribed to the correct channel
-   - Check subscription callback for errors
-   - Ensure the backend is publishing events to the correct channels
-   - Monitor the browser console for WebSocket message logs
-   - Check if channel name format matches (e.g., `balance:0x123...`)
-
-4. **Authentication Errors**
-   - The system will attempt to refresh tokens automatically
-   - If persistent, try logging out and back in
-   - Check browser console for specific error messages
-   - Verify the token format being sent with the connection
-
-5. **Memory Leaks**
-   - Always use the unsubscribe function returned by subscription methods
-   - Place unsubscribe calls in useEffect cleanup functions
-   - Check React component remounting patterns
-   - Use the React DevTools profiler to identify potential issues
-
-6. **Performance Issues**
-   - Too many subscriptions can affect performance
-   - Group related subscriptions when possible
-   - Consider using a single subscription with a message filter
-   - Close unnecessary subscriptions when not needed
-   - Use the minimal WebSocketStatus mode in production
 
 ## Performance Optimizations
 

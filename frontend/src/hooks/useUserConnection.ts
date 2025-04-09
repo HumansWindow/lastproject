@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import apiClient from '../services/api/client/base/api-client';
+import { apiClient } from '../services/api/client';
 
 /**
  * Hook to check if user is connected to the system

@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { realtimeService } from '../services/realtime/websocket/realtime-service';
-import { ConnectionStatus } from '../services/realtime/websocket/websocket-manager';
+import { realtimeService } from '../services/realtime';
 import { NotificationEvent } from '../types/api-types';
 import WebSocketStatus from './WebSocketStatus';
 
@@ -12,8 +11,8 @@ const NotificationsPanel: React.FC<NotificationsPanelProps> = ({ maxNotification
   const [notifications, setNotifications] = useState<NotificationEvent[]>([]);
   
   useEffect(() => {
-    // Subscribe to notifications via WebSocket
-    const unsubscribe = realtimeService.subscribeToNotifications((notification) => {
+    // Use the unified realtimeService instead of creating a new WebSocketManager instance
+    const unsubscribe = realtimeService?.subscribe('notifications', (notification: any) => {
       setNotifications((prev: NotificationEvent[]) => {
         // Add new notification and limit to maxNotifications
         const updated = [notification as NotificationEvent, ...prev].slice(0, maxNotifications);
@@ -23,7 +22,7 @@ const NotificationsPanel: React.FC<NotificationsPanelProps> = ({ maxNotification
     
     // Clean up subscription when component unmounts
     return () => {
-      unsubscribe();
+      if (unsubscribe) unsubscribe();
     };
   }, [maxNotifications]);
 

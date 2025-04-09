@@ -1,0 +1,20 @@
+=== API File Comparison Report ===
+Flat file: src/services/api/referral-service.ts (190 lines)
+Modular file: src/services/api/modules/user/referral-service.ts (190 lines)
+
+Both files have the same number of lines.
+
+=== Differences Summary ===
+
+=== Detailed Differences ===
+@@ -1,4 +1,4 @@
+-import { apiClient } from './api-client';
++import { apiClient } from '../../api-client';
+ 
+ /**
+  * Interface for referral statistics
+
+=== Method Comparison ===
+Methods in flat file but not in modular file:
+
+Methods in modular file but not in flat file:
