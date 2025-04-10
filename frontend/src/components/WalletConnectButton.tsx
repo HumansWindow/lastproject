@@ -1,22 +1,29 @@
 import React from 'react';
 import { useWallet } from '../contexts/wallet';
+import { WalletProviderType } from '../services/wallet';
 
 interface WalletConnectButtonProps {
   className?: string;
+  providerType?: WalletProviderType;
 }
 
-export const WalletConnectButton: React.FC<WalletConnectButtonProps> = ({ className = '' }) => {
-  const { isConnected, isConnecting, address, connect, disconnect, error } = useWallet();
+export const WalletConnectButton: React.FC<WalletConnectButtonProps> = ({ 
+  className = '',
+  providerType = WalletProviderType.METAMASK
+}) => {
+  const { isConnected, isConnecting, walletInfo, connect, disconnect, error } = useWallet();
   
-  const displayAddress = address ? `${address.substring(0, 6)}...${address.substring(address.length - 4)}` : '';
+  const displayAddress = walletInfo?.address 
+    ? `${walletInfo.address.substring(0, 6)}...${walletInfo.address.substring(walletInfo.address.length - 4)}`
+    : '';
   
-  // Create a wrapper function to handle the click event
+  // Connect with specified provider
   const handleConnect = (event: React.MouseEvent<HTMLButtonElement>) => {
     event.preventDefault();
-    connect(); // Call connect without parameters for wallet-only authentication
+    connect(providerType);
   };
   
-  // Create a wrapper function for disconnect as well to be consistent
+  // Disconnect wallet
   const handleDisconnect = (event: React.MouseEvent<HTMLButtonElement>) => {
     event.preventDefault();
     disconnect();
@@ -30,7 +37,7 @@ export const WalletConnectButton: React.FC<WalletConnectButtonProps> = ({ classN
           onClick={handleConnect}
           disabled={isConnecting}
         >
-          {isConnecting ? 'Connecting...' : 'Connect Wallet'}
+          {isConnecting ? 'Connecting...' : `Connect ${getProviderName(providerType)}`}
         </button>
       ) : (
         <div className="wallet-connected">
@@ -44,3 +51,17 @@ export const WalletConnectButton: React.FC<WalletConnectButtonProps> = ({ classN
     </div>
   );
 };
+
+// Helper function to get provider display name
+function getProviderName(providerType: WalletProviderType): string {
+  const providerNames = {
+    [WalletProviderType.METAMASK]: 'MetaMask',
+    [WalletProviderType.COINBASE]: 'Coinbase',
+    [WalletProviderType.WALLETCONNECT]: 'WalletConnect',
+    [WalletProviderType.TRUST]: 'Trust Wallet',
+    [WalletProviderType.PHANTOM]: 'Phantom',
+    [WalletProviderType.BINANCE]: 'Binance Wallet'
+  };
+  
+  return providerNames[providerType] || 'Wallet';
+}

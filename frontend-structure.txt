@@ -184,7 +184,6 @@
 /home/alivegod/Desktop/LastProjectendpoint/LastProject/frontend/src/services/api/referral-service.ts
 /home/alivegod/Desktop/LastProjectendpoint/LastProject/frontend/src/services/api/token-service.ts
 /home/alivegod/Desktop/LastProjectendpoint/LastProject/frontend/src/services/api/user-service.ts
-/home/alivegod/Desktop/LastProjectendpoint/LastProject/frontend/src/services/api/wallet-service.ts
 /home/alivegod/Desktop/LastProjectendpoint/LastProject/frontend/src/services/import-mapping.txt
 /home/alivegod/Desktop/LastProjectendpoint/LastProject/frontend/src/services/index.ts
 /home/alivegod/Desktop/LastProjectendpoint/LastProject/frontend/src/services/notifications/index.ts
@@ -208,6 +207,13 @@
 /home/alivegod/Desktop/LastProjectendpoint/LastProject/frontend/src/services/storage/index.ts
 /home/alivegod/Desktop/LastProjectendpoint/LastProject/frontend/src/services/storage/memory/index.ts
 /home/alivegod/Desktop/LastProjectendpoint/LastProject/frontend/src/services/storage/memory/memory-manager.ts
+/home/alivegod/Desktop/LastProjectendpoint/LastProject/frontend/src/services/wallet/core/wallet-base.ts
+/home/alivegod/Desktop/LastProjectendpoint/LastProject/frontend/src/services/wallet/core/connection.ts
+/home/alivegod/Desktop/LastProjectendpoint/LastProject/frontend/src/services/wallet/providers/ethereum/metamask.ts
+/home/alivegod/Desktop/LastProjectendpoint/LastProject/frontend/src/services/wallet/providers/ethereum/walletconnect.ts
+/home/alivegod/Desktop/LastProjectendpoint/LastProject/frontend/src/services/wallet/auth/wallet-auth.ts
+/home/alivegod/Desktop/LastProjectendpoint/LastProject/frontend/src/services/wallet/auth/challenge.ts
+/home/alivegod/Desktop/LastProjectendpoint/LastProject/frontend/src/services/wallet/index.ts
 /home/alivegod/Desktop/LastProjectendpoint/LastProject/frontend/src/styles/DiaryList.module.css
 /home/alivegod/Desktop/LastProjectendpoint/LastProject/frontend/src/styles/error-pages.css
 /home/alivegod/Desktop/LastProjectendpoint/LastProject/frontend/src/styles/globals.css

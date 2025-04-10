@@ -7,6 +7,6 @@ export * from './realtime';
 // Explicitly re-export from auth and wallet to avoid name conflicts
 export { authService } from './auth';
 
-// Re-export the type from wallet using export type syntax
-export { walletService } from './wallet';
-export type { WalletConnectionResult } from './wallet';
+// Import from new wallet service location instead
+export { walletService } from '../../../services/wallet';
+export type { WalletConnectionResult } from '../../../services/wallet/types';

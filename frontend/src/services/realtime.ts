@@ -17,9 +17,6 @@ export type {
   MessageHandler
 };
 
-// Instead of redefining, directly export the ConnectionStatus from realtime-types
-export { ConnectionStatusType as ConnectionStatus };
-
 // Define RealtimeService interface using ConnectionStatusType 
 export interface RealtimeService {
   connect(token?: string): Promise<void>;
@@ -35,9 +32,9 @@ export interface RealtimeService {
   
   subscribeToNftTransfers(walletAddress: string, callback: MessageHandler<NftTransferEvent>): () => void;
   subscribeToBalanceUpdates(walletAddress: string, callback: MessageHandler<BalanceUpdateEvent>): () => void;
-  subscribeToNotifications(userId: string, callback: MessageHandler<NotificationEvent>): () => void;
+  subscribeToNotifications(callback: MessageHandler<NotificationEvent>): () => void;
   
-  ping(): Promise<boolean>;
+  ping(): Promise<void>;
   getActiveSubscriptions(): string[];
   setAutoReconnect(enabled: boolean, maxRetries?: number): void;
   
@@ -47,10 +44,23 @@ export interface RealtimeService {
   setToken(token: string): void;
   unsubscribeFrom(channel: string): void;
   getSubscriptions(): string[];
-  sendPing(): Promise<boolean>;
+  sendPing(): void;
 }
 
 // Replace the incorrect import
 import { realtimeService } from './realtime/websocket/realtime-service';
 export { realtimeService };
-export * from './realtime/websocket/realtime-service-interface';
+
+export enum ConnectionStatus {
+  CONNECTED = 'CONNECTED',
+  CONNECTING = 'CONNECTING',
+  DISCONNECTED = 'DISCONNECTED',
+  ERROR = 'ERROR',
+  RECONNECTING = 'RECONNECTING'
+}
+
+export interface WebSocketMessage {
+  type: string;
+  channel?: string;
+  data?: any;
+}

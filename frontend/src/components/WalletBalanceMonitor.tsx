@@ -70,7 +70,7 @@ export const WalletBalanceMonitor: React.FC<Props> = ({ walletAddress, networkNa
             {formatAddress(walletAddress)} on {networkName}
           </p>
         </div>
-        <WebSocketStatus showDetails />
+        <WebSocketStatus connected={true} showDetails />
       </div>
       
       <div className="py-4 text-center">

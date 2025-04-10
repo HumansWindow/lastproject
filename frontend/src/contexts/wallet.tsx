@@ -1,257 +1,160 @@
-import React, { createContext, useState, useContext, useEffect, useRef, ReactNode, useCallback } from 'react';
-import { ethers } from 'ethers';
-import { walletAuthService, WalletAuthResult } from '../services/api/modules/auth/wallet-auth-service';
-import { useAuth } from './auth'; // Import the auth context
+import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import walletService, { 
+  WalletEvent, 
+  WalletInfo, 
+  WalletProviderType 
+} from '../services/wallet';
 
 interface WalletContextType {
-  address: string | null;
-  isConnecting: boolean;
+  connect: (providerType: WalletProviderType) => Promise<boolean>;
+  disconnect: () => Promise<boolean>;
+  switchNetwork: (chainId: string) => Promise<boolean>;
   isConnected: boolean;
-  connect: (email?: string) => Promise<string | null>;
-  disconnect: () => void;
+  isConnecting: boolean;
+  walletInfo: WalletInfo | null;
   error: string | null;
-  signMessage: (message: string) => Promise<string | null>;
-  resetConnection: () => Promise<string | null>;
-  networkName: string | null;
+  providerType: WalletProviderType | null;
 }
 
-const WalletContext = createContext<WalletContextType>({
-  address: null,
-  isConnecting: false,
-  isConnected: false,
-  connect: async () => null,
-  disconnect: () => {},
-  error: null,
-  signMessage: async () => null,
-  resetConnection: async () => null,
-  networkName: null
-});
+const WalletContext = createContext<WalletContextType | undefined>(undefined);
 
-export const useWallet = () => useContext(WalletContext);
-
-export const WalletProvider: React.FC<{children: ReactNode}> = ({ children }) => {
-  const [address, setAddress] = useState<string | null>(null);
-  const [isConnecting, setIsConnecting] = useState<boolean>(false);
+export const WalletProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [isConnected, setIsConnected] = useState<boolean>(false);
+  const [isConnecting, setIsConnecting] = useState<boolean>(false);
+  const [walletInfo, setWalletInfo] = useState<WalletInfo | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [networkName, setNetworkName] = useState<string | null>(null);
+  const [providerType, setProviderType] = useState<WalletProviderType | null>(null);
   
-  // Use the auth context to update user state when wallet connects
-  const { setUserFromWalletAuth } = useAuth();
+  useEffect(() => {
+    // Set up event listeners for wallet events
+    const handleConnection = (info: WalletInfo) => {
+      setWalletInfo(info);
+      setIsConnected(true);
+      setIsConnecting(false);
+      setError(null);
+    };
+    
+    const handleDisconnection = () => {
+      setWalletInfo(null);
+      setIsConnected(false);
+      setProviderType(null);
+      setError(null);
+    };
+    
+    const handleError = (err: any) => {
+      setError(typeof err === 'string' ? err : (err?.message || 'Unknown wallet error'));
+      setIsConnecting(false);
+    };
+    
+    const handleAccountChanged = (newInfo: WalletInfo) => {
+      setWalletInfo(newInfo);
+    };
+
+    const handleChainChanged = (newInfo: WalletInfo) => {
+      setWalletInfo(newInfo);
+    };
+    
+    // Register event listeners
+    walletService.on(WalletEvent.CONNECTED, handleConnection);
+    walletService.on(WalletEvent.DISCONNECTED, handleDisconnection);
+    walletService.on(WalletEvent.ERROR, handleError);
+    walletService.on(WalletEvent.ACCOUNT_CHANGED, handleAccountChanged);
+    walletService.on(WalletEvent.CHAIN_CHANGED, handleChainChanged);
+    
+    // Remove event listeners on cleanup
+    return () => {
+      walletService.off(WalletEvent.CONNECTED, handleConnection);
+      walletService.off(WalletEvent.DISCONNECTED, handleDisconnection);
+      walletService.off(WalletEvent.ERROR, handleError);
+      walletService.off(WalletEvent.ACCOUNT_CHANGED, handleAccountChanged);
+      walletService.off(WalletEvent.CHAIN_CHANGED, handleChainChanged);
+    };
+  }, []);
   
-  // Use refs to store cleanup functions
-  const accountsCleanupRef = useRef<() => void>(() => {});
-  const chainCleanupRef = useRef<() => void>(() => {});
-  
-  // Update network name when connection changes - wrapped in useCallback
-  const updateNetworkName = useCallback(async () => {
-    if (isConnected) {
-      const name = await walletAuthService.getNetworkName();
-      setNetworkName(name);
-    } else {
-      setNetworkName(null);
-    }
-  }, [isConnected]);
-  
-  // Check if a wallet is already connected on mount
+  // Try to restore wallet connection on initial load
   useEffect(() => {
     const checkConnection = async () => {
-      try {
-        const isConnected = await walletAuthService.checkConnection();
-        if (isConnected) {
-          const currentAddress = await walletAuthService.getCurrentAddress();
-          if (currentAddress) {
-            setAddress(currentAddress);
-            setIsConnected(true);
-            await updateNetworkName();
-          }
-        }
-      } catch (err) {
-        console.error('Error checking wallet connection:', err);
+      const isAlreadyConnected = walletService.isConnected();
+      
+      if (isAlreadyConnected) {
+        const info = walletService.getWalletInfo();
+        setWalletInfo(info);
+        setIsConnected(true);
       }
     };
     
     checkConnection();
-    
-    // Set up listeners for wallet events
-    if (walletAuthService.isWalletAvailable()) {
-      // Store cleanup functions
-      accountsCleanupRef.current = walletAuthService.setupAccountChangeListener((accounts) => {
-        if (accounts.length === 0) {
-          // User disconnected their wallet
-          disconnect();
-        } else if (accounts[0] !== address) {
-          // User switched accounts
-          setAddress(accounts[0]);
-          updateNetworkName();
-        }
-      });
-      
-      chainCleanupRef.current = walletAuthService.setupChainChangeListener((chainId) => {
-        console.log('Chain changed to:', chainId);
-        // Update network name when chain changes
-        updateNetworkName();
-      });
-    }
-    
-    // Clean up event listeners on unmount
-    return () => {
-      accountsCleanupRef.current();
-      chainCleanupRef.current();
-    };
-  }, [address, updateNetworkName]); // Add missing dependencies
+  }, []);
   
-  const connect = async (email?: string): Promise<string | null> => {
-    setIsConnecting(true);
-    setError(null);
-    
+  const connect = async (type: WalletProviderType) => {
     try {
-      // If email is provided and is a string, validate it
-      // Otherwise proceed with wallet-only auth
-      if (email !== undefined && typeof email === 'string' && email.trim() !== '') {
-        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-          setError('Please enter a valid email address or leave the field empty for wallet-only authentication');
-          setIsConnecting(false);
-          return null;
-        }
-        console.log('Connecting with wallet and email:', email);
-      } else {
-        console.log('Connecting with wallet only (no email)');
-        // Make sure email is undefined when empty, not an empty string or other falsy value
-        email = undefined;
-      }
+      setIsConnecting(true);
+      setError(null);
+      setProviderType(type);
       
-      const result = await walletAuthService.authenticate(email);
-      
-      if (!result.success) {
-        // Authentication failed
-        const errorMessage = result.error || 'Failed to connect wallet';
-        setError(errorMessage);
-        return null;
-      }
-      
-      // Authentication successful
-      const walletAddress = result.walletAddress || await walletAuthService.getCurrentAddress();
-      if (!walletAddress) {
-        setError('Unable to get wallet address after authentication');
-        return null;
-      }
-      
-      setAddress(walletAddress);
-      setIsConnected(true);
-      await updateNetworkName();
-      
-      // Check if user data is available in the result
-      if (result.userId) {
-        setUserFromWalletAuth({
-          id: result.userId,
-          walletAddress: walletAddress,
-          isNewUser: result.isNewUser || false,
-          // Add required properties with default values
-          email: '',
-          role: 'user',
-          emailVerified: false,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString()
-        });
-      }
-      
-      return walletAddress;
-    } catch (error: any) {
-      console.error('Wallet connection error:', error);
-      
-      // Friendly error messages based on the error type
-      if (error.response?.data?.message) {
-        if (Array.isArray(error.response.data.message)) {
-          setError(error.response.data.message[0]);
-        } else {
-          setError(error.response.data.message);
-        }
-      } else if (error.message) {
-        setError(error.message);
-      } else {
-        setError('Failed to connect wallet. Please try again.');
-      }
-      
-      return null;
-    } finally {
-      setIsConnecting(false);
+      const info = await walletService.connect(type);
+      return !!info;
+    } catch (err: unknown) {
+      const error = err as { message?: string };
+      setError(error?.message || 'Failed to connect wallet');
+      return false;
     }
   };
   
-  const disconnect = () => {
-    walletAuthService.disconnect();
-    setAddress(null);
-    setIsConnected(false);
-    setNetworkName(null);
-  };
-  
-  // Add signMessage implementation
-  const signMessage = async (message: string): Promise<string | null> => {
-    setError(null);
+  const disconnect = async () => {
     try {
-      if (!address) {
-        setError('No wallet connected. Please connect a wallet first.');
-        return null;
-      }
-      
-      // Use the wallet service to sign the message
-      const signature = await walletAuthService.signMessage(message);
-      return signature;
-    } catch (error: any) {
-      console.error('Message signing error:', error);
-      
-      if (error.message) {
-        setError(error.message);
-      } else {
-        setError('Failed to sign message. Please try again.');
-      }
-      
-      return null;
+      const success = await walletService.disconnect();
+      return success;
+    } catch (err: unknown) {
+      const error = err as { message?: string };
+      setError(error?.message || 'Failed to disconnect wallet');
+      return false;
     }
   };
   
-  // Reset wallet connection (useful for troubleshooting)
-  const resetConnection = async (): Promise<string | null> => {
-    setIsConnecting(true);
-    setError(null);
+  const switchNetwork = async (chainId: string) => {
+    if (!providerType) {
+      setError('No wallet provider connected');
+      return false;
+    }
     
     try {
-      // Disconnect and reconnect
-      disconnect();
-      const newAddress = await walletAuthService.resetConnection();
-      
-      if (newAddress) {
-        setAddress(newAddress);
-        setIsConnected(true);
-        await updateNetworkName();
-        return newAddress;
-      } else {
-        setError('Failed to reset wallet connection');
-        return null;
+      const success = await walletService.switchNetwork(chainId, providerType);
+      if (!success) {
+        setError('Failed to switch network');
       }
-    } catch (error: any) {
-      console.error('Error resetting wallet connection:', error);
-      setError(error.message || 'Failed to reset connection');
-      return null;
-    } finally {
-      setIsConnecting(false);
+      return success;
+    } catch (err: unknown) {
+      const error = err as { message?: string };
+      setError(error?.message || 'Failed to switch network');
+      return false;
     }
   };
   
   return (
-    <WalletContext.Provider value={{
-      address,
-      isConnecting,
-      isConnected,
-      connect,
-      disconnect,
-      error,
-      signMessage,
-      resetConnection,
-      networkName
-    }}>
+    <WalletContext.Provider
+      value={{
+        connect,
+        disconnect,
+        switchNetwork,
+        isConnected,
+        isConnecting,
+        walletInfo,
+        error,
+        providerType
+      }}
+    >
       {children}
     </WalletContext.Provider>
   );
+};
+
+export const useWallet = () => {
+  const context = useContext(WalletContext);
+  
+  if (context === undefined) {
+    throw new Error('useWallet must be used within a WalletProvider');
+  }
+  
+  return context;
 };

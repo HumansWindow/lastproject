@@ -1,160 +1,113 @@
-import React, { useState } from 'react';
-import { GetServerSideProps } from 'next';
-import { useTranslation } from 'next-i18next';
-import { serverSideTranslations } from 'next-i18next/serverSideTranslations';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
+import { useWallet } from '../contexts/wallet';
+import { useAuth } from '../contexts/auth';
+import { WalletProviderType } from '../services/wallet';
+import { WalletConnectButton } from '../components/WalletConnectButton';
 import Link from 'next/link';
-import { useAuth } from '@/contexts/auth';
-import { useWallet } from '@/contexts/wallet';
 
-export default function Login() {
-  const { t } = useTranslation('common');
+const LoginPage: React.FC = () => {
   const router = useRouter();
-  const { login, walletLogin } = useAuth();
-  const { connect, signMessage, address } = useWallet();
+  const { isConnected, walletInfo } = useWallet();
+  const { isAuthenticated, authenticateWithWallet, isLoading, error } = useAuth();
+  const [email, setEmail] = useState<string>('');
+  const [authError, setAuthError] = useState<string | null>(null);
   
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
-  const [loading, setLoading] = useState(false);
-
-  const handleEmailLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError('');
-    setLoading(true);
-
-    try {
-      await login(email, password);
+  // Redirect if already authenticated
+  useEffect(() => {
+    if (isAuthenticated) {
       router.push('/dashboard');
-    } catch (err) {
-      // Ensure we always set a string, fallback to a default message if translation is null
-      setError(t('invalidCredentials') || 'Invalid credentials');
-    } finally {
-      setLoading(false);
     }
-  };
-
-  const handleWalletLogin = async () => {
-    setError('');
-    setLoading(true);
-
-    try {
-      // Connect wallet if not already connected
-      const walletAddress = address || await connect();
+  }, [isAuthenticated, router]);
+  
+  // Handle authentication once wallet is connected
+  const handleWalletAuth = React.useCallback(async () => {
+    if (isConnected) {
+      setAuthError(null);
+      const success = await authenticateWithWallet(email);
       
-      if (!walletAddress) {
-        setError(t('walletConnectionFailed') || 'Failed to connect wallet');
-        return;
+      if (!success) {
+        setAuthError('Failed to authenticate with wallet. Please try again.');
       }
-      
-      // Sign message for authentication
-      const nonce = Date.now().toString();
-      const message = `Login to AliveHuman: ${nonce}`;
-      const signature = await signMessage(message);
-      
-      if (!signature) {
-        setError(t('signatureRejected') || 'Signature was rejected');
-        return;
-      }
-      
-      // Authenticate with backend
-      await walletLogin(walletAddress, signature);
-      router.push('/dashboard');
-    } catch (err) {
-      setError(t('loginFailed') || 'Login failed');
-    } finally {
-      setLoading(false);
     }
-  };
-
+  }, [isConnected, authenticateWithWallet, email]);
+  
+  // Auto-authenticate when wallet is connected
+  useEffect(() => {
+    if (isConnected && !isAuthenticated && !isLoading) {
+      handleWalletAuth();
+    }
+  }, [isConnected, isAuthenticated, isLoading, handleWalletAuth]);
+  
   return (
-    <div className="container mx-auto px-4 py-8">
-      <div className="max-w-md mx-auto bg-white rounded-lg shadow-md p-6">
-        <h1 className="text-2xl font-bold mb-6 text-center">{t('login')}</h1>
+    <div className="min-h-screen bg-gray-100 flex items-center justify-center">
+      <div className="bg-white p-8 rounded-lg shadow-md w-full max-w-md">
+        <h1 className="text-2xl font-bold mb-6 text-center">Login to Your Account</h1>
         
-        {error && (
-          <div className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded">
-            {error}
+        {(error || authError) && (
+          <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-2 rounded mb-4">
+            {error || authError}
           </div>
         )}
         
-        <form onSubmit={handleEmailLogin} className="mb-6">
-          <div className="mb-4">
-            <label htmlFor="email" className="block mb-2 text-sm font-medium">
-              {t('email')}
+        <div className="space-y-4">
+          <div>
+            <label htmlFor="email" className="block text-sm font-medium text-gray-700">
+              Email (Optional)
             </label>
             <input
               id="email"
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="w-full px-3 py-2 border rounded-md"
-              required
+              placeholder="Your email (for notifications)"
+              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
             />
+            <p className="text-xs text-gray-500 mt-1">
+              Adding an email is optional but recommended for account recovery
+            </p>
           </div>
           
-          <div className="mb-6">
-            <label htmlFor="password" className="block mb-2 text-sm font-medium">
-              {t('password')}
-            </label>
-            <input
-              id="password"
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="w-full px-3 py-2 border rounded-md"
-              required
-            />
+          <div className="flex flex-col space-y-3">
+            {isConnected ? (
+              <button
+                onClick={handleWalletAuth}
+                disabled={isLoading}
+                className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+              >
+                {isLoading ? 'Authenticating...' : 'Login with Connected Wallet'}
+              </button>
+            ) : (
+              <div className="space-y-3">
+                <WalletConnectButton 
+                  className="w-full"
+                  providerType={WalletProviderType.METAMASK}
+                />
+                
+                <WalletConnectButton
+                  className="w-full"
+                  providerType={WalletProviderType.WALLETCONNECT}
+                />
+              </div>
+            )}
+            
+            {isConnected && (
+              <div className="text-sm text-center text-gray-700">
+                Connected: {walletInfo?.address.substring(0, 6)}...{walletInfo?.address.substring(38)}
+              </div>
+            )}
           </div>
           
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full bg-blue-500 hover:bg-blue-600 text-white py-2 px-4 rounded-md disabled:opacity-50"
-          >
-            {loading ? t('loggingIn') || 'Logging in...' : t('loginWithEmail') || 'Login with Email'}
-          </button>
-        </form>
-        
-        <div className="text-center mb-6">
-          <span className="text-gray-500">{t('or') || 'or'}</span>
-        </div>
-        
-        <button
-          onClick={handleWalletLogin}
-          disabled={loading}
-          className="w-full bg-purple-600 hover:bg-purple-700 text-white py-2 px-4 rounded-md disabled:opacity-50"
-        >
-          {loading ? t('connecting') || 'Connecting...' : t('loginWithWallet') || 'Login with Wallet'}
-        </button>
-        
-        <div className="mt-6 text-center">
-          <Link href="/forgot-password">
-            <span className="text-blue-500 hover:text-blue-600">
-              {t('forgotPassword') || 'Forgot Password?'}
-            </span>
-          </Link>
-        </div>
-        
-        <div className="mt-4 text-center">
-          <span className="text-gray-600">
-            {t('dontHaveAccount') || "Don't have an account?"} {' '}
-            <Link href="/register">
-              <span className="text-blue-500 hover:text-blue-600">
-                {t('signUp') || 'Sign Up'}
-              </span>
+          <div className="text-sm text-center mt-4">
+            <span className="text-gray-600">Don&apos;t have an account?</span>{' '}
+            <Link href="/register" className="text-blue-600 hover:text-blue-800">
+              Register
             </Link>
-          </span>
+          </div>
         </div>
       </div>
     </div>
   );
-}
-
-export const getServerSideProps: GetServerSideProps = async ({ locale = 'en' }) => {
-  return {
-    props: {
-      ...(await serverSideTranslations(locale, ['common'])),
-    },
-  };
 };
+
+export default LoginPage;

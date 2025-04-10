@@ -3,10 +3,11 @@ import { useTranslation } from 'next-i18next';
 import { serverSideTranslations } from 'next-i18next/serverSideTranslations';
 import Head from 'next/head';
 import { useAuth } from '@/contexts/auth';
+import { User } from '@/types/user';
 
 export default function Home() {
   const { t } = useTranslation('common');
-  const { user } = useAuth();
+  const { user } = useAuth() as { user: User | null };
   
   return (
     <>

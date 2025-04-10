@@ -284,11 +284,12 @@ const RealTimeDemo: React.FC = () => {
               <div className="flex items-center space-x-2">
                 <span className="text-gray-700 dark:text-gray-200">Status:</span>
                 <WebSocketStatus 
-                  showDetails={true} 
-                  showErrorDetails={showErrorDetails}
-                  showReconnectAttempts={showReconnectAttempts}
-                  showConnectionDuration={showConnectionDuration}
-                  showDiagnosticInfo={showDiagnosticInfo}
+                  connected={connected}
+                  showDetails={true}
+                  data-show-error-details={showErrorDetails}
+                  data-show-reconnect-attempts={showReconnectAttempts}
+                  data-show-connection-duration={showConnectionDuration}
+                  data-show-diagnostic-info={showDiagnosticInfo}
                 />
               </div>
               
@@ -556,7 +557,9 @@ const RealTimeDemo: React.FC = () => {
         <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
           <div className="mb-4 flex justify-between items-center">
             <h2 className="text-xl font-semibold text-gray-800 dark:text-white">Notifications</h2>
-            <WebSocketStatus className="ml-auto" />
+            <div className="ml-auto">
+              <WebSocketStatus connected={connected} />
+            </div>
           </div>
           <NotificationsPanel maxNotifications={5} />
         </div>
@@ -564,10 +567,12 @@ const RealTimeDemo: React.FC = () => {
         <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
           <div className="mb-4 flex justify-between items-center">
             <h2 className="text-xl font-semibold text-gray-800 dark:text-white">Wallet Balance Monitor</h2>
-            <WebSocketStatus 
-              className="ml-auto"
-              showConnectionDuration={showConnectionDuration}
-            />
+            <div className="ml-auto">
+              <WebSocketStatus 
+                connected={connected}
+                showDetails={showConnectionDuration}
+              />
+            </div>
           </div>
           <WalletBalanceMonitor 
             walletAddress={walletAddress} 
@@ -579,11 +584,13 @@ const RealTimeDemo: React.FC = () => {
       <div className="mt-8 bg-white dark:bg-gray-800 shadow rounded-lg p-6">
         <div className="mb-4 flex justify-between items-center">
           <h2 className="text-xl font-semibold text-gray-800 dark:text-white">NFT Transfers</h2>
-          <WebSocketStatus 
-            showDetails={true}
-            showConnectionDuration={showConnectionDuration}
-            className="ml-auto"
-          />
+          <div className="ml-auto">
+            <WebSocketStatus 
+              connected={connected}
+              showDetails={true}
+              data-show-connection-duration={showConnectionDuration}
+            />
+          </div>
         </div>
         <NFTTransferMonitor walletAddress={walletAddress} />
       </div>

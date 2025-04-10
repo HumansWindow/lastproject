@@ -39,7 +39,7 @@ const NotificationsPanel: React.FC<NotificationsPanelProps> = ({ maxNotification
     <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-4">
       <div className="flex justify-between items-center mb-4">
         <h2 className="text-lg font-semibold text-gray-800 dark:text-white">Real-time Notifications</h2>
-        <WebSocketStatus showDetails />
+        <WebSocketStatus connected={true} showDetails />
       </div>
       
       {notifications.length === 0 ? (

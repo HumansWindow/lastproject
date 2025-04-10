@@ -5,7 +5,7 @@ import { i18n } from '../../../i18n';
 
 // Define these interfaces locally if they're not exported elsewhere
 interface IRealtimeService {
-  connect(token: string): Promise<void>;
+  connect(token?: string): Promise<void>;
   disconnect(): void;
   subscribe(channel: string, callback: SubscriptionCallback): () => void;
   unsubscribe(channel: string, callback?: SubscriptionCallback): void;
@@ -49,12 +49,12 @@ class RealtimeService extends EventEmitter implements IRealtimeService {
    * Connect to the WebSocket server
    * @param token Authentication token
    */
-  public connect(token: string | null = null): Promise<void> {
+  public connect(token?: string): Promise<void> {
     if (this.connected || this.connecting) {
       return Promise.resolve();
     }
 
-    this.token = token;
+    this.token = token || null;
     this.connecting = true;
     this.connectionFailureReason = null;
     this.updateConnectionStatus(ConnectionStatus.CONNECTING);
@@ -208,6 +208,14 @@ class RealtimeService extends EventEmitter implements IRealtimeService {
   }
 
   /**
+   * Get active subscriptions (alias for getSubscriptions)
+   * @returns Array of channel names
+   */
+  public getActiveSubscriptions(): string[] {
+    return this.getSubscriptions();
+  }
+
+  /**
    * Get the current connection status
    * @returns Current connection status
    */
@@ -250,7 +258,7 @@ class RealtimeService extends EventEmitter implements IRealtimeService {
     this.disconnect();
     this.reconnectAttempts = 0;
     this.connectionFailureReason = null;
-    return this.connect(this.token);
+    return this.connect(this.token || undefined);
   }
 
   /**
@@ -543,7 +551,7 @@ class RealtimeService extends EventEmitter implements IRealtimeService {
     this.reconnectTimeout = setTimeout(() => {
       this.reconnectAttempts++;
       // Try to reconnect
-      this.connect(this.token).catch(() => {
+      this.connect(this.token || undefined).catch(() => {
         // If reconnect fails, it will trigger another attempt via handleClose
       });
     }, reconnectDelay);

@@ -1,184 +1,190 @@
-import React, { createContext, useState, useContext, useEffect } from 'react';
-import { authService } from '../services/api/modules/auth/auth-service';
-import { useRouter } from 'next/router';
-import { UserProfile, LoginResponse } from '../types/api-types';
+import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
+import walletService from '../services/wallet';
+import { useWallet } from './wallet';
 
-// Define an extended user type that includes all the properties we need
-interface ExtendedUserProfile extends UserProfile {
+interface User {
   id: string;
-  email: string;
-  role: string;
-  emailVerified: boolean;
-  createdAt: string;
-  updatedAt: string;
-  isAdmin?: boolean;
-  walletAddress?: string;
-  lastLoginAt?: string;
-  roles?: string[];
-  isNewUser?: boolean; // Add this property to fix TypeScript error
+  address?: string;
+  email?: string;
+  name?: string;
 }
 
 interface AuthContextType {
-  user: ExtendedUserProfile | null;
+  user: User | null;
   isAuthenticated: boolean;
   isLoading: boolean;
-  login: (email: string, password: string) => Promise<void>;
-  register: (email: string, password: string, referralCode?: string) => Promise<void>;
-  logout: () => void;
   error: string | null;
-  setUserFromWalletAuth: (userData: ExtendedUserProfile) => void;
-  walletLogin: (address: string, signature: string) => Promise<void>;
+  
+  authenticateWithWallet: (email?: string) => Promise<boolean>;
+  logout: () => Promise<boolean>;
+  updateUserProfile: (data: Partial<User>) => Promise<boolean>;
 }
 
-const AuthContext = createContext<AuthContextType>({
-  user: null,
-  isAuthenticated: false,
-  isLoading: true,
-  login: async () => {},
-  register: async () => {},
-  logout: () => {},
-  error: null,
-  setUserFromWalletAuth: () => {},
-  walletLogin: async () => {}
-});
+const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-export const useAuth = () => useContext(AuthContext);
+// Local storage keys
+const TOKEN_KEY = 'auth_token';
+const REFRESH_TOKEN_KEY = 'refresh_token';
+const USER_KEY = 'user';
 
-export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }) => {
-  const [user, setUser] = useState<ExtendedUserProfile | null>(null);
+export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
+  const { isConnected, walletInfo } = useWallet();
+  const [user, setUser] = useState<User | null>(null);
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
-  const router = useRouter();
   
-  // Helper function to create ExtendedUserProfile from UserProfile
-  const createExtendedUserProfile = (userData: UserProfile): ExtendedUserProfile => {
-    return {
-      ...userData,
-      isAdmin: userData.role === 'admin',
-      walletAddress: userData.walletAddresses?.[0],
-      lastLoginAt: userData.updatedAt,
-      roles: userData.role ? [userData.role] : []
-    };
-  };
-  
-  // Check if user is logged in on initial load
+  // Initialize user from local storage
   useEffect(() => {
-    const checkAuthStatus = async () => {
+    const storedUser = localStorage.getItem(USER_KEY);
+    
+    if (storedUser) {
       try {
-        const token = localStorage.getItem('accessToken');
-        if (token) {
-          // Get user profile after login
-          const response = await authService.getUserProfile();
-          setUser(createExtendedUserProfile(response.data));
+        setUser(JSON.parse(storedUser));
+        setIsAuthenticated(true);
+      } catch {
+        // Invalid stored user, clear it
+        localStorage.removeItem(USER_KEY);
+      }
+    }
+    
+    setIsLoading(false);
+  }, []);
+  
+  // Handle token refresh
+  useEffect(() => {
+    const refreshTokenIfNeeded = async () => {
+      const refreshToken = localStorage.getItem(REFRESH_TOKEN_KEY);
+      
+      if (refreshToken && isAuthenticated) {
+        // You might want to check token expiration before refreshing
+        const result = await walletService.refreshToken(refreshToken);
+        
+        if (result.success && result.token && result.refreshToken) {
+          localStorage.setItem(TOKEN_KEY, result.token);
+          localStorage.setItem(REFRESH_TOKEN_KEY, result.refreshToken);
+        } else {
+          // If refresh fails, log out
+          await logout();
         }
-      } catch (err) {
-        console.error('Error checking auth status:', err);
-        // Clear token if it's invalid
-        localStorage.removeItem('accessToken');
-        localStorage.removeItem('refreshToken');
-      } finally {
-        setIsLoading(false);
       }
     };
     
-    checkAuthStatus();
-  }, []);
+    // Set up refresh interval
+    const intervalId = setInterval(refreshTokenIfNeeded, 15 * 60 * 1000); // Every 15 minutes
+    
+    return () => clearInterval(intervalId);
+  }, [isAuthenticated]);
   
-  const login = async (email: string, password: string) => {
+  const authenticateWithWallet = async (email?: string) => {
+    if (!isConnected || !walletInfo) {
+      setError('No wallet connected');
+      return false;
+    }
+    
     try {
+      setIsLoading(true);
       setError(null);
-      const response = await authService.login(email, password);
       
-      if (response.accessToken) {
-        localStorage.setItem('accessToken', response.accessToken);
-        
-        if (response.refreshToken) {
-          localStorage.setItem('refreshToken', response.refreshToken);
-        }
-        
-        // Get user profile after login
-        const userProfileResponse = await authService.getUserProfile();
-        setUser(createExtendedUserProfile(userProfileResponse.data));
-        
-        router.push('/dashboard');
-      } else {
-        throw new Error('No access token received');
-      }
-    } catch (err: any) {
-      console.error('Login error:', err);
-      setError(err.response?.data?.message || 'Login failed');
-      throw err;
-    }
-  };
-  
-  // Implement wallet login functionality
-  const walletLogin = async (address: string, signature: string): Promise<void> => {
-    try {
-      setError(null);
-      const response = await authService.loginWithWallet(address, signature, "wallet-login-message");
+      const result = await walletService.authenticate(email);
       
-      if (response.data.accessToken) {
-        localStorage.setItem('accessToken', response.data.accessToken);
+      if (result.success && result.token && result.refreshToken && result.userId) {
+        // Store tokens
+        localStorage.setItem(TOKEN_KEY, result.token);
+        localStorage.setItem(REFRESH_TOKEN_KEY, result.refreshToken);
         
-        if (response.data.refreshToken) {
-          localStorage.setItem('refreshToken', response.data.refreshToken);
-        }
+        // Create user object from wallet info
+        const newUser = {
+          id: result.userId,
+          address: walletInfo.address,
+          email: email,
+        };
         
-        // If user data is in the response, use it directly
-        if (response.data.user) {
-          setUser(createExtendedUserProfile(response.data.user));
-        } else {
-          // Otherwise fetch it separately
-          const userProfileResponse = await authService.getUserProfile();
-          setUser(createExtendedUserProfile(userProfileResponse.data));
-        }
+        // Store user in localStorage
+        localStorage.setItem(USER_KEY, JSON.stringify(newUser));
+        
+        setUser(newUser);
+        setIsAuthenticated(true);
+        return true;
       } else {
-        throw new Error('No access token received');
+        setError(result.error || 'Authentication failed');
+        return false;
       }
-    } catch (err: any) {
-      console.error('Wallet login error:', err);
-      setError(err.response?.data?.message || 'Wallet login failed');
-      throw err;
+    } catch (err: unknown) {
+      const error = err as { message?: string };
+      setError(error?.message || 'Authentication error');
+      return false;
+    } finally {
+      setIsLoading(false);
     }
   };
   
-  const register = async (email: string, password: string, referralCode?: string) => {
+  const logout = async () => {
     try {
-      setError(null);
-      await authService.register(email, password, referralCode);
-      router.push('/login?registered=true');
-    } catch (err: any) {
-      console.error('Registration error:', err);
-      setError(err.response?.data?.message || 'Registration failed');
-      throw err;
+      const refreshToken = localStorage.getItem(REFRESH_TOKEN_KEY);
+      
+      if (refreshToken) {
+        // Try to logout on backend
+        await walletService.logout(refreshToken);
+      }
+      
+      // Clear local storage
+      localStorage.removeItem(TOKEN_KEY);
+      localStorage.removeItem(REFRESH_TOKEN_KEY);
+      localStorage.removeItem(USER_KEY);
+      
+      // Clear state
+      setUser(null);
+      setIsAuthenticated(false);
+      
+      return true;
+    } catch (err: unknown) {
+      const error = err as { message?: string };
+      setError(error?.message || 'Logout error');
+      return false;
     }
   };
   
-  const logout = () => {
-    localStorage.removeItem('accessToken');
-    localStorage.removeItem('refreshToken');
-    setUser(null);
-    router.push('/login');
-  };
-  
-  // Method to update user state when wallet connects
-  const setUserFromWalletAuth = (userData: ExtendedUserProfile) => {
-    setUser(userData);
+  const updateUserProfile = async (data: Partial<User>) => {
+    // Implement profile update logic
+    try {
+      if (!user) return false;
+      
+      const updatedUser = { ...user, ...data };
+      localStorage.setItem(USER_KEY, JSON.stringify(updatedUser));
+      setUser(updatedUser);
+      
+      return true;
+    } catch (err: unknown) {
+      const error = err as { message?: string };
+      setError(error?.message || 'Failed to update profile');
+      return false;
+    }
   };
   
   return (
-    <AuthContext.Provider value={{
-      user,
-      isAuthenticated: !!user,
-      isLoading,
-      login,
-      register,
-      logout,
-      error,
-      setUserFromWalletAuth,
-      walletLogin
-    }}>
+    <AuthContext.Provider
+      value={{
+        user,
+        isAuthenticated,
+        isLoading,
+        error,
+        authenticateWithWallet,
+        logout,
+        updateUserProfile,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );
+};
+
+export const useAuth = () => {
+  const context = useContext(AuthContext);
+  
+  if (context === undefined) {
+    throw new Error('useAuth must be used within an AuthProvider');
+  }
+  
+  return context;
 };

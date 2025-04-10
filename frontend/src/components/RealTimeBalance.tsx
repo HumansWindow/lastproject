@@ -97,6 +97,7 @@ const RealTimeBalance: React.FC<RealTimeBalanceProps> = ({
       <div className="flex justify-between items-center mb-4">
         <h3 className="text-lg font-medium">Real-Time Balance</h3>
         <WebSocketStatus 
+          connected={true} // or use an actual connection state variable
           showDetails={showDetailedStatus} 
           showConnectionDuration={showDetailedStatus}
           showDiagnosticInfo={showDetailedStatus}

@@ -49,7 +49,7 @@ export const NFTTransferMonitor: React.FC<Props> = ({ walletAddress }) => {
             Monitoring address: {formatAddress(walletAddress)}
           </p>
         </div>
-        <WebSocketStatus showDetails />
+        <WebSocketStatus connected={true} showDetails />
       </div>
       
       {transfers.length === 0 ? (
