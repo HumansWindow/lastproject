@@ -1,4 +1,8 @@
-// Common types used across the application
+/**
+ * API Types
+ * This file contains type definitions for API responses and requests.
+ * These types are used throughout the application for type-safety and consistency.
+ */
 
 // User types
 export interface UserInfo {
@@ -16,10 +20,31 @@ export interface UserProfile extends UserInfo {
   avatar?: string;
   phoneNumber?: string;
   walletAddresses?: string[];
+  bio?: string;
+  country?: string;
+  timezone?: string;
 }
 
 export interface UserResponse {
   user: UserInfo;
+}
+
+export interface UserSettings {
+  id: string;
+  userId: string;
+  notifications: {
+    email: boolean;
+    push: boolean;
+    sms: boolean;
+  };
+  privacySettings: {
+    showProfile: boolean;
+    showActivity: boolean;
+    showWallet: boolean;
+  };
+  theme: 'light' | 'dark' | 'system';
+  language: string;
+  updatedAt: string;
 }
 
 // Auth types
@@ -27,6 +52,18 @@ export interface AuthTokens {
   accessToken: string;
   refreshToken: string;
   expiresIn: number;
+}
+
+export interface LoginRequest {
+  email: string;
+  password: string;
+}
+
+export interface RegisterRequest {
+  email: string;
+  password: string;
+  firstName?: string;
+  lastName?: string;
 }
 
 export interface LoginResponse {
@@ -40,6 +77,22 @@ export interface RegisterResponse {
   success: boolean;
   message: string;
   userId?: string;
+}
+
+// Wallet auth types
+export interface WalletConnectRequest {
+  address: string;
+}
+
+export interface WalletConnectResponse {
+  nonce: string;
+  expiresAt: string;
+}
+
+export interface WalletAuthRequest {
+  address: string;
+  signature: string;
+  nonce: string;
 }
 
 export interface WalletAuthResponse extends LoginResponse {
@@ -66,6 +119,12 @@ export interface NotificationEvent {
   read: boolean;
   userId: string;
   seen: boolean;
+}
+
+export interface NotificationList {
+  notifications: NotificationEvent[];
+  unreadCount: number;
+  total: number;
 }
 
 // Balance types
@@ -109,7 +168,22 @@ export interface NftTransferEvent {
   };
 }
 
-// Adding missing types that were referenced in api.ts
+export interface NftMintRequest {
+  name: string;
+  description: string;
+  image: string | File;
+  attributes?: Array<{
+    trait_type: string;
+    value: string;
+  }>;
+  recipientAddress?: string;
+}
+
+export interface NftTransferRequest {
+  tokenId: string;
+  contractAddress: string;
+  recipientAddress: string;
+}
 
 // Diary types
 export interface DiaryEntry {
@@ -122,6 +196,7 @@ export interface DiaryEntry {
   updatedAt: string;
   userId: string;
   images?: string[];
+  tags?: string[];
 }
 
 export interface DiaryEntryRequest {
@@ -130,6 +205,15 @@ export interface DiaryEntryRequest {
   location?: string;
   mood?: string;
   images?: string[];
+  tags?: string[];
+}
+
+export interface DiaryStats {
+  totalEntries: number;
+  entriesThisMonth: number;
+  entriesLastMonth: number;
+  averageMood?: string;
+  mostUsedLocation?: string;
 }
 
 // Wallet types
@@ -143,6 +227,22 @@ export interface WalletData {
   userId: string;
   createdAt: string;
   updatedAt: string;
+  isDefault?: boolean;
+}
+
+export interface WalletTransaction {
+  id: string;
+  txHash: string;
+  fromAddress: string;
+  toAddress: string;
+  value: string;
+  formattedValue?: string;
+  timestamp: number;
+  blockNumber: number;
+  confirmations: number;
+  status: 'pending' | 'confirmed' | 'failed';
+  networkName: string;
+  chainId: number;
 }
 
 // Referral types
@@ -156,6 +256,25 @@ export interface ReferralData {
   updatedAt: string;
 }
 
+export interface ReferralStats {
+  totalReferrals: number;
+  activeReferrals: number;
+  pendingRewards: string;
+  claimedRewards: string;
+  referralLinks: ReferralData[];
+}
+
+export interface ReferralHistory {
+  id: string;
+  referralCode: string;
+  referredUserId: string;
+  referrerUserId: string;
+  status: 'pending' | 'completed' | 'rejected';
+  reward?: string;
+  createdAt: string;
+  completedAt?: string;
+}
+
 // Token types
 export interface TokenData {
   address: string;
@@ -165,6 +284,29 @@ export interface TokenData {
   totalSupply: string;
   formattedSupply?: string;
   price?: string;
+}
+
+export interface TokenTransaction {
+  id: string;
+  txHash: string;
+  fromAddress: string;
+  toAddress: string;
+  value: string;
+  formattedValue?: string;
+  timestamp: number;
+  blockNumber: number;
+  status: 'pending' | 'confirmed' | 'failed';
+  tokenAddress: string;
+  tokenSymbol: string;
+}
+
+export interface TokenBalanceResponse {
+  balance: string;
+  formattedBalance: string;
+  tokenAddress: string;
+  tokenSymbol: string;
+  tokenDecimals: number;
+  usdValue?: string;
 }
 
 export interface NFTItem {
@@ -187,11 +329,43 @@ export interface NFTItem {
   updatedAt: string;
 }
 
+export interface NFTCollection {
+  items: NFTItem[];
+  total: number;
+  page: number;
+  limit: number;
+}
+
 export interface TokenPriceEvent {
   previousPrice: string;
   newPrice: string;
   changePercent: number;
   timestamp: number;
+}
+
+// Staking types
+export interface StakingPosition {
+  id: string;
+  userId: string;
+  amount: string;
+  formattedAmount: string;
+  rewards: string;
+  formattedRewards: string;
+  startTime: number;
+  lockPeriod: number; // In seconds
+  endTime: number;
+  isActive: boolean;
+  contractAddress: string;
+  chainId: number;
+  networkName: string;
+  apr: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface StakingCreateRequest {
+  amount: string;
+  lockPeriod: number; // In seconds
 }
 
 export interface StakingUpdateEvent {
@@ -200,4 +374,54 @@ export interface StakingUpdateEvent {
   formattedRewards?: string;
   totalStaked: string;
   timestamp: number;
+}
+
+// Blockchain types
+export interface BlockchainTransaction {
+  hash: string;
+  blockNumber?: number;
+  confirmations?: number;
+  timestamp?: number;
+  from: string;
+  to: string;
+  value: string;
+  formattedValue?: string;
+  gasUsed?: string;
+  gasPrice?: string;
+  status?: 'pending' | 'confirmed' | 'failed';
+}
+
+// Health check types
+export interface HealthStatus {
+  status: 'ok' | 'error' | 'degraded';
+  uptime: number;
+  timestamp: string;
+  services: {
+    database: 'up' | 'down';
+    blockchain: 'up' | 'down';
+    cache: 'up' | 'down';
+  };
+  version: string;
+}
+
+// Pagination types
+export interface PaginatedResponse<T> {
+  items: T[];
+  total: number;
+  page: number;
+  limit: number;
+  pages: number;
+}
+
+// Common request types
+export interface PaginationParams {
+  page?: number;
+  limit?: number;
+  sortBy?: string;
+  sortDirection?: 'asc' | 'desc';
+}
+
+export interface DateRangeParams {
+  startDate?: string;
+  endDate?: string;
 }

@@ -6,10 +6,11 @@
  */
 import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse, InternalAxiosRequestConfig } from 'axios';
 import { setupCache } from 'axios-cache-adapter';
-// Remove direct import of buildMemoryStorage and httpAdapter which are causing errors
+import { endpoints, apiClientConfig } from '@/config/api.config';
 
-// Get base URL from environment
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:3000';
+// Import API_URL separately since it's a named export
+import apiConfig from '@/config/api.config';
+const { API_URL } = apiConfig;
 
 // Define routes that should be cached
 const CACHEABLE_ROUTES = [
@@ -17,6 +18,8 @@ const CACHEABLE_ROUTES = [
   '/wallets/list',
   '/token/info',
   '/referral/stats',
+  '/nft/list',
+  '/diary/stats',
 ];
 
 // Track request queue during token refresh
@@ -43,18 +46,15 @@ const processQueue = (error: Error | null, token: string | null = null) => {
 
 // Create axios instance with default config
 const apiClient = axios.create({
-  baseURL: API_BASE_URL,
-  timeout: 15000,
-  headers: {
-    'Content-Type': 'application/json',
-    'Accept': 'application/json'
-  }
+  baseURL: API_URL,
+  timeout: apiClientConfig.timeout,
+  headers: apiClientConfig.headers,
+  withCredentials: apiClientConfig.withCredentials
 });
 
 // Create cache with appropriate configuration
 const cache = setupCache({
   maxAge: 15 * 60 * 1000, // 15 minutes
-  // Remove store configuration as it's causing TypeScript errors
   exclude: {
     // Don't cache POST, PUT, DELETE requests
     methods: ['post', 'put', 'delete', 'patch'],
@@ -80,7 +80,7 @@ const cache = setupCache({
   debug: process.env.NODE_ENV !== 'production'
 });
 
-// Use the cache adapter directly without custom adapter
+// Use the cache adapter
 apiClient.defaults.adapter = cache.adapter;
 
 // Add request interceptor to inject auth token and handle wallet requests specially
@@ -90,10 +90,13 @@ apiClient.interceptors.request.use(
     if (config.url?.includes('/auth/wallet')) {
       // For wallet endpoints, ensure proper content type and timeout
       config.headers['Content-Type'] = 'application/json';
-      config.timeout = config.timeout || 20000; // Use longer timeout for wallet operations
+      config.timeout = config.timeout || 30000; // Use longer timeout for wallet operations
       
       // Add additional header to indicate wallet request (helps with debugging)
       config.headers['X-Wallet-Request'] = 'true';
+      
+      // Log wallet request for debugging
+      console.log('Sending wallet request to:', config.url);
     }
     
     // Get JWT token from localStorage
@@ -105,6 +108,7 @@ apiClient.interceptors.request.use(
     return config;
   },
   (error) => {
+    console.error('Request interceptor error:', error);
     return Promise.reject(error);
   }
 );
@@ -121,7 +125,7 @@ apiClient.interceptors.response.use(
     }
 
     // Avoid infinite loop for refresh token requests
-    const isAuthRefreshEndpoint = originalConfig.url?.includes('/auth/refresh');
+    const isAuthRefreshEndpoint = originalConfig.url?.includes('/auth/refresh-token');
     
     // Special handling for wallet authentication errors
     if (originalConfig.url?.includes('/auth/wallet')) {
@@ -180,7 +184,7 @@ apiClient.interceptors.response.use(
 
         // Try to refresh the token
         const response = await axios.post(
-          `${API_BASE_URL}/auth/refresh`, 
+          `${API_URL}/auth/refresh-token`, 
           { refreshToken }
         );
         
@@ -265,6 +269,22 @@ interface EnhancedApiClient extends AxiosInstance {
    * @returns Object with authentication details
    */
   getAuthState: () => { isAuthenticated: boolean; hasRefreshToken: boolean };
+
+  /**
+   * Connect wallet to the system
+   * @param address Wallet address
+   * @returns Object containing nonce
+   */
+  connectWallet: (address: string) => Promise<{ nonce: string }>;
+
+  /**
+   * Authenticate wallet with the system
+   * @param address Wallet address
+   * @param signature Wallet signature
+   * @param nonce Nonce for authentication
+   * @returns Object containing authentication details
+   */
+  authenticateWallet: (address: string, signature: string, nonce: string) => Promise<any>;
 }
 
 // Add additional methods to the API client
@@ -277,7 +297,6 @@ enhancedApiClient.resetState = () => {
   delete apiClient.defaults.headers.common['Authorization'];
   
   // Clear cache by replacing the current adapter with a fresh one
-  // This is a safer way to clear cache than using clearCache which isn't properly typed
   const freshCache = setupCache({
     maxAge: 15 * 60 * 1000,
     exclude: {
@@ -324,12 +343,12 @@ enhancedApiClient.clearToken = () => {
   delete apiClient.defaults.headers.common['Authorization'];
 };
 
-// Check if user is currently connected to the system (migrated from base/api-client.ts)
+// Check if user is currently connected to the system
 enhancedApiClient.isUserConnected = () => {
   return !!localStorage.getItem('accessToken');
 };
 
-// Get detailed authentication state (migrated from base/api-client.ts)
+// Get detailed authentication state
 enhancedApiClient.getAuthState = () => {
   const accessToken = localStorage.getItem('accessToken');
   const refreshToken = localStorage.getItem('refreshToken');
@@ -338,6 +357,43 @@ enhancedApiClient.getAuthState = () => {
     isAuthenticated: !!accessToken,
     hasRefreshToken: !!refreshToken
   };
+};
+
+// Add wallet-specific methods
+enhancedApiClient.connectWallet = async (address: string): Promise<{ nonce: string }> => {
+  try {
+    const response = await apiClient.post(endpoints.walletAuth.connect, { address });
+    console.log('Wallet connect response:', response.data);
+    return response.data;
+  } catch (error) {
+    console.error('Wallet connect error:', error);
+    throw error;
+  }
+};
+
+enhancedApiClient.authenticateWallet = async (address: string, signature: string, nonce: string) => {
+  try {
+    const response = await apiClient.post(endpoints.walletAuth.authenticate, {
+      address,
+      signature,
+      nonce
+    });
+    
+    const { accessToken, refreshToken, user } = response.data;
+    
+    // Store tokens
+    localStorage.setItem('accessToken', accessToken);
+    localStorage.setItem('refreshToken', refreshToken);
+    localStorage.setItem('walletAddress', address);
+    
+    // Set auth header
+    apiClient.defaults.headers.common['Authorization'] = `Bearer ${accessToken}`;
+    
+    return response.data;
+  } catch (error) {
+    console.error('Wallet authentication error:', error);
+    throw error;
+  }
 };
 
 // Export the enhanced API client
