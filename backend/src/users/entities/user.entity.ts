@@ -9,15 +9,16 @@ import {
   JoinColumn,
   Index,
   BeforeInsert,
+  OneToOne,
 } from 'typeorm';
-import { Wallet } from '../../wallets/entities/wallet.entity'; // Changed from blockchain to wallets
+import { Wallet } from '../../wallets/entities/wallet.entity';
 import { ReferralCode } from '../../referral/entities/referral-code.entity';
 import { UserDevice } from './user-device.entity';
 import { UserSession } from './user-session.entity';
 import { Exclude } from 'class-transformer';
-import * as bcrypt from 'bcrypt';
 import { RefreshToken } from '../../auth/dto/refresh-token.entity';
 import { Diary } from '../../diary/entities/diary.entity';
+import { Profile } from '../../profile/entities/profile.entity';
 
 export enum UserRole {
   ADMIN = 'admin',
@@ -30,23 +31,38 @@ export class User {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  // Standard user_id field to satisfy the consistency checker
-  // This is nullable since it's a self-reference that might not always be used
   @Column({ name: 'user_id', nullable: true })
   userId?: string;
 
-  // Standard self-reference relationship
   @ManyToOne(() => User, { nullable: true })
   @JoinColumn({ name: 'user_id' })
   user?: User;
 
-  @Column({ unique: true, nullable: true }) // Make email nullable
-  @Index()
-  email: string | null;
+  // Email and password are now moved to Profile entity
+  // Adding getters/setters for backward compatibility
+  get email(): string | undefined {
+    return this.profile?.email;
+  }
 
-  @Column()
-  @Exclude()
-  password: string;
+  set email(value: string | undefined) {
+    if (!this.profile) {
+      this.profile = new Profile();
+      this.profile.userId = this.id;
+    }
+    this.profile.email = value;
+  }
+
+  get password(): string | undefined {
+    return this.profile?.password;
+  }
+
+  set password(value: string | undefined) {
+    if (!this.profile) {
+      this.profile = new Profile();
+      this.profile.userId = this.id;
+    }
+    this.profile.password = value;
+  }
 
   @Column({ name: 'first_name', nullable: true })
   firstName: string;
@@ -124,6 +140,7 @@ export class User {
   refreshTokens: RefreshToken[];
 
   @Column({ nullable: true, unique: true })
+  @Index() // Add index for better query performance
   walletAddress?: string;
 
   // New fields for token minting and expiry tracking
@@ -143,14 +160,9 @@ export class User {
   @OneToMany(() => Diary, (diary) => diary.user)
   diaries: Diary[];
 
-  @BeforeInsert()
-  async hashPassword() {
-    if (this.password) {
-      this.password = await bcrypt.hash(this.password, 10);
-    }
-  }
+  // Add relation to Profile
+  @OneToOne(() => Profile, (profile) => profile.user)
+  profile: Profile;
 
-  async comparePassword(attempt: string): Promise<boolean> {
-    return bcrypt.compare(attempt, this.password);
-  }
+  // Remove password-related methods since password is now in Profile
 }

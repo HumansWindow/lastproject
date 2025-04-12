@@ -12,6 +12,7 @@ import { MailModule } from '../mail/mail.module';
 import { ReferralModule } from '../referral/referral.module';
 import { NftModule } from '../nft/nft.module';
 import { DiaryModule } from '../diary/diary.module';
+import { ProfileModule } from '../profile/profile.module';
 import { BaseController } from './controllers/base.controller';
 import { MemoryMonitorService } from '../shared/services/memory-monitor.service';
 
@@ -59,6 +60,7 @@ import { MemoryMonitorService } from '../shared/services/memory-monitor.service'
     ReferralModule,
     NftModule,
     DiaryModule, // Added our new DiaryModule
+    ProfileModule, // Added the new Profile module
   ],
   controllers: [BaseController],
   providers: [MemoryMonitorService],

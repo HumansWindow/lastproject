@@ -1,30 +1,35 @@
-import { IsEmail, IsNotEmpty, IsString, Length, IsOptional } from 'class-validator';
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { IsEmail, IsNotEmpty, IsOptional, IsString, MinLength } from 'class-validator';
 
 export class CreateUserDto {
-  @ApiProperty({ example: 'user@example.com', description: 'User email' })
-  @IsEmail({}, { message: 'Invalid email format' })
-  @IsNotEmpty({ message: 'Email is required' })
-  email: string;
+  @ApiPropertyOptional({ description: 'User email (optional with wallet auth)' })
+  @IsEmail()
+  @IsOptional() // Made optional to support wallet-only authentication
+  email?: string;
 
-  @ApiProperty({ example: 'Password123', description: 'User password' })
+  @ApiPropertyOptional({ description: 'User password (optional with wallet auth)' })
+  @MinLength(6)
   @IsString()
-  @IsNotEmpty({ message: 'Password is required' })
-  @Length(8, 100, { message: 'Password must be between 8 and 100 characters' })
-  password: string;
+  @IsOptional() // Made optional to support wallet-only authentication
+  password?: string;
 
-  @ApiProperty({ example: 'John', description: 'First name' })
-  @IsString()
+  @ApiPropertyOptional({ description: 'User first name' })
   @IsOptional()
+  @IsString()
   firstName?: string;
 
-  @ApiProperty({ example: 'Doe', description: 'Last name' })
-  @IsString()
+  @ApiPropertyOptional({ description: 'User last name' })
   @IsOptional()
+  @IsString()
   lastName?: string;
 
-  @ApiProperty({ example: 'referrer-id', description: 'Referrer ID', required: false })
-  @IsString()
+  @ApiPropertyOptional({ description: 'Referral code' })
   @IsOptional()
-  referrerId?: string;
+  @IsString()
+  referralCode?: string;
+
+  @ApiPropertyOptional({ description: 'Wallet address' })
+  @IsOptional()
+  @IsString()
+  walletAddress?: string;
 }

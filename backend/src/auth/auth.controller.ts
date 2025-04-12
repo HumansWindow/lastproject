@@ -103,21 +103,16 @@ export class AuthController {
     return this.authService.resetPassword(resetPasswordDto);
   }
 
+  /**
+   * Verify a user's email
+   */
   @Get('verify-email')
-  @HttpCode(200)
-  @ApiOperation({ summary: 'Verify email address' })
-  @ApiResponse({ status: 200, description: 'Email verified successfully.' })
-  @ApiResponse({ status: 400, description: 'Invalid or expired token.' })
   async verifyEmail(@Query('token') token: string) {
     try {
       return await this.authService.verifyEmail(token);
     } catch (error) {
-      this.logger.error(`Email verification error: ${error.message}`);
-      // Keep original error if it's an HTTP exception
-      if (error instanceof HttpException) {
-        throw error;
-      }
-      throw new BadRequestException('Unable to verify email. Please try again or request a new verification link.');
+      // Forward the error response from the service
+      throw error;
     }
   }
 

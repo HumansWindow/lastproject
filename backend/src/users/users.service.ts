@@ -5,6 +5,8 @@ import {
   BadRequestException,
   InternalServerErrorException,
   Logger,
+  Inject,
+  forwardRef,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, Not, IsNull } from 'typeorm';
@@ -14,6 +16,7 @@ import { UpdateUserDto } from './dto/update-user.dto';
 import { BcryptService } from '../shared/services/bcrypt.service';
 // Add import for the Wallet entity
 import { Wallet } from '../wallets/entities/wallet.entity';
+import { ProfileService } from '../profile/profile.service';
 
 @Injectable()
 export class UsersService {
@@ -27,6 +30,8 @@ export class UsersService {
     // Add missing Wallet repository injection
     @InjectRepository(Wallet)
     private walletRepository: Repository<Wallet>,
+    @Inject(forwardRef(() => ProfileService))
+    private readonly profileService: ProfileService,
   ) {}
 
   async create(createUserDto: CreateUserDto): Promise<User> {
@@ -61,12 +66,31 @@ export class UsersService {
     return user;
   }
 
-  async findByEmail(email: string): Promise<User | undefined> {
-    const user = await this.userRepository.findOne({
-      where: { email },
-      relations: ['wallets'],
-    });
-    return user || undefined;
+  /**
+   * Find a user by email
+   * @deprecated - Use ProfileService.findByEmail instead
+   */
+  async findByEmail(email: string): Promise<User | null> {
+    try {
+      // This is a compatibility method that now needs to route through the ProfileService
+      if (!this.profileService) {
+        this.logger.warn('ProfileService not available in UsersService');
+        return null;
+      }
+      
+      // Find profile by email
+      const profile = await this.profileService.findByEmail(email);
+      
+      if (!profile) {
+        return null;
+      }
+      
+      // Return the associated user
+      return this.findOne(profile.userId);
+    } catch (error) {
+      this.logger.error(`Error finding user by email: ${error.message}`);
+      return null;
+    }
   }
 
   async update(id: string, updateUserDto: UpdateUserDto): Promise<User> {
@@ -182,14 +206,8 @@ export class UsersService {
     isVerified?: boolean;
   }): Promise<User> {
     try {
-      // Generate a random password for the wallet user
-      const randomPassword = require('crypto').randomBytes(20).toString('hex');
-      const hashedPassword = await this.bcryptService.hash(randomPassword);
-
-      // Create a new user with wallet address
+      // Create a new user with wallet address but no direct email/password
       const user = this.userRepository.create({
-        email: data.email || null,
-        password: hashedPassword,
         isVerified: data.isVerified !== undefined ? data.isVerified : true, // Wallet users are typically verified by default
         role: UserRole.USER,
         walletAddress: data.walletAddress.toLowerCase(), // Normalize to lowercase
@@ -209,6 +227,24 @@ export class UsersService {
 
       await this.walletRepository.save(wallet);
       this.logger.log(`Created wallet record for user: ${savedUser.id}`);
+      
+      // If email is provided, create a profile
+      if (data.email) {
+        // Generate a random password for the profile
+        const randomPassword = require('crypto').randomBytes(20).toString('hex');
+        const hashedPassword = await this.bcryptService.hash(randomPassword);
+        
+        try {
+          await this.profileService.create(savedUser.id, {
+            email: data.email,
+            password: hashedPassword
+          });
+          this.logger.log(`Created profile with email for wallet user: ${savedUser.id}`);
+        } catch (error) {
+          this.logger.error(`Failed to create profile for wallet user: ${error.message}`);
+          // Continue even if profile creation fails
+        }
+      }
 
       return savedUser;
     } catch (error) {

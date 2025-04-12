@@ -22,6 +22,7 @@ import { WalletAuthDebugController } from './controllers/wallet-auth-debug.contr
 import { UserDevice } from '../users/entities/user-device.entity';
 import { UserDevicesService } from '../users/services/user-devices.service';
 import { DeviceDetectorService } from '../shared/services/device-detector.service';
+import { ProfileModule } from '../profile/profile.module';
 
 @Module({
   imports: [
@@ -44,6 +45,7 @@ import { DeviceDetectorService } from '../shared/services/device-detector.servic
     SharedModule,
     forwardRef(() => BlockchainModule),
     WalletsModule,
+    forwardRef(() => ProfileModule),
   ],
   controllers: [AuthController, WalletAuthController, WalletAuthDebugController],
   providers: [

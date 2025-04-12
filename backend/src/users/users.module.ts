@@ -11,12 +11,14 @@ import { ConfigModule } from '@nestjs/config';
 import { SharedModule } from '../shared/shared.module';
 import { UserDevicesController } from './controllers/user-devices.controller';
 import { Wallet } from '../wallets/entities/wallet.entity';
+import { ProfileModule } from '../profile/profile.module';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([User, UserDevice, UserSession, Wallet]),
     ConfigModule,
-    SharedModule
+    SharedModule,
+    ProfileModule
   ],
   providers: [UsersService, UserDevicesService, UserSessionsService],
   controllers: [UsersController, UserDevicesController],

@@ -67,9 +67,8 @@ export class UsersController {
   async getProfile(@Req() req: RequestWithUser) {
     try {
       const user = await this.usersService.findOne(req.user.id);
-      // Remove password before returning user data
-      const { password, ...result } = user;
-      return result;
+      // No need to manually exclude password as it's now in the Profile entity
+      return user;
     } catch (error) {
       throw new NotFoundException('User profile not found');
     }
@@ -88,9 +87,8 @@ export class UsersController {
     }
 
     const user = await this.usersService.findOne(id);
-    // Remove password before returning user data
-    const { password, ...result } = user;
-    return result;
+    // No need to manually exclude password as it's now in the Profile entity
+    return user;
   }
 
   @Patch(':id')

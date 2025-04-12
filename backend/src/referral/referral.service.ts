@@ -99,11 +99,23 @@ export class ReferralService {
     );
 
     // Extract only necessary information to avoid exposing sensitive data
-    const referredUserInfo = referredUsers.map(user => ({
-      id: user.id,
-      email: user.email,
-      createdAt: user.createdAt,
-    }));
+    const referredUserInfo = await Promise.all(
+      referredUsers.map(async user => {
+        // Email is now in the profile, so we'll have to handle if it's not available
+        let email = undefined;
+        
+        // Email is accessed through getter which uses profile
+        if (user.email) {
+          email = user.email;
+        }
+        
+        return {
+          id: user.id,
+          email, // Use the email from the profile if available
+          createdAt: user.createdAt,
+        };
+      })
+    );
 
     return {
       totalReferrals,

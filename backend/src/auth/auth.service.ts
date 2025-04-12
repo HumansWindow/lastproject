@@ -25,6 +25,7 @@ import { LoginDto } from './dto/login.dto';
 import { WalletLoginDto } from './dto/wallet-login.dto';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
+import { WalletConnectResponseDto } from './dto/wallet-connect-response.dto';
 import { JwtPayload } from './interfaces/jwt-payload.interface';
 import { ReferralService } from '../referral/referral.service';
 import { ConfigService } from '@nestjs/config';
@@ -39,6 +40,7 @@ import { BcryptService } from '../shared/services/bcrypt.service';
 import { ShahiTokenService } from '../blockchain/services/shahi-token.service';
 import { UserDevice } from '../users/entities/user-device.entity';
 import { EventEmitter2 } from '@nestjs/event-emitter';
+import { ProfileService } from '../profile/profile.service';
 
 @Injectable()
 export class AuthService {
@@ -66,21 +68,51 @@ export class AuthService {
     private readonly bcryptService: BcryptService,
     @Inject(forwardRef(() => ShahiTokenService))
     private readonly shahiTokenService: ShahiTokenService,
-    private readonly eventEmitter: EventEmitter2
+    private readonly eventEmitter: EventEmitter2,
+    @Inject(forwardRef(() => ProfileService))
+    private readonly profileService: ProfileService,
   ) {}
 
+  /**
+   * Legacy email-password validation - maintained for backward compatibility
+   * Now uses ProfileService to validate credentials
+   */
   async validateUser(email: string, password: string): Promise<any> {
-    const user = await this.userRepository.findOne({
-      where: { email },
-    });
-    
-    if (user && (await bcrypt.compare(password, user.password))) {
-      const { password, ...result } = user;
-      return result;
+    try {
+      // First, find profile by email
+      const profile = await this.profileService.findByEmail(email);
+      if (!profile) {
+        return null;
+      }
+
+      // Find the user associated with this profile
+      const user = await this.userRepository.findOne({
+        where: { id: profile.userId },
+      });
+      
+      if (!user) {
+        return null;
+      }
+
+      // Verify password using profile's comparePassword method
+      const isPasswordValid = await profile.comparePassword(password);
+      
+      if (isPasswordValid) {
+        // Return user without password
+        return user;
+      }
+      
+      return null;
+    } catch (error) {
+      this.logger.error(`Error validating user: ${error.message}`);
+      return null;
     }
-    return null;
   }
 
+  /**
+   * Legacy email-password login - maintained for backward compatibility
+   * In the new system, this will warn users to migrate to wallet authentication
+   */
   async login(loginDto: LoginDto, req: Request) {
     const { email, password } = loginDto;
     const user = await this.validateUser(email, password);
@@ -170,9 +202,19 @@ export class AuthService {
       expiresAt: new Date(Date.now() + this.getRefreshTokenExpiresInMs())
     });
     
-    return this.generateToken(user);
+    // Add a deprecation warning for email/password login
+    const response = {
+      ...await this.generateToken(user),
+      message: 'Email/password authentication is being phased out. Please connect a wallet for future logins.'
+    };
+    
+    return response;
   }
 
+  /**
+   * Legacy registration method - maintained for backward compatibility
+   * In the new system, we'll create a User with wallet authentication and a Profile with email/password
+   */
   async register(registerDto: RegisterDto, req?: Request): Promise<any> {
     const { email, password, firstName, lastName } = registerDto;
     
@@ -214,13 +256,25 @@ export class AuthService {
     // Hash the password
     const hashedPassword = await this.bcryptService.hash(password);
     
-    // Create the user
+    // Create the user with minimal information and null email/password
     const user = await this.usersService.create({
-      email,
-      password: hashedPassword,
       firstName,
       lastName,
     });
+    
+    // Create a profile for the user with email/password
+    try {
+      await this.profileService.create(user.id, {
+        email,
+        password,
+        firstName,
+        lastName,
+      });
+    } catch (error) {
+      // If profile creation fails, delete the user and throw an error
+      await this.userRepository.delete(user.id);
+      throw new InternalServerErrorException('Failed to create user profile');
+    }
     
     // Optionally register device for the new user
     if (deviceId && deviceInfo) {
@@ -237,7 +291,6 @@ export class AuthService {
     // Use try-catch to gracefully handle any errors with referral code
     if (registerDto.referralCode) {
       try {
-        // Fix: Change validateReferralCode to a method that exists on ReferralService
         const referralResult = await this.referralService.getReferralByCode(registerDto.referralCode);
         if (!referralResult) {
           throw new BadRequestException('Invalid referral code');
@@ -252,14 +305,18 @@ export class AuthService {
     return {
       user: {
         id: user.id,
-        email: user.email,
         firstName: user.firstName,
         lastName: user.lastName,
       },
+      message: 'Account created. We recommend connecting a wallet for enhanced security and features.',
       ...tokens,
     };
   }
 
+  /**
+   * Primary authentication method - wallet-based authentication
+   * This is the preferred authentication method in the new system
+   */
   async walletLogin(walletLoginDto: WalletLoginDto, req: Request) {
     try {
       const { address, signature, message } = walletLoginDto;
@@ -299,13 +356,23 @@ export class AuthService {
   
       let wallet = null;
       let isNewUser = false;
+      let newProfile = false;
   
       if (user) {
-        // If user exists and an email is provided, we can update the email if it's not set
-        if (walletLoginDto.email && !user.email) {
-          user.email = walletLoginDto.email;
-          await this.userRepository.save(user);
-          this.logger.log(`Updated email for existing user: ${user.id}`);
+        // If user exists, we'll check if they have a profile
+        let profile = null;
+        try {
+          profile = await this.profileService.findByUserId(user.id);
+        } catch (error) {
+          // If profile doesn't exist and an email is provided, create one
+          if (walletLoginDto.email && error instanceof NotFoundException) {
+            newProfile = true;
+            await this.profileService.create(user.id, {
+              email: walletLoginDto.email,
+              firstName: user.firstName,
+              lastName: user.lastName
+            });
+          }
         }
   
         // Check if this user already has a wallet - use userId consistently 
@@ -360,15 +427,8 @@ export class AuthService {
           }
         }
   
-        // Generate a random password for the new wallet user
-        const randomPassword = crypto.randomBytes(20).toString('hex');
-        const hashedPassword = await bcrypt.hash(randomPassword, 10);
-        
-        // Create user with the wallet address stored directly
-        // Email is entirely optional now
+        // Create user with only the wallet address - no password, email is moved to profile
         user = this.userRepository.create({
-          email: walletLoginDto.email || null,  // Email can be null
-          password: hashedPassword,
           isVerified: true, // Wallet users are automatically verified
           role: UserRole.USER,
           walletAddress: normalizedAddress, // Store wallet address directly
@@ -391,6 +451,19 @@ export class AuthService {
           this.logger.error(`Error creating wallet: ${error.message}`);
           throw new InternalServerErrorException('Failed to create wallet record');
         });
+
+        // If email was provided, create a profile for the user
+        if (walletLoginDto.email) {
+          try {
+            await this.profileService.create(user.id, {
+              email: walletLoginDto.email,
+            });
+            newProfile = true;
+          } catch (error) {
+            this.logger.error(`Failed to create profile: ${error.message}`);
+            // Don't fail login if profile creation fails
+          }
+        }
   
         // Mint 1 SHAHI token for new users (with retry)
         this.mintTokensForNewUser(normalizedAddress);
@@ -444,9 +517,10 @@ export class AuthService {
         });
         
         return {
-          ...this.generateToken(user),
+          ...await this.generateToken(user),
           wallet: normalizedAddress,
           isNewUser,
+          newProfile,
         };
       } catch (error) {
         this.logger.error(`Authentication error: ${error.message}`);
@@ -465,661 +539,435 @@ export class AuthService {
       throw new InternalServerErrorException('Wallet authentication failed');
     }
   }
-  
-  async verifyWalletSignature(message: string, signature: string): Promise<string> {
-    try {
-      // More robust error handling for verification
-      if (!message || !signature) {
-        throw new BadRequestException('Message and signature are required');
-      }
-      
-      // Use try-catch to handle verification failures
-      try {
-        return verifyMessage(message, signature);
-      } catch (error) {
-        this.logger.error(`Signature verification error: ${error.message}`);
-        throw new UnauthorizedException('Invalid signature format');
-      }
-    } catch (error) {
-      if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
-        throw error;
-      }
-      throw new UnauthorizedException('Signature verification failed');
-    }
-  }
 
-  async forgotPassword(forgotPasswordDto: ForgotPasswordDto) {
+  /**
+   * Handle forgot password request
+   * This is maintained for backward compatibility
+   * Users are encouraged to use wallet-based authentication instead
+   */
+  async forgotPassword(forgotPasswordDto: ForgotPasswordDto): Promise<{ message: string }> {
     const { email } = forgotPasswordDto;
-
-    const user = await this.userRepository.findOne({
-      where: { email },
-    });
-    if (!user) {
-      // Return success even if user doesn't exist for security reasons
+    
+    // Find profile by email instead of user
+    const profile = await this.profileService.findByEmail(email);
+    
+    // Don't reveal whether the profile exists or not for security
+    if (!profile) {
+      this.logger.log(`Password reset requested for non-existent email: ${email}`);
       return { message: 'If your email is registered, you will receive a password reset link.' };
     }
-
-    // Generate password reset token
-    const resetToken = await this.generatePasswordResetToken(user.id);
-
-    // Store token in user record
-    await this.usersService.setResetPasswordToken(email, resetToken);
-
-    // Send password reset email
-    await this.mailService.sendPasswordReset(
-      user.email,
-      `${user.firstName} ${user.lastName}`.trim() || 'user',
-      resetToken,
-    );
-
-    return { message: 'If your email is registered, you will receive a password reset link.' };
-  }
-
-  async resetPassword(resetPasswordDto: ResetPasswordDto) {
-    const { token, newPassword } = resetPasswordDto;
-
+    
+    // Find user associated with this profile
+    const user = await this.userRepository.findOne({ where: { id: profile.userId } });
+    
+    if (!user) {
+      this.logger.error(`Profile exists without associated user: ${profile.id}`);
+      return { message: 'If your email is registered, you will receive a password reset link.' };
+    }
+    
+    // Generate reset token
+    const token = crypto.randomBytes(32).toString('hex');
+    const hashedToken = await bcrypt.hash(token, 10);
+    
+    // Save token to user
+    user.resetPasswordToken = hashedToken;
+    user.resetPasswordExpires = new Date(Date.now() + 3600000); // 1 hour
+    await this.userRepository.save(user);
+    
+    // Send email with reset link
     try {
-      const decoded = this.jwtService.verify(token, {
-        secret: this.configService.get('JWT_RESET_SECRET', this.configService.get('JWT_SECRET')),
-      });
-
-      const user = await this.userRepository.findOne({
-        where: {
-          id: decoded.userId,
-          resetPasswordToken: token,
-          resetPasswordExpires: MoreThan(new Date()),
-        },
-      });
-
-      if (!user) {
-        throw new NotFoundException('Invalid or expired token');
+      await this.mailService.sendPasswordReset(profile.email, user.firstName || profile.firstName || 'User', token);
+      this.logger.log(`Password reset email sent to: ${email}`);
+    } catch (error) {
+      this.logger.error(`Failed to send password reset email: ${error.message}`);
+      throw new InternalServerErrorException('Failed to send password reset email');
+    }
+    
+    // Include a message encouraging wallet authentication
+    return { 
+      message: 'If your email is registered, you will receive a password reset link. Consider connecting a wallet for enhanced security.' 
+    };
+  }
+  
+  /**
+   * Reset password with token
+   * Legacy method maintained for backward compatibility
+   */
+  async resetPassword(resetPasswordDto: ResetPasswordDto): Promise<{ message: string }> {
+    const { token, newPassword } = resetPasswordDto;
+    
+    // Find user with valid token
+    const user = await this.userRepository.findOne({
+      where: {
+        resetPasswordExpires: MoreThan(new Date())
       }
-
-      // Update password
-      user.password = await bcrypt.hash(newPassword, 10);
+    });
+    
+    if (!user) {
+      throw new BadRequestException('Invalid or expired token');
+    }
+    
+    // Verify token
+    const isValidToken = await bcrypt.compare(token, user.resetPasswordToken);
+    if (!isValidToken) {
+      throw new BadRequestException('Invalid or expired token');
+    }
+    
+    try {
+      // Find the profile associated with this user
+      const profile = await this.profileService.findByUserId(user.id);
+      
+      // Update password in the profile entity
+      const hashedPassword = await this.bcryptService.hash(newPassword);
+      profile.password = hashedPassword;
+      await this.profileService.update(profile.id, profile);
+      
+      // Clear the reset token from the user entity
       user.resetPasswordToken = null;
       user.resetPasswordExpires = null;
       await this.userRepository.save(user);
-
-      return { message: 'Password reset successful' };
-    } catch (error) {
-      throw new BadRequestException('Invalid or expired token');
-    }
-  }
-
-  /**
-   * Verify user's email address using verification token
-   * @param token Email verification token
-   * @returns Success message or throws an error
-   */
-  async verifyEmail(token: string) {
-    try {
-      // Validate token
-      let decoded: any;
-      try {
-        decoded = this.jwtService.verify(token, {
-          secret: this.configService.get('JWT_EMAIL_SECRET', this.configService.get('JWT_SECRET')),
-        });
-      } catch (error) {
-        this.logger.error(`Invalid verification token: ${error.message}`);
-        throw new BadRequestException('Invalid or expired verification token');
-      }
-
-      // Find user by ID from token
-      const user = await this.userRepository.findOne({
-        where: { id: decoded.userId || decoded.sub },
-      });
-
-      if (!user) {
-        throw new NotFoundException('User not found');
-      }
-
-      if (user.isVerified) {
-        return { success: true, message: 'Email already verified' };
-      }
-
-      // Update email verification status
-      await this.usersService.verifyEmail(user.id);
       
-      // Send welcome email after verification
-      try {
-        // Use sendEmailVerification instead of sendEmailConfirmation, as it exists in the MailService
-        await this.mailService.sendWelcome(
-          user.email, 
-          user.firstName || 'User'
-        );
-      } catch (error) {
-        // Log error but don't fail the verification process
-        this.logger.error(`Failed to send welcome email: ${error.message}`);
-      }
-
-      return { success: true, message: 'Email verified successfully' };
+      // Log the successful password reset
+      this.logger.log(`Password reset successful for user ID: ${user.id}`);
+      
+      // Encourage wallet-based authentication
+      return { message: 'Password reset successful. For enhanced security, consider connecting a wallet for future logins.' };
     } catch (error) {
-      if (error instanceof BadRequestException || error instanceof NotFoundException) {
-        throw error;
-      }
-      throw new BadRequestException('Invalid or expired verification token');
+      this.logger.error(`Password reset failed: ${error.message}`);
+      throw new InternalServerErrorException('Failed to reset password. Please try again later.');
     }
   }
-
-  async refreshToken(refreshToken: string) {
-    // Verify the refresh token exists and is valid
-    const tokenEntity = await this.refreshTokenRepository.findOne({
-      where: { token: refreshToken },
-      relations: ['user'],
-    });
-
-    if (!tokenEntity || tokenEntity.expiresAt < new Date()) {
-      throw new UnauthorizedException('Invalid or expired refresh token');
-    }
-
-    // Generate a new access token
-    const payload = {
-      sub: tokenEntity.user.id,
-      email: tokenEntity.user.email,
-    };
-
-    const accessToken = this.jwtService.sign(payload, {
-      expiresIn: this.configService.get('JWT_ACCESS_EXPIRATION'),
-    });
-
-    // Optional: rotate refresh token for better security
-    // await this.refreshTokenRepository.delete({ id: tokenEntity.id });
-    // const newRefreshToken = await this.generateRefreshToken(tokenEntity.user);
-    // return { accessToken, refreshToken: newRefreshToken };
-
-    // Or simply return the new access token
-    return { accessToken };
-  }
-
-  private async generateToken(user: any) {
-    const payload: JwtPayload = {
-      userId: user.id,
-      email: user.email,
-      isAdmin: user.isAdmin || user.role === UserRole.ADMIN,
-    };
-
-    const refreshToken = this.jwtService.sign(
-      { userId: user.id },
-      {
-        secret: this.configService.get('JWT_REFRESH_SECRET', this.configService.get('JWT_SECRET')),
-        expiresIn: '30d',
-      },
-    );
-
-    // Store refresh token in database
-    await this.usersService.setRefreshToken(user.id, refreshToken);
-
-    return {
-      accessToken: this.jwtService.sign(payload),
-      refreshToken,
-      user: {
-        id: user.id,
-        email: user.email,
-        firstName: user.firstName,
-        lastName: user.lastName,
-        isAdmin: user.isAdmin || user.role === UserRole.ADMIN,
-      },
-    };
-  }
-
-  private async checkForFraudSignals(registerDto: RegisterDto, req: Request) {
-    // Check for common disposable email domains
-    const disposableDomains = ['tempmail.com', 'guerrillamail.com', 'mailinator.com'];
-    const emailDomain = registerDto.email.split('@')[1];
-    if (disposableDomains.includes(emailDomain)) {
-      throw new BadRequestException('Disposable email addresses are not allowed');
-    }
-
-    // Check for multiple registrations from same IP
-    const ipAddress = this.getIpAddress(req);
-    const hourAgo = new Date(Date.now() - 3600000);
-
-    const registrationsFromSameIP = await this.userRepository
-      .createQueryBuilder('user')
-      .innerJoin('user.devices', 'device')
-      .where('device.lastIpAddress = :ipAddress', { ipAddress })
-      .andWhere('user.createdAt >= :hourAgo', { hourAgo })
-      .getCount();
-    if (registrationsFromSameIP >= 5) {
-      // Max 5 registrations per hour from same IP
-      throw new BadRequestException('Too many registrations from this IP address');
-    }
-
-    return true;
-  }
-
-  private async generateEmailVerificationToken(userId: string): Promise<string> {
-    const payload = { userId };
-    return this.jwtService.sign(payload, {
-      secret: this.configService.get('JWT_EMAIL_SECRET', this.configService.get('JWT_SECRET')),
-      expiresIn: '24h',
-    });
-  }
-
-  private async generatePasswordResetToken(userId: string): Promise<string> {
-    const payload = { userId };
-    return this.jwtService.sign(payload, {
-      secret: this.configService.get('JWT_RESET_SECRET', this.configService.get('JWT_SECRET')),
-      expiresIn: '1h',
-    });
-  }
-
-  private async getTokens(userId: string) {
-    const [accessToken, refreshToken] = await Promise.all([
-      this.jwtService.signAsync(
-        { sub: userId },
-        {
-          secret: this.configService.get<string>('JWT_SECRET'),
-          expiresIn: this.configService.get<string>('JWT_ACCESS_EXPIRATION', '15m'),
-        },
-      ),
-      this.jwtService.signAsync(
-        { sub: userId },
-        {
-          secret: this.configService.get<string>('JWT_SECRET'),
-          expiresIn: this.configService.get<string>('JWT_REFRESH_EXPIRATION', '7d'),
-        },
-      ),
-    ]);
-
-    return {
-      accessToken,
-      refreshToken,
-    };
-  }
-
-  private getRefreshTokenExpiresInMs(): number {
-    const refreshExpiration = this.configService.get<string>('JWT_REFRESH_EXPIRATION', '7d');
-    const match = refreshExpiration.match(/^(\d+)([smhd])$/);
-    if (!match) return 7 * 24 * 60 * 60 * 1000; // Default to 7 days
-
-    const value = parseInt(match[1], 10);
-    const unit = match[2];
-
-    switch (unit) {
-      case 's':
-        return value * 1000;
-      case 'm':
-        return value * 60 * 1000;
-      case 'h':
-        return value * 60 * 60 * 1000;
-      case 'd':
-        return value * 24 * 60 * 60 * 1000;
-      default:
-        return 7 * 24 * 60 * 60 * 1000;
-    }
-  }
-
-  private getIpAddress(req: Request): string {
-    return (
-      (req.headers['x-forwarded-for'] as string) ||
-      req.connection.remoteAddress ||
-      'unknown'
-    ).split(',')[0];
-  }
-
+  
   /**
-   * Resends the verification email to the user
-   * @param email The user's email address
-   * @returns A success message or throws an error
+   * Verify email with token
+   * Legacy method maintained for backward compatibility
    */
-  async resendVerification(email: string): Promise<any> {
-    const user = await this.usersService.findByEmail(email);
+  async verifyEmail(token: string): Promise<{ message: string }> {
+    const user = await this.userRepository.findOne({
+      where: { verificationToken: token }
+    });
     
     if (!user) {
-      throw new HttpException('User not found', HttpStatus.NOT_FOUND);
+      throw new BadRequestException('Invalid verification token');
     }
     
-    if (user.isVerified) {
-      return {
-        success: false,
-        message: 'Email is already verified',
-      };
-    }
+    // Update user
+    user.isVerified = true;
+    user.verificationToken = null;
     
-    // Generate a new verification token
-    const token = this.jwtService.sign(
-      { sub: user.id, email: user.email, type: 'email-verification' },
-      { expiresIn: '24h' },
-    );
+    await this.userRepository.save(user);
     
-    // Send the verification email
-    await this.mailService.sendEmailVerification(
-      user.email,
-      user.firstName || 'User',
-      token
-    );
-    
-    return {
-      success: true,
-      message: 'Verification email sent',
-    };
-  }
-
-  /**
-   * Generate JWT tokens for the user
-   * @param user User object
-   * @returns Access and refresh tokens
-   */
-  private async generateTokens(user: any): Promise<{ accessToken: string, refreshToken: string }> {
-    const payload = {
-      userId: user.id,
-      email: user.email,
-      role: user.role,
-    };
-    
-    const [accessToken, refreshToken] = await Promise.all([
-      this.jwtService.signAsync(
-        payload,
-        {
-          secret: this.configService.get('JWT_SECRET'),
-          expiresIn: this.configService.get('JWT_EXPIRATION', '1h'),
-        }
-      ),
-      this.jwtService.signAsync(
-        { sub: user.id }, // Simplified payload for refresh token
-        {
-          secret: this.configService.get('JWT_REFRESH_SECRET', this.configService.get('JWT_SECRET')),
-          expiresIn: this.configService.get('JWT_REFRESH_EXPIRATION', '7d'),
-        }
-      )
-    ]);
-    
-    return {
-      accessToken,
-      refreshToken
-    };
-  }
-
-  async findUserByWalletAddress(walletAddress: string): Promise<User | undefined> {
-    this.logger.log(`Finding user by wallet address: ${walletAddress}`);
+    // Get the profile to access email
     try {
-      // Try to find a user with this wallet address
-      const user = await this.usersService.findByWalletAddress(walletAddress);
-      if (user) {
-        this.logger.log(`User found for wallet address: ${walletAddress}`);
-      } else {
-        this.logger.log(`No user found for wallet address: ${walletAddress}`);
+      const profile = await this.profileService.findByUserId(user.id);
+      this.logger.log(`Email verified for user: ${profile.email}`);
+    } catch (error) {
+      this.logger.log(`Email verified for user ID: ${user.id}`);
+    }
+    
+    // Encourage wallet authentication
+    return { message: 'Email verified successfully. For enhanced security, we recommend connecting a wallet for future authentication.' };
+  }
+  
+  /**
+   * Refresh access token using refresh token
+   */
+  async refreshToken(refreshToken: string): Promise<{ accessToken: string; refreshToken: string }> {
+    try {
+      // Verify the refresh token
+      const payload = await this.jwtService.verifyAsync(refreshToken, {
+        secret: this.configService.get<string>('JWT_SECRET')
+      });
+      
+      // Check if refresh token exists in database
+      const storedToken = await this.refreshTokenRepository.findOne({
+        where: { 
+          token: refreshToken,
+          expiresAt: MoreThan(new Date())
+        }
+      });
+      
+      if (!storedToken) {
+        throw new UnauthorizedException('Invalid refresh token');
       }
-      return user;
+      
+      // Generate new tokens
+      const userId = payload.sub;
+      const tokens = await this.getTokens(userId);
+      
+      // Invalidate old refresh token (one-time use)
+      await this.refreshTokenRepository.delete(storedToken.id);
+      
+      return tokens;
     } catch (error) {
-      this.logger.error(`Error finding user by wallet address: ${error.message}`, error.stack);
-      throw error;
+      this.logger.error(`Token refresh failed: ${error.message}`);
+      throw new UnauthorizedException('Invalid refresh token');
     }
   }
-
-  generateWalletChallenge(address: string): string {
-    this.logger.log(`Generating wallet challenge for address: ${address}`);
-    // Generate a random challenge or nonce for the wallet to sign
-    const timestamp = Date.now();
-    const challenge = `Sign this message to authenticate with AliveHuman: ${timestamp}`;
-    return challenge;
-  }
-
+  
   /**
-   * Handle the initial wallet connection request and generate a challenge
-   * @param walletAddress The wallet address trying to connect
-   * @returns Challenge message to be signed by the wallet
+   * Resend verification email
+   * Legacy method maintained for backward compatibility
    */
-  async handleWalletConnect(walletAddress: string): Promise<{ exists: boolean; challenge: string }> {
-    this.logger.log(`Handling wallet connection for address: ${walletAddress}`);
+  async resendVerification(email: string): Promise<{ message: string }> {
+    // Look for profile by email instead of user directly
+    const profile = await this.profileService.findByEmail(email).catch(() => null);
     
-    try {
-      // Check if user already exists with this wallet
-      const existingUser = await this.findUserByWalletAddress(walletAddress);
-      
-      // Generate a challenge message for the wallet to sign
-      const challenge = this.generateWalletChallenge(walletAddress);
-      this.logger.log(`Generated challenge: ${challenge.substring(0, 20)}...`);
-      
-      // Return the challenge and whether the user exists
-      return {
-        exists: !!existingUser,
-        challenge: challenge
-      };
-    } catch (error) {
-      this.logger.error(`Error handling wallet connect: ${error.message}`, error.stack);
-      throw new InternalServerErrorException('Failed to process wallet connection');
+    // Don't reveal whether the profile exists or not
+    if (!profile) {
+      return { message: 'If your email is registered, you will receive a verification link.' };
     }
+    
+    // Find user associated with this profile
+    const user = await this.userRepository.findOne({ where: { id: profile.userId } });
+    
+    if (!user) {
+      return { message: 'If your email is registered, you will receive a verification link.' };
+    }
+    
+    // Check if already verified
+    if (user.isVerified) {
+      return { message: 'Your email is already verified.' };
+    }
+    
+    // Generate new verification token
+    const token = crypto.randomBytes(32).toString('hex');
+    user.verificationToken = token;
+    
+    await this.userRepository.save(user);
+    
+    // Send verification email
+    try {
+      // Use profile.email instead of user.email
+      await this.mailService.sendEmailVerification(profile.email, user.firstName || profile.firstName || 'User', token);
+      this.logger.log(`Verification email resent to: ${profile.email}`);
+    } catch (error) {
+      this.logger.error(`Failed to send verification email: ${error.message}`);
+      throw new InternalServerErrorException('Failed to send verification email');
+    }
+    
+    return { 
+      message: 'If your email is registered, you will receive a verification link. Consider connecting a wallet for enhanced security and immediate verification.' 
+    };
   }
-
+  
   /**
-   * Authenticate a wallet using a signed challenge
-   * @param walletLoginDto Contains the wallet address, message, and signature
-   * @param req Request object for getting device info
+   * Handle wallet connection request
+   * Generates a challenge for the wallet to sign
+   * This is the preferred first step in authentication
+   */
+  async handleWalletConnect(address: string): Promise<WalletConnectResponseDto> {
+    if (!address) {
+      throw new BadRequestException('Wallet address is required');
+    }
+    
+    // Normalize the wallet address
+    const normalizedAddress = address.toLowerCase();
+    
+    // Check if user with this wallet already exists
+    const existingUser = await this.usersService.findByWalletAddress(normalizedAddress);
+    let existingWallet = null;
+    
+    if (!existingUser) {
+      // If no user found by direct wallet address, check wallet records
+      existingWallet = await this.walletRepository.findOne({
+        where: { address: normalizedAddress },
+        relations: ['user']
+      });
+    }
+    
+    // Create a unique challenge message
+    const timestamp = Date.now();
+    const nonce = crypto.randomBytes(16).toString('hex');
+    
+    // Use domain name in the challenge for EIP-4361/Sign-In with Ethereum compliance
+    const domain = this.configService.get<string>('DOMAIN_NAME', 'app.shahi.io');
+    const chainId = this.configService.get<string>('DEFAULT_CHAIN_ID', '1');
+    const statement = `Sign this message to authenticate with ${domain}`;
+    
+    // Format challenge according to EIP-4361 (Sign-In with Ethereum)
+    const challenge = 
+      `${statement}\n\n` +
+      `URI: https://${domain}\n` +
+      `Version: 1\n` +
+      `Chain ID: ${chainId}\n` +
+      `Nonce: ${nonce}\n` +
+      `Issued At: ${new Date(timestamp).toISOString()}\n` +
+      `Expiration Time: ${new Date(timestamp + 3600000).toISOString()}`; // 1 hour expiry
+    
+    return {
+      address: normalizedAddress,
+      challenge,
+      timestamp,
+      isExistingUser: Boolean(existingUser || (existingWallet && existingWallet.user))
+    };
+  }
+  
+  /**
+   * Authenticate wallet with signature
+   * Primary authentication method in the new system
    */
   async authenticateWallet(walletLoginDto: WalletLoginDto, req: Request) {
     const { address, signature, message } = walletLoginDto;
-    this.logger.log(`Wallet authentication attempt for address: ${address}`);
-    this.logger.log(`Received message: ${message?.substring(0, 30)}...`);
-    this.logger.log(`Received signature: ${signature?.substring(0, 20)}...`);
-    
-    if (!message || !signature) {
-      this.logger.error('Missing message or signature in authentication request');
-      throw new BadRequestException('Message and signature are required');
-    }
     
     try {
+      // Normalize address
+      const normalizedAddress = address.toLowerCase();
+      
       // Verify the signature
-      let recoveredAddress: string;
-      try {
-        this.logger.log(`Verifying signature for message: ${message.substring(0, 30)}...`);
-        recoveredAddress = verifyMessage(message, signature);
-        this.logger.log(`Signature verified, recovered address: ${recoveredAddress}`);
-      } catch (error) {
-        this.logger.error(`Signature verification failed: ${error.message}`);
-        this.logger.error(`Message used for verification: ${message}`);
-        this.logger.error(`Signature used for verification: ${signature}`);
+      const recoveredAddress = verifyMessage(message, signature);
+      
+      if (recoveredAddress.toLowerCase() !== normalizedAddress) {
+        this.logger.warn(`Address mismatch: ${recoveredAddress} vs ${normalizedAddress}`);
         throw new UnauthorizedException('Invalid signature');
       }
       
-      // Check if the recovered address matches the provided address (case-insensitive)
-      if (recoveredAddress.toLowerCase() !== address.toLowerCase()) {
-        this.logger.warn(`Address mismatch: ${recoveredAddress.toLowerCase()} vs ${address.toLowerCase()}`);
-        throw new UnauthorizedException('Invalid signature: address mismatch');
-      }
-      
-      // Now proceed with login or registration as needed
-      return await this.walletLogin(walletLoginDto, req);
+      // Now we can proceed with the standard wallet login
+      return this.walletLogin(walletLoginDto, req);
     } catch (error) {
-      if (error instanceof UnauthorizedException || error instanceof BadRequestException) {
+      this.logger.error(`Wallet authentication error: ${error.message}`);
+      if (error instanceof UnauthorizedException) {
         throw error;
       }
-      this.logger.error(`Wallet authentication error: ${error.message}`, error.stack);
-      throw new InternalServerErrorException('Wallet authentication failed');
+      throw new UnauthorizedException('Invalid signature or authentication failed');
     }
   }
 
-  // Helper method to mint tokens with retry logic
-  private async mintTokensForNewUser(walletAddress: string): Promise<void> {
-    let mintSuccess = false;
-    let retryCount = 0;
-    const maxRetries = 3;
-  
-    while (!mintSuccess && retryCount < maxRetries) {
-      try {
-        this.logger.log(`Attempt ${retryCount + 1} to mint 1 SHAHI for new user: ${walletAddress}`);
-        const txHash = await this.shahiTokenService.mintForNewUser(walletAddress);
-        if (txHash) {
-          this.logger.log(`Successfully minted 1 SHAHI for new user ${walletAddress}, tx: ${txHash}`);
-          mintSuccess = true;
-        } else {
-          this.logger.warn(`Failed to mint SHAHI for new user ${walletAddress}`);
-          retryCount++;
-          if (retryCount < maxRetries) await new Promise(r => setTimeout(r, 2000)); // Wait 2 seconds between retries
-        }
-      } catch (error) {
-        this.logger.error(`Error minting SHAHI tokens (attempt ${retryCount + 1}): ${error.message}`);
-        retryCount++;
-        if (retryCount < maxRetries) await new Promise(r => setTimeout(r, 2000)); // Wait 2 seconds between retries
+  /**
+   * Get IP address from request object
+   */
+  private getIpAddress(request: Request): string {
+    // Check for forwarded IP (when behind proxy/load balancer)
+    const forwardedFor = request.headers['x-forwarded-for'];
+    if (forwardedFor) {
+      if (typeof forwardedFor === 'string') {
+        return forwardedFor.split(',')[0].trim();
       }
+      return forwardedFor[0];
     }
-  
-    if (!mintSuccess) {
-      this.logger.warn(`Failed to mint SHAHI tokens after ${maxRetries} attempts. Adding to retry queue.`);
-      // this.mintingQueueService.addToQueue(walletAddress);
-    }
+    
+    // Direct connection
+    return request.ip || 
+           (request.connection && request.connection.remoteAddress) || 
+           'unknown';
   }
-
-  async validateWalletLogin(walletAddress: string, req: Request): Promise<any> {
-    this.logger.log(`Wallet login attempt for address: ${walletAddress}`);
-
-    // Generate a device ID from the request
-    const deviceId = this.deviceDetectorService.generateDeviceId(
-      req,
-      this.getIpAddress(req),
-    );
-
-    // Find the user by wallet address
-    const user = await this.usersService.findByWalletAddress(walletAddress);
-
-    if (!user) {
-      this.logger.log(`Creating new user and wallet for address: ${walletAddress}`);
-      
-      // First check if this device is already paired with a different wallet
-      const isValidPairing = await this.userDevicesService.validateDeviceWalletPairing(
-        deviceId, 
-        walletAddress
-      );
-
-      if (!isValidPairing) {
-        throw new ForbiddenException(
-          'This device is already registered with another wallet address. For security reasons, one device can only be used with one wallet.'
-        );
-      }
-
-      // Create a new user with wallet address
-      const newUser = await this.usersService.createWalletUser({
-        walletAddress,
-        isVerified: true, // Wallet users are verified by default
-      });
-
-      try {
-        // Mint initial SHAHI tokens for the new user
-        await this.mintTokensForNewUser(walletAddress);
-      } catch (error) {
-        this.logger.warn(`Failed to mint SHAHI for new user ${walletAddress}`);
-      }
-
-      // Try to register device but don't fail if it errors
-      try {
-        await this.userDevicesService.registerDevice(
-          newUser.id,
-          deviceId,
-          {
-            ...this.deviceDetectorService.detect(req),
-            lastIpAddress: this.getIpAddress(req),
-          },
-        );
-
-        // Add wallet address to the device record
-        const device = await this.userDevicesService.findByUserIdAndDeviceId(
-          newUser.id,
-          deviceId
-        );
-        
-        if (device) {
-          await device.addWalletAddress(walletAddress);
-          await this.userDevicesService.update(device.id, device);
-        }
-      } catch (error) {
-        this.logger.error(`Non-critical error managing device data: ${error.message}`);
-      }
-
-      // Create a session
-      try {
-        await this.userSessionsService.createSession({
-          userId: newUser.id,
-          deviceId,
-          ipAddress: this.getIpAddress(req),
-          userAgent: req.headers['user-agent'] as string,
-          expiresAt: new Date(Date.now() + this.getRefreshTokenExpiresInMs())
-        });
-      } catch (error) {
-        this.logger.error(`Error creating session: ${error.message}`);
-      }
-
-      return newUser;
-    }
-
-    // Existing user - Check if this device can be used with this wallet
-    const isValidPairing = await this.userDevicesService.validateDeviceWalletPairing(
-      deviceId, 
-      walletAddress,
-      user.id
-    );
-
-    if (!isValidPairing) {
-      throw new ForbiddenException(
-        'This device is registered with a different wallet address. For security reasons, one device can only be used with one wallet.'
-      );
-    }
-
-    // Update user's last login - use custom fields instead of UpdateUserDto
-    await this.userRepository.update(user.id, {
-      lastLoginAt: new Date(),
-      lastLoginIp: this.getIpAddress(req),
-    });
-
-    // Try to register device but don't fail if it errors
-    try {
-      const device = await this.userDevicesService.registerDevice(
-        user.id,
-        deviceId,
+  
+  /**
+   * Generate JWT access and refresh tokens
+   */
+  async getTokens(userId: string): Promise<{ accessToken: string; refreshToken: string }> {
+    const [accessToken, refreshToken] = await Promise.all([
+      this.jwtService.signAsync(
+        { sub: userId },
         {
-          ...this.deviceDetectorService.detect(req),
-          lastIpAddress: this.getIpAddress(req),
+          secret: this.configService.get<string>('JWT_SECRET'),
+          expiresIn: this.configService.get<string>('JWT_ACCESS_TOKEN_EXPIRES_IN', '15m'),
         },
-      );
+      ),
+      this.jwtService.signAsync(
+        { sub: userId },
+        {
+          secret: this.configService.get<string>('JWT_SECRET'),
+          expiresIn: this.configService.get<string>('JWT_REFRESH_TOKEN_EXPIRES_IN', '7d'),
+        },
+      ),
+    ]);
+    
+    // Store refresh token in database
+    const refreshTokenEntity = this.refreshTokenRepository.create({
+      token: refreshToken,
+      userId,
+      expiresAt: new Date(Date.now() + this.getRefreshTokenExpiresInMs()),
+    });
+    
+    await this.refreshTokenRepository.save(refreshTokenEntity);
 
-      // Add wallet address to the device record if it exists
-      if (device) {
-        await device.addWalletAddress(walletAddress);
-        await this.userDevicesService.update(device.id, device);
-      }
-    } catch (error) {
-      this.logger.error(`Non-critical error managing device data: ${error.message}`);
+    return {
+      accessToken,
+      refreshToken,
+    };
+  }
+  
+  /**
+   * Calculate refresh token expiration in milliseconds
+   */
+  getRefreshTokenExpiresInMs(): number {
+    const expiresIn = this.configService.get<string>('JWT_REFRESH_TOKEN_EXPIRES_IN', '7d');
+    const match = expiresIn.match(/^(\d+)([smhdw])$/);
+    
+    if (!match) {
+      // Default to 7 days if format is invalid
+      return 7 * 24 * 60 * 60 * 1000;
     }
-
-    // Create a session
+    
+    const value = parseInt(match[1]);
+    const unit = match[2];
+    
+    switch (unit) {
+      case 's': return value * 1000; // seconds
+      case 'm': return value * 60 * 1000; // minutes
+      case 'h': return value * 60 * 60 * 1000; // hours
+      case 'd': return value * 24 * 60 * 60 * 1000; // days
+      case 'w': return value * 7 * 24 * 60 * 60 * 1000; // weeks
+      default: return 7 * 24 * 60 * 60 * 1000; // default to 7 days
+    }
+  }
+  
+  /**
+   * Generate token response for client
+   */
+  async generateToken(user: User) {
+    // Get user's profile to include email in the token
+    let email: string | undefined = undefined;
     try {
-      await this.userSessionsService.createSession({
-        userId: user.id,
-        deviceId,
-        ipAddress: this.getIpAddress(req),
-        userAgent: req.headers['user-agent'] as string,
-        expiresAt: new Date(Date.now() + this.getRefreshTokenExpiresInMs())
-      });
+      const profile = await this.profileService.findByUserId(user.id);
+      email = profile.email;
     } catch (error) {
-      this.logger.error(`Error creating session: ${error.message}`);
+      // Profile might not exist for wallet-only users
+      this.logger.debug(`No profile found for user ${user.id}, proceeding without email in token`);
     }
-
-    return user;
+    
+    const payload: JwtPayload = {
+      sub: user.id,
+      email: email,
+      role: user.role
+    };
+    
+    return {
+      user: {
+        id: user.id,
+        email: email,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        role: user.role,
+      },
+      accessToken: this.jwtService.sign(payload),
+    };
   }
 
-  // Helper method to mint SHAHI for new users
-  async mintFirstTimeShahiForUser(walletAddress: string): Promise<void> {
-    let attempts = 0;
-    const maxAttempts = 3;
-    
-    while (attempts < maxAttempts) {
-      attempts++;
-      this.logger.log(`Attempt ${attempts} to mint 1 SHAHI for new user: ${walletAddress}`);
+  /**
+   * Mint tokens for a new user
+   */
+  async mintTokensForNewUser(walletAddress: string, retries = 3): Promise<void> {
+    try {
+      // Use the event emitter to dispatch a background task
+      // This prevents blocking the authentication flow while minting tokens
+      this.eventEmitter.emit('user.created', { 
+        walletAddress, 
+        amount: 1 // Mint 1 SHAHI token for new users
+      });
       
-      try {
-        await this.shahiTokenService.mintForNewUser(walletAddress);
-        // If minting is successful, return
-        return;
-      } catch (error) {
-        this.logger.warn(`Failed to mint SHAHI for new user ${walletAddress}`);
-        
-        // Wait a short time before retrying
-        await new Promise(resolve => setTimeout(resolve, 2000));
+      this.logger.log(`Requested SHAHI token minting for new user with wallet: ${walletAddress}`);
+    } catch (error) {
+      this.logger.error(`Failed to mint tokens for new wallet: ${walletAddress}: ${error.message}`);
+      
+      // Retry with exponential backoff if retries remain
+      if (retries > 0) {
+        const backoffMs = Math.pow(2, 4 - retries) * 1000; // 1s, 2s, 4s
+        setTimeout(() => {
+          this.mintTokensForNewUser(walletAddress, retries - 1);
+        }, backoffMs);
       }
     }
-    
-    this.logger.warn(`Failed to mint SHAHI tokens after ${maxAttempts} attempts. Adding to retry queue.`);
-    // Could add to a queue for retry later
   }
 }
