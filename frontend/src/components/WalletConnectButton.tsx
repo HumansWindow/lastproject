@@ -1,17 +1,21 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { useWallet } from '../contexts/wallet';
+import { useAuth } from '../contexts/auth';
 import { WalletProviderType } from '../services/wallet';
 
 interface WalletConnectButtonProps {
   className?: string;
   providerType?: WalletProviderType;
+  autoAuthenticate?: boolean;
 }
 
 export const WalletConnectButton: React.FC<WalletConnectButtonProps> = ({ 
   className = '',
-  providerType = WalletProviderType.METAMASK
+  providerType = WalletProviderType.METAMASK,
+  autoAuthenticate = true
 }) => {
   const { isConnected, isConnecting, walletInfo, connect, disconnect, error } = useWallet();
+  const { authenticateWithWallet, isAuthenticated, isLoading: isAuthLoading } = useAuth();
   
   const displayAddress = walletInfo?.address 
     ? `${walletInfo.address.substring(0, 6)}...${walletInfo.address.substring(walletInfo.address.length - 4)}`
@@ -29,13 +33,28 @@ export const WalletConnectButton: React.FC<WalletConnectButtonProps> = ({
     disconnect();
   };
   
+  // Auto authenticate when wallet is connected
+  useEffect(() => {
+    const performAuthentication = async () => {
+      if (autoAuthenticate && isConnected && !isAuthenticated && !isAuthLoading) {
+        try {
+          await authenticateWithWallet();
+        } catch (err) {
+          console.error("Authentication failed:", err);
+        }
+      }
+    };
+    
+    performAuthentication();
+  }, [isConnected, isAuthenticated, isAuthLoading, autoAuthenticate, authenticateWithWallet]);
+  
   return (
     <div className="wallet-connect-container">
       {!isConnected ? (
         <button 
           className={`wallet-connect-button ${className}`} 
           onClick={handleConnect}
-          disabled={isConnecting}
+          disabled={isConnecting || isAuthLoading}
         >
           {isConnecting ? 'Connecting...' : `Connect ${getProviderName(providerType)}`}
         </button>

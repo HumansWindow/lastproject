@@ -3,6 +3,8 @@ import { WalletConnection } from '../core/connection';
 import { WalletInfo } from '../core/wallet-base';
 
 export class ChallengeManager {
+  private currentChallenge: string | null = null;
+
   constructor(
     private walletConnection: WalletConnection,
     private authService: WalletAuthenticator
@@ -27,10 +29,20 @@ export class ChallengeManager {
       }
       
       // Get challenge from backend
-      const challenge = await this.authService.getAuthChallenge(walletInfo.address);
+      this.currentChallenge = await this.authService.getAuthChallenge(walletInfo.address);
+      
+      if (!this.currentChallenge) {
+        return {
+          success: false,
+          error: 'Failed to receive authentication challenge'
+        };
+      }
+      
+      // Create a message for the user to sign
+      const messageToSign = `Sign this message to authenticate with our app: ${this.currentChallenge}`;
       
       // Sign the challenge with wallet
-      const signature = await this.walletConnection.signMessage(challenge);
+      const signature = await this.walletConnection.signMessage(messageToSign);
       
       if (!signature) {
         return {
@@ -39,8 +51,8 @@ export class ChallengeManager {
         };
       }
       
-      // Authenticate with the signed challenge
-      return await this.authService.authenticate(walletInfo, signature, email);
+      // Authenticate with the signed challenge and original nonce
+      return await this.authService.authenticate(walletInfo, signature, email, this.currentChallenge);
       
     } catch (error: unknown) {
       const err = error as { message?: string };
@@ -48,6 +60,9 @@ export class ChallengeManager {
         success: false,
         error: err.message || 'Authentication failed'
       };
+    } finally {
+      // Clear the challenge after authentication attempt
+      this.currentChallenge = null;
     }
   }
 }

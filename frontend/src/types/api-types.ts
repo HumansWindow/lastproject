@@ -14,15 +14,16 @@ export interface UserInfo {
   updatedAt: string;
 }
 
-export interface UserProfile extends UserInfo {
+export interface UserProfile {
+  id: string;
   firstName?: string;
   lastName?: string;
-  avatar?: string;
+  email?: string;
   phoneNumber?: string;
-  walletAddresses?: string[];
   bio?: string;
-  country?: string;
-  timezone?: string;
+  walletAddresses?: string[];
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface UserResponse {
@@ -86,7 +87,7 @@ export interface WalletConnectRequest {
 
 export interface WalletConnectResponse {
   nonce: string;
-  expiresAt: string;
+  walletExists: boolean;
 }
 
 export interface WalletAuthRequest {
@@ -95,9 +96,13 @@ export interface WalletAuthRequest {
   nonce: string;
 }
 
-export interface WalletAuthResponse extends LoginResponse {
-  isNewUser: boolean;
-  walletAddress: string;
+export interface WalletAuthResponse {
+  success: boolean;
+  accessToken?: string;
+  refreshToken?: string;
+  userId?: string;
+  isNewUser?: boolean;
+  error?: string;
 }
 
 export interface ApiErrorResponse {

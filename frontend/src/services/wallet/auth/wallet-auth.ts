@@ -15,8 +15,9 @@ export class WalletAuthenticator {
   
   async getAuthChallenge(address: string): Promise<string> {
     try {
-      const response = await axios.post(`${this.apiBaseUrl}/auth/wallet/challenge`, { address });
-      return response.data.challenge;
+      // Updated to use the correct API endpoint
+      const response = await axios.post(`${this.apiBaseUrl}/auth/wallet/connect`, { address });
+      return response.data.nonce;
     } catch (error: unknown) {
       const err = error as { response?: { data?: { message?: string } } };
       throw new Error(err?.response?.data?.message || 'Failed to get auth challenge');
@@ -26,17 +27,19 @@ export class WalletAuthenticator {
   async authenticate(
     walletInfo: WalletInfo, 
     signature: string, 
-    email?: string
+    email?: string,
+    nonce?: string
   ): Promise<AuthResult> {
     try {
       const payload = {
         address: walletInfo.address,
         signature,
-        chainId: walletInfo.chainId,
+        nonce: nonce || '', // Use the original challenge nonce if provided
         email: email || undefined
       };
       
-      const response = await axios.post(`${this.apiBaseUrl}/auth/wallet/verify`, payload);
+      // Updated to use the correct API endpoint
+      const response = await axios.post(`${this.apiBaseUrl}/auth/wallet/authenticate`, payload);
       
       return {
         success: true,
