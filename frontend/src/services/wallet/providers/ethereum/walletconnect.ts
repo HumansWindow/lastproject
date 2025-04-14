@@ -56,7 +56,8 @@ export class WalletConnectAdapter implements WalletProvider {
         address: this.address,
         chainId: this.chainId,
         blockchain: this.getBlockchainType(this.chainId),
-        providerType: WalletProviderType.WALLETCONNECT
+        providerType: WalletProviderType.WALLETCONNECT,
+        provider: this.walletConnectProvider // Add the missing provider property
       };
       
       return {

@@ -20,6 +20,9 @@ export enum BlockchainType {
 export interface WalletInfo {
   address: string;
   chainId: string;
+  provider: any; // The wallet provider instance (e.g., Web3Provider, ethers.providers.Web3Provider)
+  balance?: string;
+  network?: string;
   blockchain: BlockchainType;
   providerType: WalletProviderType;
 }

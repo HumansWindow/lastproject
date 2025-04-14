@@ -64,10 +64,11 @@ export class MetaMaskProvider implements WalletProvider {
       this.signer = ethersProvider.getSigner();
       
       const walletInfo: WalletInfo = {
-        address,
-        chainId: chainId.toString(),
-        blockchain: this.getBlockchainType(chainId.toString()),
-        providerType: WalletProviderType.METAMASK
+        address: address,
+        chainId: String(chainId), // Convert the chainId to string
+        blockchain: BlockchainType.ETHEREUM,
+        providerType: WalletProviderType.METAMASK,
+        provider: window.ethereum // Add the missing provider property
       };
       
       return {

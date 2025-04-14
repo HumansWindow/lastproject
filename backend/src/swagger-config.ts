@@ -10,7 +10,7 @@ const logger = new Logger('Swagger');
  */
 export function setupSwagger(app: INestApplication) {
   // Check if Swagger is enabled via environment variable
-  const swaggerEnabled = process.env.SWAGGER_ENABLED?.toLowerCase() === 'true';
+  const swaggerEnabled = process.env.SWAGGER_ENABLED !== 'false'; // Enable by default unless explicitly disabled
   
   if (!swaggerEnabled) {
     logger.log('Swagger documentation is disabled. Set SWAGGER_ENABLED=true in .env to enable it.');
@@ -33,6 +33,7 @@ export function setupSwagger(app: INestApplication) {
       .addTag('staking', 'Token staking and reward management')
       .addTag('accounts', 'User account management operations')
       .addTag('base', 'Base API health checks and utilities')
+      .addTag('profile', 'User profile management and customization')
       .build();
 
     const options: SwaggerDocumentOptions = {
@@ -44,30 +45,27 @@ export function setupSwagger(app: INestApplication) {
       ignoreGlobalPrefix: false
     };
 
-    // Create Swagger document with error handling
-    let document;
+    // Create Swagger document with better error handling
+    logger.log('Setting up Swagger documentation...');
     try {
-      document = SwaggerModule.createDocument(app, config, options);
-      if (!document) {
-        throw new Error('Failed to create Swagger document');
-      }
+      // Create the Swagger document
+      const document = SwaggerModule.createDocument(app, config, options);
+      
+      // Setup the Swagger UI endpoint
+      SwaggerModule.setup('api/docs', app, document, {
+        swaggerOptions: {
+          persistAuthorization: true,
+          tagsSorter: 'alpha',
+          operationsSorter: 'alpha',
+          docExpansion: 'none',
+        }
+      });
+      
+      logger.log('✅ Swagger UI is available at /api/docs');
     } catch (error) {
       logger.error(`Failed to create Swagger document: ${error.message}`, error.stack);
       // Don't block app startup if Swagger fails
-      return;
     }
-    
-    // Setup the Swagger UI endpoint
-    SwaggerModule.setup('api/docs', app, document, {
-      swaggerOptions: {
-        persistAuthorization: true,
-        tagsSorter: 'alpha',
-        operationsSorter: 'alpha',
-        docExpansion: 'none',
-      }
-    });
-    
-    logger.log('✅ Swagger UI is available at /api/docs');
   } catch (error) {
     logger.error(`Error setting up Swagger: ${error.message}`, error.stack);
     // Don't block app startup if Swagger fails

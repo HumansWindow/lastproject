@@ -28,26 +28,54 @@ export class WalletAuthenticator {
     walletInfo: WalletInfo, 
     signature: string, 
     email?: string,
-    nonce?: string
+    nonce?: string,
+    deviceFingerprint?: string
   ): Promise<AuthResult> {
     try {
       const payload = {
         address: walletInfo.address,
         signature,
         nonce: nonce || '', // Use the original challenge nonce if provided
-        email: email || undefined
+        email: email || undefined,
+        deviceFingerprint: deviceFingerprint || undefined // Add device fingerprint
       };
       
-      // Updated to use the correct API endpoint
-      const response = await axios.post(`${this.apiBaseUrl}/auth/wallet/authenticate`, payload);
+      // Add retry logic with exponential backoff
+      const maxRetries = 3;
+      let retryCount = 0;
+      let delay = 1000; // Start with 1 second delay
       
-      return {
-        success: true,
-        token: response.data.accessToken,
-        refreshToken: response.data.refreshToken,
-        userId: response.data.user?.id,
-        isNewUser: response.data.isNewUser
-      };
+      while (retryCount < maxRetries) {
+        try {
+          // Updated to use the correct API endpoint
+          const response = await axios.post(`${this.apiBaseUrl}/auth/wallet/authenticate`, payload, {
+            headers: {
+              'X-Device-Fingerprint': deviceFingerprint || 'unknown'
+            }
+          });
+          
+          return {
+            success: true,
+            token: response.data.accessToken,
+            refreshToken: response.data.refreshToken,
+            userId: response.data.user?.id,
+            isNewUser: response.data.isNewUser
+          };
+        } catch (err: any) {
+          retryCount++;
+          
+          // If we've reached max retries or it's not a server error (5xx), throw
+          if (retryCount >= maxRetries || !err.response || err.response.status < 500) {
+            throw err;
+          }
+          
+          // Wait with exponential backoff before retrying
+          await new Promise(resolve => setTimeout(resolve, delay));
+          delay *= 2; // Double the delay for next retry
+        }
+      }
+      
+      throw new Error('Authentication failed after retries');
     } catch (error: unknown) {
       const err = error as { response?: { data?: { message?: string } } };
       return {
@@ -57,9 +85,12 @@ export class WalletAuthenticator {
     }
   }
   
-  async refreshToken(refreshToken: string): Promise<AuthResult> {
+  async refreshToken(refreshToken: string, deviceFingerprint?: string): Promise<AuthResult> {
     try {
-      const response = await axios.post(`${this.apiBaseUrl}/auth/refresh-token`, { refreshToken });
+      const response = await axios.post(`${this.apiBaseUrl}/auth/refresh-token`, { 
+        refreshToken,
+        deviceFingerprint 
+      });
       
       return {
         success: true,

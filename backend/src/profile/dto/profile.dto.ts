@@ -1,6 +1,13 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { IsEmail, IsOptional, IsString, IsNumber, IsLatitude, IsLongitude, IsEnum, IsUrl, IsBoolean } from 'class-validator';
 
+// Define visibility enum for use in DTOs and Swagger
+export enum VisibilityLevel {
+  PUBLIC = 'public',
+  FRIENDS = 'friends',
+  PRIVATE = 'private'
+}
+
 export class CreateProfileDto {
   @ApiPropertyOptional({ description: 'Email address (optional)' })
   @IsOptional()
@@ -112,15 +119,23 @@ export class CreateProfileDto {
   @IsString()
   telegramHandle?: string;
 
-  @ApiPropertyOptional({ description: 'Location visibility setting', enum: ['public', 'friends', 'private'], default: 'private' })
+  @ApiPropertyOptional({ 
+    description: 'Location visibility setting', 
+    enum: VisibilityLevel,
+    default: VisibilityLevel.PRIVATE 
+  })
   @IsOptional()
-  @IsEnum(['public', 'friends', 'private'])
-  locationVisibility?: 'public' | 'friends' | 'private';
+  @IsEnum(VisibilityLevel)
+  locationVisibility?: VisibilityLevel;
 
-  @ApiPropertyOptional({ description: 'Profile visibility setting', enum: ['public', 'friends', 'private'], default: 'public' })
+  @ApiPropertyOptional({ 
+    description: 'Profile visibility setting', 
+    enum: VisibilityLevel,
+    default: VisibilityLevel.PUBLIC 
+  })
   @IsOptional()
-  @IsEnum(['public', 'friends', 'private'])
-  profileVisibility?: 'public' | 'friends' | 'private';
+  @IsEnum(VisibilityLevel)
+  profileVisibility?: VisibilityLevel;
 }
 
 export class UpdateProfileDto extends CreateProfileDto {
@@ -128,67 +143,145 @@ export class UpdateProfileDto extends CreateProfileDto {
 }
 
 export class ProfileResponseDto {
-  @ApiProperty()
+  @ApiProperty({
+    description: 'Profile ID',
+    example: '123e4567-e89b-12d3-a456-426614174000'
+  })
   id: string;
 
-  @ApiProperty()
+  @ApiProperty({
+    description: 'User ID',
+    example: '123e4567-e89b-12d3-a456-426614174001'
+  })
   userId: string;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({
+    description: 'Email address',
+    example: 'user@example.com'
+  })
   email?: string;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({
+    description: 'First name',
+    example: 'John'
+  })
   firstName?: string;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({
+    description: 'Last name',
+    example: 'Doe'
+  })
   lastName?: string;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({
+    description: 'Display name',
+    example: 'JohnD'
+  })
   displayName?: string;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({
+    description: 'Avatar URL',
+    example: 'https://example.com/avatar.jpg'
+  })
   avatarUrl?: string;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({
+    description: 'Biography text',
+    example: 'Software developer with 5 years experience'
+  })
   bio?: string;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({
+    description: 'Unique identifier',
+    example: 'john_doe_123'
+  })
   uniqueId?: string;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({
+    description: 'Country of residence',
+    example: 'United States'
+  })
   country?: string;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({
+    description: 'City of residence',
+    example: 'New York'
+  })
   city?: string;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({
+    description: 'State/Province of residence',
+    example: 'NY'
+  })
   state?: string;
 
-  @ApiPropertyOptional()
+  @ApiProperty({
+    description: 'Preferred language',
+    example: 'en',
+    default: 'en'
+  })
   language: string;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({
+    description: 'Timezone',
+    example: 'America/New_York'
+  })
   timezone?: string;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({
+    description: 'Personal website',
+    example: 'https://example.com'
+  })
   website?: string;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({
+    description: 'Twitter handle',
+    example: '@johndoe'
+  })
   twitterHandle?: string;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({
+    description: 'Instagram handle',
+    example: '@johndoe'
+  })
   instagramHandle?: string;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({
+    description: 'LinkedIn profile',
+    example: 'https://linkedin.com/in/johndoe'
+  })
   linkedinProfile?: string;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({
+    description: 'Telegram handle',
+    example: '@johndoe'
+  })
   telegramHandle?: string;
 
-  @ApiProperty()
+  @ApiPropertyOptional({
+    description: 'Location visibility setting',
+    enum: VisibilityLevel,
+    default: VisibilityLevel.PRIVATE
+  })
+  locationVisibility?: VisibilityLevel;
+
+  @ApiPropertyOptional({
+    description: 'Profile visibility setting',
+    enum: VisibilityLevel,
+    default: VisibilityLevel.PUBLIC
+  })
+  profileVisibility?: VisibilityLevel;
+
+  @ApiProperty({
+    description: 'Creation timestamp',
+    example: '2025-04-14T08:22:31.000Z'
+  })
   createdAt: Date;
 
-  @ApiProperty()
+  @ApiProperty({
+    description: 'Last update timestamp',
+    example: '2025-04-14T08:22:31.000Z'
+  })
   updatedAt: Date;
 }
 

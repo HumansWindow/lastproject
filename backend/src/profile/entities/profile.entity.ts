@@ -12,6 +12,7 @@ import {
 import { Exclude } from 'class-transformer';
 import * as bcrypt from 'bcrypt';
 import { User } from '../../users/entities/user.entity';
+import { VisibilityLevel } from '../dto/profile.dto';
 
 @Entity('profiles')
 export class Profile {
@@ -111,11 +112,21 @@ export class Profile {
   telegramHandle: string;
 
   // Privacy settings
-  @Column({ name: 'location_visibility', default: 'private' })
-  locationVisibility: 'public' | 'friends' | 'private';
+  @Column({ 
+    name: 'location_visibility', 
+    type: 'enum', 
+    enum: VisibilityLevel, 
+    default: VisibilityLevel.PRIVATE 
+  })
+  locationVisibility: VisibilityLevel;
 
-  @Column({ name: 'profile_visibility', default: 'public' })
-  profileVisibility: 'public' | 'friends' | 'private';
+  @Column({ 
+    name: 'profile_visibility', 
+    type: 'enum', 
+    enum: VisibilityLevel, 
+    default: VisibilityLevel.PUBLIC 
+  })
+  profileVisibility: VisibilityLevel;
 
   @Column({ name: 'email_notifications', default: true })
   emailNotifications: boolean;

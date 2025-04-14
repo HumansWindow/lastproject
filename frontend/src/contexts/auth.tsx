@@ -3,6 +3,7 @@ import walletService from '../services/wallet';
 import { profileService } from '../profile/profile-service';
 import { useWallet } from './wallet';
 import { UserProfile } from '@/types/api-types';
+import { secureStorage } from '../utils/secure-storage';
 
 interface AuthContextType {
   user: UserProfile | null;
@@ -23,6 +24,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 const TOKEN_KEY = 'accessToken';
 const REFRESH_TOKEN_KEY = 'refreshToken';
 const USER_KEY = 'user_profile';
+const DEVICE_VERIFICATION_KEY = 'device_verification';
 
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const { isConnected, walletInfo } = useWallet();
@@ -35,7 +37,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   // Initialize user from local storage and fetch current profile if authenticated
   useEffect(() => {
     const init = async () => {
-      const token = localStorage.getItem(TOKEN_KEY);
+      // Use secure storage instead of localStorage directly
+      const token = secureStorage.getItem(TOKEN_KEY);
       
       if (token) {
         try {
@@ -53,9 +56,10 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         } catch (err) {
           // Invalid token or other error, clear it
           console.error('Error initializing user:', err);
-          localStorage.removeItem(TOKEN_KEY);
-          localStorage.removeItem(REFRESH_TOKEN_KEY);
-          localStorage.removeItem(USER_KEY);
+          secureStorage.removeItem(TOKEN_KEY);
+          secureStorage.removeItem(REFRESH_TOKEN_KEY);
+          secureStorage.removeItem(USER_KEY);
+          secureStorage.removeItem(DEVICE_VERIFICATION_KEY);
         }
       }
       
@@ -75,20 +79,37 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       setIsLoading(true);
       setError(null);
       
-      const result = await walletService.authenticate(email);
+      // Get challenge directly from the wallet service instead of auth property
+      const challenge = await walletService.getChallenge(walletInfo.address);
+      
+      // Request user to sign the challenge
+      const signature = await walletService.signMessage(challenge, walletInfo);
+      
+      // Generate device fingerprint for security
+      const deviceFingerprint = await generateDeviceFingerprint();
+      
+      // Call authenticate directly on the wallet service instead of auth property
+      const result = await walletService.authenticate(
+        walletInfo,
+        signature,
+        email,
+        challenge,
+        deviceFingerprint
+      );
       
       if (result.success && result.token && result.refreshToken) {
-        // Store tokens
-        localStorage.setItem(TOKEN_KEY, result.token);
-        localStorage.setItem(REFRESH_TOKEN_KEY, result.refreshToken);
+        // Store tokens securely
+        secureStorage.setItem(TOKEN_KEY, result.token);
+        secureStorage.setItem(REFRESH_TOKEN_KEY, result.refreshToken);
+        secureStorage.setItem(DEVICE_VERIFICATION_KEY, deviceFingerprint);
         
         try {
           // Fetch the user profile
           const profile = await profileService.getUserProfile();
           setUser(profile);
           
-          // Store user in localStorage
-          localStorage.setItem(USER_KEY, JSON.stringify(profile));
+          // Store user in secure storage
+          secureStorage.setItem(USER_KEY, JSON.stringify(profile));
           
           // Check profile completeness
           const isComplete = !!(
@@ -120,19 +141,42 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   };
   
+  // Generate a device fingerprint for additional security
+  const generateDeviceFingerprint = async (): Promise<string> => {
+    // This is a simplified version - in production you'd use a more sophisticated fingerprinting method
+    const userAgent = navigator.userAgent;
+    const screenInfo = `${window.screen.width}x${window.screen.height}x${window.screen.colorDepth}`;
+    const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    const language = navigator.language;
+    
+    // Create a string that combines device attributes
+    const fingerprintString = `${userAgent}|${screenInfo}|${timezone}|${language}`;
+    
+    // Create a hash of the string (in production, use a proper hashing function)
+    let hash = 0;
+    for (let i = 0; i < fingerprintString.length; i++) {
+      const char = fingerprintString.charCodeAt(i);
+      hash = ((hash << 5) - hash) + char;
+      hash = hash & hash; // Convert to 32bit integer
+    }
+    
+    return hash.toString(16);
+  };
+  
   const logout = async () => {
     try {
-      const refreshToken = localStorage.getItem(REFRESH_TOKEN_KEY);
+      const refreshToken = secureStorage.getItem(REFRESH_TOKEN_KEY);
       
       if (refreshToken) {
         // Try to logout on backend
         await walletService.logout(refreshToken);
       }
       
-      // Clear local storage
-      localStorage.removeItem(TOKEN_KEY);
-      localStorage.removeItem(REFRESH_TOKEN_KEY);
-      localStorage.removeItem(USER_KEY);
+      // Clear secure storage
+      secureStorage.removeItem(TOKEN_KEY);
+      secureStorage.removeItem(REFRESH_TOKEN_KEY);
+      secureStorage.removeItem(USER_KEY);
+      secureStorage.removeItem(DEVICE_VERIFICATION_KEY);
       
       // Clear state
       setUser(null);
@@ -155,7 +199,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       
       // Update local state
       setUser(updatedProfile);
-      localStorage.setItem(USER_KEY, JSON.stringify(updatedProfile));
+      secureStorage.setItem(USER_KEY, JSON.stringify(updatedProfile));
       
       // Check profile completeness
       const isComplete = !!(
@@ -181,7 +225,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       
       // Update local state
       setUser(completedProfile);
-      localStorage.setItem(USER_KEY, JSON.stringify(completedProfile));
+      secureStorage.setItem(USER_KEY, JSON.stringify(completedProfile));
       setIsProfileComplete(true);
       
       return true;

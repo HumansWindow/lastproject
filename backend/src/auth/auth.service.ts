@@ -617,10 +617,9 @@ export class AuthService {
       // Find the profile associated with this user
       const profile = await this.profileService.findByUserId(user.id);
       
-      // Update password in the profile entity
+      // Update password in the profile entity - using a proper UpdateProfileDto object
       const hashedPassword = await this.bcryptService.hash(newPassword);
-      profile.password = hashedPassword;
-      await this.profileService.update(profile.id, profile);
+      await this.profileService.update(profile.id, { password: hashedPassword });
       
       // Clear the reset token from the user entity
       user.resetPasswordToken = null;
