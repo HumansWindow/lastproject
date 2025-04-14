@@ -1,3 +1,2 @@
-// Auth module barrel file
-export * from './auth-service';
-// export * from './wallet-auth-service';
+// Auth module barrel file - imports wallet authentication implementation
+export * from '../../../wallet/auth/wallet-auth';

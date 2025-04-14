@@ -319,7 +319,7 @@ export class AuthService {
    */
   async walletLogin(walletLoginDto: WalletLoginDto, req: Request) {
     try {
-      const { address, signature, message } = walletLoginDto;
+      const { address, signature, message, email } = walletLoginDto;
       this.logger.log(`Wallet login attempt for address: ${address}`);
   
       // Always normalize the wallet address to lowercase
@@ -358,58 +358,8 @@ export class AuthService {
       let isNewUser = false;
       let newProfile = false;
   
-      if (user) {
-        // If user exists, we'll check if they have a profile
-        let profile = null;
-        try {
-          profile = await this.profileService.findByUserId(user.id);
-        } catch (error) {
-          // If profile doesn't exist and an email is provided, create one
-          if (walletLoginDto.email && error instanceof NotFoundException) {
-            newProfile = true;
-            await this.profileService.create(user.id, {
-              email: walletLoginDto.email,
-              firstName: user.firstName,
-              lastName: user.lastName
-            });
-          }
-        }
-  
-        // Check if this user already has a wallet - use userId consistently 
-        wallet = await this.walletRepository.findOne({
-          where: { 
-            userId: user.id,
-            address: normalizedAddress
-          }
-        });
-        
-        if (!wallet) {
-          // Create a wallet record if it doesn't exist - use userId consistently
-          this.logger.log(`Creating wallet record for existing user: ${user.id}`);
-          wallet = this.walletRepository.create({
-            address: normalizedAddress,
-            userId: user.id,
-            chain: 'ETH',
-            isActive: true,
-          });
-          
-          await this.walletRepository.save(wallet);
-        }
-  
-        // Check if this device is already bound to another user account
-        if (!skipDeviceCheck) {
-          // First, validate the device-wallet pairing
-          const isValidPairing = await this.userDevicesService.validateDeviceWalletPairing(
-            deviceId, 
-            normalizedAddress, 
-            user.id
-          );
-          
-          if (!isValidPairing) {
-            throw new ForbiddenException('This device has already been registered with another wallet address');
-          }
-        }
-      } else {
+      // If user doesn't exist, create a new one
+      if (!user) {
         // Create a new user with wallet - NO EMAIL REQUIRED
         this.logger.log(`Creating new user and wallet for address: ${normalizedAddress}`);
         isNewUser = true;
@@ -427,46 +377,141 @@ export class AuthService {
           }
         }
   
-        // Create user with only the wallet address - no password, email is moved to profile
-        user = this.userRepository.create({
-          isVerified: true, // Wallet users are automatically verified
-          role: UserRole.USER,
-          walletAddress: normalizedAddress, // Store wallet address directly
-        });
+        try {
+          // Create user with only the wallet address - no password, email is moved to profile
+          user = this.userRepository.create({
+            isVerified: true, // Wallet users are automatically verified
+            role: UserRole.USER,
+            walletAddress: normalizedAddress, // Store wallet address directly
+            firstName: null,
+            lastName: null,
+            createdAt: new Date(),
+            lastLoginAt: new Date(),
+            lastLoginIp: ipAddress
+          });
+    
+          // Save the user and get the generated ID
+          const savedUser = await this.userRepository.save(user);
+            
+          // Ensure we have the user ID
+          user = savedUser;
+          
+          this.logger.log(`Created new user with ID: ${user.id} for wallet: ${normalizedAddress}`);
+    
+          // Create wallet record linked to the user - use userId consistently
+          wallet = this.walletRepository.create({
+            address: normalizedAddress,
+            userId: user.id,
+            chain: 'ETH',
+            isActive: true,
+            createdAt: new Date(),
+            updatedAt: new Date(),
+          });
+    
+          await this.walletRepository.save(wallet);
+          this.logger.log(`Created new wallet record for user ID: ${user.id}`);
   
-        await this.userRepository.save(user).catch(error => {
-          this.logger.error(`Error creating user: ${error.message}`);
-          throw new InternalServerErrorException('Failed to create user account');
-        });
-  
-        // Create wallet record linked to the user - use userId consistently
-        wallet = this.walletRepository.create({
-          address: normalizedAddress,
-          userId: user.id,
-          chain: 'ETH',
-          isActive: true,
-        });
-  
-        await this.walletRepository.save(wallet).catch(error => {
-          this.logger.error(`Error creating wallet: ${error.message}`);
-          throw new InternalServerErrorException('Failed to create wallet record');
-        });
-
-        // If email was provided, create a profile for the user
-        if (walletLoginDto.email) {
+          // If email was provided, create a profile for the user
+          if (email) {
+            try {
+              await this.profileService.create(user.id, {
+                email,
+                firstName: user.firstName,
+                lastName: user.lastName
+              });
+              newProfile = true;
+              this.logger.log(`Created profile with email ${email} for user ID: ${user.id}`);
+            } catch (error) {
+              this.logger.error(`Failed to create profile: ${error.message}`);
+              // Don't fail login if profile creation fails
+            }
+          }
+    
+          // Mint 1 SHAHI token for new users (with retry)
+          this.mintTokensForNewUser(normalizedAddress);
+        } catch (error) {
+          this.logger.error(`Failed to create new user: ${error.message}`, error.stack);
+          throw new InternalServerErrorException('Failed to create user account during wallet authentication');
+        }
+      } else {
+        // If user exists, check if they have a profile
+        if (email) {
           try {
-            await this.profileService.create(user.id, {
-              email: walletLoginDto.email,
-            });
-            newProfile = true;
+            const profile = await this.profileService.findByUserId(user.id);
+            if (!profile && email) {
+              // Create profile if it doesn't exist but email is provided
+              await this.profileService.create(user.id, {
+                email,
+                firstName: user.firstName,
+                lastName: user.lastName
+              });
+              newProfile = true;
+              this.logger.log(`Created profile with email ${email} for existing user ID: ${user.id}`);
+            }
           } catch (error) {
-            this.logger.error(`Failed to create profile: ${error.message}`);
-            // Don't fail login if profile creation fails
+            if (error instanceof NotFoundException && email) {
+              // Create profile if not found but email is provided
+              await this.profileService.create(user.id, {
+                email,
+                firstName: user.firstName,
+                lastName: user.lastName
+              });
+              newProfile = true;
+              this.logger.log(`Created profile with email ${email} for existing user ID: ${user.id}`);
+            } else {
+              this.logger.error(`Error checking profile: ${error.message}`);
+            }
+          }
+        }
+
+        // Check if this user already has a wallet record
+        wallet = await this.walletRepository.findOne({
+          where: { 
+            userId: user.id,
+            address: normalizedAddress
+          }
+        });
+        
+        if (!wallet) {
+          // Create a wallet record if it doesn't exist
+          this.logger.log(`Creating wallet record for existing user: ${user.id}`);
+          try {
+            wallet = this.walletRepository.create({
+              address: normalizedAddress,
+              userId: user.id,
+              chain: 'ETH',
+              isActive: true,
+              createdAt: new Date(),
+              updatedAt: new Date(),
+            });
+            
+            await this.walletRepository.save(wallet);
+            this.logger.log(`Created new wallet record for existing user ID: ${user.id}`);
+          } catch (error) {
+            this.logger.error(`Failed to create wallet record: ${error.message}`);
+            // Continue as we already have a user, just log the error
           }
         }
   
-        // Mint 1 SHAHI token for new users (with retry)
-        this.mintTokensForNewUser(normalizedAddress);
+        // Check if this device is already bound to another user account
+        if (!skipDeviceCheck) {
+          // First, validate the device-wallet pairing
+          const isValidPairing = await this.userDevicesService.validateDeviceWalletPairing(
+            deviceId, 
+            normalizedAddress, 
+            user.id
+          );
+          
+          if (!isValidPairing) {
+            throw new ForbiddenException('This device has already been registered with another wallet address');
+          }
+        }
+        
+        // Update last login time for existing users
+        await this.userRepository.update(user.id, {
+          lastLoginAt: new Date(),
+          lastLoginIp: ipAddress
+        });
       }
   
       // Update or create device record with wallet address
