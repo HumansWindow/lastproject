@@ -8,6 +8,7 @@ import cookieParser from 'cookie-parser';
 import helmet from 'helmet';
 import { setupSwagger } from './swagger-config';
 import { GlobalExceptionFilter } from './shared/filters/global-exception.filter';
+import { getCorsConfig } from './shared/config/cors.config';
 
 // Load environment variables before any other imports
 dotenv.config();
@@ -52,14 +53,7 @@ async function bootstrap() {
   logger.log(`Allowed origins: ${JSON.stringify(corsOrigins)}`);
   
   // Enable CORS with credentials support
-  app.enableCors({
-    origin: corsConfig.origin,
-    methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
-    credentials: true,
-    allowedHeaders: 'Content-Type, Accept, Authorization, X-Requested-With',
-    preflightContinue: false,
-    optionsSuccessStatus: 204,
-  });
+  app.enableCors(corsConfig);
   
   // Use global validation pipe
   app.useGlobalPipes(
@@ -106,7 +100,7 @@ async function bootstrap() {
       logger.log('Processing preflight OPTIONS request');
       res.header('Access-Control-Allow-Origin', req.headers.origin as string || '*');
       res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS');
-      res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
+      res.header('Access-Control-Allow-Headers', 'Content-Type, Accept, Authorization, X-Requested-With, x-device-id, x-device-fingerprint, x-wallet-chain-id');
       res.header('Access-Control-Allow-Credentials', 'true'); 
       res.header('Access-Control-Max-Age', '86400');
     }
@@ -136,25 +130,6 @@ async function bootstrap() {
     logger.error(`Could not find an available port after ${maxRetries} attempts`);
     throw new Error(`Could not find an available port after ${maxRetries} attempts`);
   }
-}
-
-// Helper function to get CORS configuration
-function getCorsConfig() {
-  // Get allowed origins from environment variable
-  const allowedOrigins = process.env.ALLOWED_ORIGINS;
-  
-  // Default to development origins if none specified
-  const defaultOrigins = ['http://localhost:3000', 'http://localhost:3001', 'http://localhost:8000'];
-  
-  // Parse the comma-separated list of allowed origins
-  const origins = allowedOrigins ? 
-    allowedOrigins.split(',').map(origin => origin.trim()) : 
-    defaultOrigins;
-    
-  return {
-    origin: origins,
-    credentials: true
-  };
 }
 
 // Handle uncaught exceptions

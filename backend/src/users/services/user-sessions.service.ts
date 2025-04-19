@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, EntityManager } from 'typeorm';
 import { UserSession } from '../entities/user-session.entity';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -50,6 +50,59 @@ export class UserSessionsService {
     } catch (error) {
       this.logger.error(`Failed to create session: ${error.message}`);
       throw error;
+    }
+  }
+
+  /**
+   * Create a new user session within a transaction
+   * This method is used when creating sessions as part of a larger transaction
+   * @param entityManager The entity manager to use for the transaction
+   * @param data Session data
+   */
+  async createSessionWithTransaction(
+    entityManager: EntityManager,
+    data: {
+      userId: string; 
+      deviceId?: string;
+      ipAddress?: string;
+      userAgent?: string;
+      token?: string;
+      expiresAt?: Date;
+    }
+  ): Promise<UserSession> {
+    try {
+      // Add request ID for tracing in logs
+      const requestId = Math.random().toString(36).substring(2, 8);
+      this.logger.log(`[${requestId}] Creating session within transaction for user: ${data.userId}`);
+      
+      // Convert deviceId to UUID format for consistency
+      let deviceUuid = data.deviceId;
+      if (data.deviceId && !this.isUUID(data.deviceId)) {
+        // Convert hash to UUID for storage
+        deviceUuid = this.hashToUUID(data.deviceId);
+        this.logger.log(`[${requestId}] Converting device ID to UUID: ${data.deviceId.substring(0, 8)}... -> ${deviceUuid}`);
+      }
+
+      const sessionData = {
+        userId: data.userId, // Use UUID string
+        deviceId: deviceUuid,
+        ipAddress: data.ipAddress,
+        userAgent: data.userAgent,
+        token: data.token,
+        expiresAt: data.expiresAt || new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // Default 7 days expiry
+      };
+
+      // Create the session using the entity manager
+      const session = entityManager.create(UserSession, sessionData);
+      
+      // Save the session using the entity manager
+      const savedSession = await entityManager.save(session);
+      this.logger.log(`[${requestId}] Successfully created session within transaction for user: ${data.userId}`);
+      
+      return Array.isArray(savedSession) ? savedSession[0] : savedSession;
+    } catch (error) {
+      this.logger.error(`Failed to create session within transaction: ${error.message}`);
+      throw error; // Let the transaction handle the error
     }
   }
 

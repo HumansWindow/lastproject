@@ -110,11 +110,15 @@ export class WalletService {
       const address = accounts[0];
       
       // Connect to get nonce
-      const { nonce } = await this.connectWallet(address);
+      const response = await this.connectWallet(address);
+      const { nonce, message } = response;
       
-      // Sign the nonce
-      const message = `Sign this message to authenticate with our app: ${nonce}`;
-      const signature = await this.signMessage(message);
+      // If the server sends a pre-formatted message, use it; otherwise use the nonce directly
+      // This ensures compatibility with different backend implementations
+      const textToSign = message || nonce;
+      
+      // Sign the message
+      const signature = await this.signMessage(textToSign);
       
       // Authenticate with signature
       return await this.authenticateWallet(address, signature, nonce);

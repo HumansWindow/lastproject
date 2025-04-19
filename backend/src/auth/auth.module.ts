@@ -23,10 +23,12 @@ import { UserDevice } from '../users/entities/user-device.entity';
 import { UserDevicesService } from '../users/services/user-devices.service';
 import { DeviceDetectorService } from '../shared/services/device-detector.service';
 import { ProfileModule } from '../profile/profile.module';
+import { WalletTransactionService } from './services/wallet-transaction.service';
+import { Profile } from '../profile/entities/profile.entity';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([User, RefreshToken, Wallet, UserDevice]),
+    TypeOrmModule.forFeature([User, RefreshToken, Wallet, UserDevice, Profile]),
     forwardRef(() => UsersModule),
     forwardRef(() => WalletsModule),
     PassportModule.register({ defaultStrategy: 'jwt' }),
@@ -55,7 +57,8 @@ import { ProfileModule } from '../profile/profile.module';
     WalletStrategy,
     UserDevicesService,
     DeviceDetectorService,
+    WalletTransactionService,
   ],
-  exports: [AuthService, JwtModule],
+  exports: [AuthService, JwtModule, WalletTransactionService],
 })
 export class AuthModule {}

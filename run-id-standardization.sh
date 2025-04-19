@@ -1,308 +1,211 @@
 #!/bin/bash
+# ID Field Standardization Process Runner
+# This script guides you through the process of standardizing ID fields in your backend
 
-echo "====================================="
-echo "    ID Standardization Migration"
-echo "====================================="
+# Set colors for pretty output
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+RED='\033[0;31m'
+BLUE='\033[0;34m'
+NC='\033[0m' # No Color
 
-# Get the directory where this script is located
-SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-BACKEND_DIR="$SCRIPT_DIR/backend"
-MIGRATION_FILE="$BACKEND_DIR/src/migrations/1750000000000-StandardizeUserIds.ts"
+# Set variables
+BACKEND_DIR="./backend"
+DB_NAME="alive_db" # Change this to your database name
+TIMESTAMP=$(date +"%Y%m%d%H%M%S")
+LOG_DIR="./logs"
+LOG_FILE="${LOG_DIR}/id_standardization_${TIMESTAMP}.log"
 
-# Ensure the migration file exists
-if [ ! -f "$MIGRATION_FILE" ]; then
-  echo "✗ Migration file not found at: $MIGRATION_FILE"
-  exit 1
-fi
+# Create log directory if it doesn't exist
+mkdir -p $LOG_DIR
 
-# Check PostgreSQL connection
-echo "Checking database connection..."
-if ! psql -U Aliveadmin -d "Alive-Db" -c "SELECT 1" &>/dev/null; then
-  echo "✗ Database connection failed"
-  echo "Please run ./fix-postgres-auth.sh first to fix database authentication issues"
-  exit 1
-fi
+# Display banner
+echo -e "${BLUE}=================================================${NC}"
+echo -e "${BLUE}     ID Field Standardization Process Runner     ${NC}"
+echo -e "${BLUE}=================================================${NC}"
+echo -e "This script will help you standardize ID field naming"
+echo -e "in your TypeORM entities and PostgreSQL database."
+echo -e "Started at: $(date)\n"
 
-echo "✓ Database connection successful"
-
-# Create a function to execute SQL directly
-execute_sql() {
-  echo "Executing database updates directly..."
-  
-  # Execute the SQL from our StandardizeUserIds migration directly
-  psql -U Aliveadmin -d "Alive-Db" << EOL
--- Drop existing functions if they exist
-DROP FUNCTION IF EXISTS table_exists(text);
-DROP FUNCTION IF EXISTS column_exists(text, text);
-DROP FUNCTION IF EXISTS get_column_type(text, text);
-
--- Create the functions with distinct parameter names
-CREATE OR REPLACE FUNCTION table_exists(input_table_name text) RETURNS boolean AS \$\$
-BEGIN
-  RETURN EXISTS (
-    SELECT FROM information_schema.tables 
-    WHERE table_name = input_table_name
-  );
-END;
-\$\$ LANGUAGE plpgsql;
-
-CREATE OR REPLACE FUNCTION column_exists(input_table_name text, input_column_name text) RETURNS boolean AS \$\$
-BEGIN
-  RETURN EXISTS (
-    SELECT FROM information_schema.columns 
-    WHERE table_name = input_table_name AND column_name = input_column_name
-  );
-END;
-\$\$ LANGUAGE plpgsql;
-
-CREATE OR REPLACE FUNCTION get_column_type(input_table_name text, input_column_name text) RETURNS text AS \$\$
-DECLARE
-  col_type text;
-BEGIN
-  SELECT data_type INTO col_type
-  FROM information_schema.columns
-  WHERE table_name = input_table_name AND column_name = input_column_name;
-  
-  RETURN col_type;
-END;
-\$\$ LANGUAGE plpgsql;
-
--- Process diaries table
-DO \$\$
-DECLARE
-  has_user_id_column boolean;
-  has_user_id_underscore_column boolean;
-  user_id_column_type text;
-BEGIN
-  RAISE NOTICE 'Processing diaries table...';
-  
-  IF table_exists('diaries') THEN
-    -- Check if userId column exists 
-    has_user_id_column := column_exists('diaries', 'userId');
-    has_user_id_underscore_column := column_exists('diaries', 'user_id');
-    
-    -- Get the column type
-    IF has_user_id_column THEN
-      user_id_column_type := get_column_type('diaries', 'userId');
-    ELSIF has_user_id_underscore_column THEN
-      user_id_column_type := get_column_type('diaries', 'user_id');
-    END IF;
-    
-    -- Drop constraints first
-    BEGIN
-      ALTER TABLE diaries DROP CONSTRAINT IF EXISTS fk_user;
-      EXCEPTION WHEN OTHERS THEN
-        RAISE NOTICE 'No fk_user constraint to drop';
-    END;
-    
-    IF has_user_id_column THEN
-      -- If userId column exists, rename it to user_id for consistency
-      IF NOT has_user_id_underscore_column THEN
-        ALTER TABLE diaries RENAME COLUMN "userId" TO "user_id";
-        RAISE NOTICE 'Renamed diaries.userId to user_id';
-      ELSE
-        -- If both columns exist, keep user_id and drop userId
-        ALTER TABLE diaries DROP COLUMN "userId";
-        RAISE NOTICE 'Dropped duplicate diaries.userId column';
-      END IF;
-    END IF;
-    
-    -- Check if user_id column is not UUID
-    IF user_id_column_type = 'integer' THEN
-      RAISE NOTICE 'Converting diaries.user_id from integer to UUID...';
-      
-      -- Create temporary column
-      ALTER TABLE diaries ADD COLUMN user_id_uuid uuid NULL;
-      
-      -- Update the UUID column based on integer IDs in users table - with proper type casting
-      UPDATE diaries d
-      SET user_id_uuid = u.id::uuid
-      FROM users u
-      WHERE d.user_id::text = u.id::text;
-      
-      -- Drop original column and rename
-      ALTER TABLE diaries DROP COLUMN user_id;
-      ALTER TABLE diaries RENAME COLUMN user_id_uuid TO user_id;
-      
-      -- Create foreign key constraint
-      ALTER TABLE diaries 
-      ADD CONSTRAINT FK_diaries_users 
-      FOREIGN KEY (user_id) 
-      REFERENCES users(id) 
-      ON DELETE CASCADE;
-      
-      -- Create index
-      CREATE INDEX IF NOT EXISTS IDX_diaries_user_id ON diaries (user_id);
-    END IF;
-  ELSE
-    RAISE NOTICE 'Diaries table does not exist, skipping';
-  END IF;
-END \$\$;
-
--- Process minting_queue_items table
-DO \$\$
-DECLARE
-  user_id_column_type text;
-BEGIN
-  RAISE NOTICE 'Processing minting_queue_items table...';
-  
-  IF table_exists('minting_queue_items') THEN
-    -- Check user_id column type
-    user_id_column_type := get_column_type('minting_queue_items', 'user_id');
-    
-    -- Drop existing constraints
-    BEGIN
-      ALTER TABLE minting_queue_items DROP CONSTRAINT IF EXISTS minting_queue_items_user_id_fkey;
-      EXCEPTION WHEN OTHERS THEN
-        RAISE NOTICE 'No minting_queue_items_user_id_fkey constraint to drop';
-    END;
-    
-    IF user_id_column_type = 'integer' THEN
-      RAISE NOTICE 'Converting minting_queue_items.user_id from integer to UUID...';
-      
-      -- Create temporary column
-      ALTER TABLE minting_queue_items ADD COLUMN user_id_uuid uuid NULL;
-      
-      -- Update the UUID column based on integer IDs in users table - with proper type casting
-      UPDATE minting_queue_items m
-      SET user_id_uuid = u.id::uuid
-      FROM users u
-      WHERE m.user_id::text = u.id::text;
-      
-      -- Drop original column and rename
-      ALTER TABLE minting_queue_items DROP COLUMN user_id;
-      ALTER TABLE minting_queue_items RENAME COLUMN user_id_uuid TO user_id;
-      
-      -- Create foreign key constraint
-      ALTER TABLE minting_queue_items 
-      ADD CONSTRAINT FK_minting_queue_items_users 
-      FOREIGN KEY (user_id) 
-      REFERENCES users(id) 
-      ON DELETE CASCADE;
-      
-      -- Recreate index
-      CREATE INDEX IF NOT EXISTS idx_minting_queue_user_id ON public.minting_queue_items(user_id);
-    END IF;
-  ELSE
-    RAISE NOTICE 'minting_queue_items table does not exist, skipping';
-  END IF;
-END \$\$;
-
--- Process tables with camelCase userId columns
-DO \$\$
-DECLARE
-  table_record record;
-  has_user_id_column boolean;
-  has_user_id_underscore_column boolean;
-BEGIN
-  FOR table_record IN 
-    SELECT table_name 
-    FROM information_schema.tables 
-    WHERE table_schema = 'public'
-    AND table_name IN ('wallets', 'user_devices', 'user_sessions', 
-                        'refresh_tokens', 'referral_codes', 'staking_positions', 
-                        'minting_records', 'accounts')
-  LOOP
-    RAISE NOTICE 'Checking % table...', table_record.table_name;
-    
-    has_user_id_column := column_exists(table_record.table_name, 'userId');
-    has_user_id_underscore_column := column_exists(table_record.table_name, 'user_id');
-    
-    IF has_user_id_column THEN
-      -- Drop constraints that might prevent column renaming
-      BEGIN
-        EXECUTE format('ALTER TABLE %I DROP CONSTRAINT IF EXISTS FK_%I_users', 
-                       table_record.table_name, table_record.table_name);
-        EXCEPTION WHEN OTHERS THEN
-          RAISE NOTICE 'No FK constraint to drop';
-      END;
-      
-      BEGIN
-        EXECUTE format('ALTER TABLE %I DROP CONSTRAINT IF EXISTS FK_%I_user_id', 
-                       table_record.table_name, table_record.table_name);
-        EXCEPTION WHEN OTHERS THEN
-          RAISE NOTICE 'No FK constraint to drop';
-      END;
-      
-      BEGIN
-        EXECUTE format('ALTER TABLE %I DROP CONSTRAINT IF EXISTS FK_%I_userId', 
-                       table_record.table_name, table_record.table_name);
-        EXCEPTION WHEN OTHERS THEN
-          RAISE NOTICE 'No FK constraint to drop';
-      END;
-      
-      IF NOT has_user_id_underscore_column THEN
-        -- Rename column for consistency
-        EXECUTE format('ALTER TABLE %I RENAME COLUMN "userId" TO "user_id"', table_record.table_name);
-        RAISE NOTICE 'Renamed %.userId to user_id', table_record.table_name;
-        
-        -- Create index if it doesn't exist
-        EXECUTE format('CREATE INDEX IF NOT EXISTS IDX_%I_user_id ON %I (user_id)',
-                       table_record.table_name, table_record.table_name);
-        
-        -- Re-create foreign key constraint
-        BEGIN
-          EXECUTE format('ALTER TABLE %I ADD CONSTRAINT FK_%I_users FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE',
-                        table_record.table_name, table_record.table_name);
-        EXCEPTION WHEN OTHERS THEN
-          RAISE NOTICE 'Could not create foreign key constraint for %', table_record.table_name;
-        END;
-      ELSE
-        -- If both columns exist, drop the redundant userId column
-        EXECUTE format('ALTER TABLE %I DROP COLUMN IF EXISTS "userId"', table_record.table_name);
-        RAISE NOTICE 'Dropped duplicate %.userId column', table_record.table_name;
-      END IF;
-    END IF;
-  END LOOP;
-END \$\$;
-
--- Update for any user_referrer_id columns
-DO \$\$
-DECLARE
-  has_referrer_id boolean;
-BEGIN
-  -- Update referrerId column in users table if it exists
-  has_referrer_id := column_exists('users', 'referrerId');
-  
-  IF has_referrer_id THEN
-    -- Make sure it's properly typed as UUID
-    ALTER TABLE users ALTER COLUMN "referrerId" TYPE uuid USING "referrerId"::uuid;
-    
-    -- Check for foreign key constraint
-    IF NOT EXISTS (
-      SELECT 1 FROM pg_constraint WHERE conname = 'fk_user_referrer'
-    ) THEN
-      -- Add foreign key constraint if it doesn't exist
-      BEGIN
-        ALTER TABLE users ADD CONSTRAINT fk_user_referrer
-        FOREIGN KEY ("referrerId") REFERENCES users(id) ON DELETE SET NULL;
-      EXCEPTION WHEN OTHERS THEN
-        RAISE NOTICE 'Could not create referrer foreign key constraint';
-      END;
-    END IF;
-  END IF;
-END \$\$;
-
--- Add a record to migrations table to mark this as complete
-INSERT INTO migrations (timestamp, name)
-VALUES (1750000000000, 'StandardizeUserIds1750000000000')
-ON CONFLICT DO NOTHING;
-
--- Report success
-SELECT 'ID Standardization migration completed successfully.' AS status;
-EOL
+# Function to log messages
+log() {
+  local message="$1"
+  local timestamp=$(date +"%Y-%m-%d %H:%M:%S")
+  echo -e "$timestamp - $message" | tee -a "$LOG_FILE"
 }
 
-# Run the migration directly through SQL
-execute_sql
+# Function to check for TypeScript
+check_ts_node() {
+  if ! command -v ts-node &> /dev/null; then
+    log "${YELLOW}⚠️  ts-node is not installed. Installing now...${NC}"
+    npm install -g ts-node typescript @types/node
+    if [ $? -ne 0 ]; then
+      log "${RED}❌ Failed to install ts-node. Please install it manually:${NC}"
+      log "   npm install -g ts-node typescript @types/node"
+      exit 1
+    fi
+    log "${GREEN}✅ ts-node installed successfully${NC}"
+  else
+    log "${GREEN}✅ ts-node is already installed${NC}"
+  fi
+}
 
-echo ""
-echo "====================================="
-echo "  ID Standardization Complete"
-echo "====================================="
-echo ""
-echo "Next steps:"
-echo "1. Run the ID consistency check to verify changes:"
-echo "   ./run-backend-commands.sh test:id-consistency"
-echo ""
-echo "2. Fix entity files with consistency issues as mentioned in the consistency check."
+# Step 1: Check prerequisites
+log "Step 1: Checking prerequisites..."
+check_ts_node
+
+# Check for required node modules
+cd $BACKEND_DIR
+log "Checking for required Node modules..."
+npm list fs path > /dev/null 2>&1
+if [ $? -ne 0 ]; then
+  log "${YELLOW}⚠️  Installing required Node modules...${NC}"
+  npm install --save-dev @types/node
+  if [ $? -ne 0 ]; then
+    log "${RED}❌ Failed to install required modules${NC}"
+    exit 1
+  fi
+fi
+cd ..
+
+# Step 2: Analyze the codebase
+log "\nStep 2: Analyzing the codebase (Dry Run)..."
+cd $BACKEND_DIR
+log "Running analysis of entity files..."
+npx ts-node ../fix-id-standardization.ts --dry-run --verbose
+if [ $? -ne 0 ]; then
+  log "${RED}❌ Analysis failed. Check the script for errors.${NC}"
+  cd ..
+  exit 1
+fi
+cd ..
+log "${GREEN}✅ Analysis completed${NC}"
+
+# Step 3: Database backup
+log "\nStep 3: Creating database backup..."
+read -p "Do you want to back up your database before proceeding? (y/n) " -n 1 -r
+echo
+if [[ $REPLY =~ ^[Yy]$ ]]; then
+  BACKUP_FILE="backups/db_backup_before_id_standardization_${TIMESTAMP}.sql"
+  mkdir -p backups
+  
+  log "Backing up database to $BACKUP_FILE..."
+  read -p "Enter database user (default: postgres): " DB_USER
+  DB_USER=${DB_USER:-postgres}
+  
+  # Don't echo the password
+  read -s -p "Enter database password: " DB_PASSWORD
+  echo
+  
+  PGPASSWORD="$DB_PASSWORD" pg_dump -U "$DB_USER" -h localhost -F p -f "$BACKUP_FILE" "$DB_NAME"
+  if [ $? -ne 0 ]; then
+    log "${YELLOW}⚠️  Database backup failed. You may want to create a backup manually.${NC}"
+    read -p "Continue anyway? (y/n) " -n 1 -r
+    echo
+    if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+      log "Operation cancelled by user."
+      exit 0
+    fi
+  else
+    log "${GREEN}✅ Database backup created at $BACKUP_FILE${NC}"
+  fi
+else
+  log "${YELLOW}⚠️  Skipping database backup. Make sure you have a recent backup.${NC}"
+fi
+
+# Step 4: Apply database changes using SQL script
+log "\nStep 4: Applying database schema changes..."
+read -p "Do you want to apply the database schema standardization? (y/n) " -n 1 -r
+echo
+if [[ $REPLY =~ ^[Yy]$ ]]; then
+  log "Executing SQL standardization script..."
+  
+  if [ -z "$DB_USER" ]; then
+    read -p "Enter database user (default: postgres): " DB_USER
+    DB_USER=${DB_USER:-postgres}
+    
+    # Don't echo the password
+    read -s -p "Enter database password: " DB_PASSWORD
+    echo
+  fi
+  
+  PGPASSWORD="$DB_PASSWORD" psql -U "$DB_USER" -h localhost -d "$DB_NAME" -f "$BACKEND_DIR/standardize-id-fields.sql" > logs/sql_execution_${TIMESTAMP}.log 2>&1
+  
+  if [ $? -ne 0 ]; then
+    log "${RED}❌ SQL script execution failed. Check logs/sql_execution_${TIMESTAMP}.log for details.${NC}"
+    log "You may need to restore from backup."
+  else
+    log "${GREEN}✅ Database schema updated successfully${NC}"
+  fi
+else
+  log "${YELLOW}⚠️  Skipping database schema changes.${NC}"
+fi
+
+# Step 5: Apply TypeScript code fixes
+log "\nStep 5: Apply TypeScript code fixes..."
+read -p "Do you want to apply automatic fixes to TypeScript entity files? (y/n) " -n 1 -r
+echo
+if [[ $REPLY =~ ^[Yy]$ ]]; then
+  # First create a backup of the entity files
+  log "Creating backup of entity files..."
+  ENTITY_BACKUP="backups/entity_backup_${TIMESTAMP}"
+  mkdir -p "$ENTITY_BACKUP"
+  
+  # Find all entity files and copy them to backup
+  find "$BACKEND_DIR/src" -name "*.entity.ts" -exec cp --parents {} "$ENTITY_BACKUP" \;
+  
+  log "Running TypeScript fixes..."
+  npx ts-node fix-id-standardization.ts --fix
+  
+  if [ $? -ne 0 ]; then
+    log "${RED}❌ Some fixes may have failed. Check the output above.${NC}"
+  else
+    log "${GREEN}✅ Applied automatic fixes to entity files${NC}"
+  fi
+  
+  # Check for TypeScript compilation errors
+  log "Checking for TypeScript compilation errors..."
+  cd "$BACKEND_DIR"
+  npx tsc --noEmit
+  
+  if [ $? -ne 0 ]; then
+    log "${YELLOW}⚠️  TypeScript compilation produced errors. You may need to manually fix some issues.${NC}"
+    log "Entity file backups are available in: $ENTITY_BACKUP"
+  else
+    log "${GREEN}✅ TypeScript compilation completed without errors${NC}"
+  fi
+  cd ..
+else
+  log "${YELLOW}⚠️  Skipping TypeScript fixes.${NC}"
+fi
+
+# Step 6: Final verification
+log "\nStep 6: Final verification..."
+read -p "Do you want to run a final verification on the codebase? (y/n) " -n 1 -r
+echo
+if [[ $REPLY =~ ^[Yy]$ ]]; then
+  log "Running final analysis to check for any remaining issues..."
+  npx ts-node fix-id-standardization.ts --verbose
+  
+  if [ $? -ne 0 ]; then
+    log "${RED}❌ Final verification failed.${NC}"
+  else
+    log "${GREEN}✅ Final verification completed.${NC}"
+  fi
+else
+  log "${YELLOW}⚠️  Skipping final verification.${NC}"
+fi
+
+# Summary
+log "\n${BLUE}=================================================${NC}"
+log "${BLUE}     ID Field Standardization Process Complete     ${NC}"
+log "${BLUE}=================================================${NC}"
+log "Finished at: $(date)"
+log "Log file: $LOG_FILE"
+log "\nNext steps:"
+log "1. Review the id-standardization-report.md file"
+log "2. Fix any remaining errors manually"
+log "3. Test your application thoroughly"
+log "4. Commit the changes to your repository"
+
+echo -e "\n${GREEN}Done!${NC}"

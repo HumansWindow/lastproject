@@ -1,0 +1,28 @@
+.debugToggleButton {
+  position: fixed;
+  bottom: 20px;
+  left: 20px;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background-color: #2a2a2a;
+  border: 1px solid #3a3a3a;
+  color: #00cc66;
+  font-size: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  z-index: 9999;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  transition: all 0.2s ease;
+}
+
+.debugToggleButton:hover {
+  background-color: #333333;
+  transform: scale(1.05);
+}
+
+.debugToggleButton:active {
+  transform: scale(0.95);
+}

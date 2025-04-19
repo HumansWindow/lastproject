@@ -13,7 +13,7 @@ echo "========================================================"
 # Database connection parameters - update with your actual credentials
 DB_NAME="Alive-Db"
 DB_USER="Aliveadmin"
-DB_PASSWORD="aliveHumans@2024"
+DB_PASSWORD="alivehumans@2024"
 USE_SUDO=false
 CLEAN_LOGS=true
 LOG_DIR="${SCRIPT_DIR}/logs"
@@ -41,138 +41,45 @@ cat > "$SQL_FILE" <<EOF
 BEGIN;
 SET session_replication_role = 'replica';
 
--- First check which tables actually exist
+-- Clean tables without using the DO block that was causing issues
+-- Instead use individual commands with transaction protection
+
+-- Clean users table first (will cascade to related tables due to TRUNCATE CASCADE)
+TRUNCATE TABLE public.users CASCADE;
+
+-- Clean additional tables that may not be covered by the cascade
+TRUNCATE TABLE public.minting_queue_items CASCADE;
+TRUNCATE TABLE public.referral_codes CASCADE;
+TRUNCATE TABLE public.referrals CASCADE;
+
+-- Clean sessions table if it exists
 DO \$\$
-DECLARE
-    table_exists BOOLEAN;
 BEGIN
-    -- Clean minting queue items if table exists
-    SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'minting_queue_items') INTO table_exists;
-    IF table_exists THEN
-        RAISE NOTICE 'Truncating table: minting_queue_items';
-        EXECUTE 'TRUNCATE TABLE public.minting_queue_items CASCADE';
-    END IF;
-
-    -- Clean user devices if table exists
-    SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'user_devices') INTO table_exists;
-    IF table_exists THEN
-        RAISE NOTICE 'Truncating table: user_devices';
-        EXECUTE 'TRUNCATE TABLE public.user_devices CASCADE';
-    END IF;
-
-    -- Clean wallets if table exists
-    SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'wallets') INTO table_exists;
-    IF table_exists THEN
-        RAISE NOTICE 'Truncating table: wallets';
-        EXECUTE 'TRUNCATE TABLE public.wallets CASCADE';
-    END IF;
-
-    -- Clean referrals if table exists (correct table name)
-    SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'referral_codes') INTO table_exists;
-    IF table_exists THEN
-        RAISE NOTICE 'Truncating table: referral_codes';
-        EXECUTE 'TRUNCATE TABLE public.referral_codes CASCADE';
-    END IF;
-
-    -- Alternative referral table - referrals instead of referral_uses
-    SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'referrals') INTO table_exists;
-    IF table_exists THEN
-        RAISE NOTICE 'Truncating table: referrals';
-        EXECUTE 'TRUNCATE TABLE public.referrals CASCADE';
-    END IF;
-
-    -- Clean auth tokens if table exists
-    SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'auth_tokens') INTO table_exists;
-    IF table_exists THEN
-        RAISE NOTICE 'Truncating table: auth_tokens';
-        EXECUTE 'TRUNCATE TABLE public.auth_tokens CASCADE';
-    END IF;
-
-    -- Clean sessions if table exists
-    SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'sessions') INTO table_exists;
-    IF table_exists THEN
-        RAISE NOTICE 'Truncating table: sessions';
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'sessions') THEN
         EXECUTE 'TRUNCATE TABLE public.sessions CASCADE';
     END IF;
+END \$\$;
 
-    -- Clean profiles if table exists
-    SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'profiles') INTO table_exists;
-    IF table_exists THEN
-        RAISE NOTICE 'Truncating table: profiles';
-        EXECUTE 'TRUNCATE TABLE public.profiles CASCADE';
-    END IF;
-
-    -- Clean users if table exists
-    SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'users') INTO table_exists;
-    IF table_exists THEN
-        RAISE NOTICE 'Truncating table: users';
-        EXECUTE 'TRUNCATE TABLE public.users CASCADE';
+-- Clean refresh_tokens table if it exists
+DO \$\$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'refresh_tokens') THEN
+        EXECUTE 'TRUNCATE TABLE public.refresh_tokens CASCADE';
     END IF;
 END \$\$;
 
 -- Enable triggers again
 SET session_replication_role = 'origin';
 
--- Reset sequence values for ID columns if they exist
-DO \$\$
-DECLARE
-    sequence_exists BOOLEAN;
-    sequence_name TEXT;
-BEGIN
-    -- For users table
-    SELECT pg_get_serial_sequence('public.users', 'id') INTO sequence_name;
-    IF sequence_name IS NOT NULL THEN
-        EXECUTE 'SELECT setval(''' || sequence_name || ''', 1, false)';
-    END IF;
-
-    -- For wallets table
-    SELECT pg_get_serial_sequence('public.wallets', 'id') INTO sequence_name;
-    IF sequence_name IS NOT NULL THEN
-        EXECUTE 'SELECT setval(''' || sequence_name || ''', 1, false)';
-    END IF;
-
-    -- For user_devices table
-    SELECT pg_get_serial_sequence('public.user_devices', 'id') INTO sequence_name;
-    IF sequence_name IS NOT NULL THEN
-        EXECUTE 'SELECT setval(''' || sequence_name || ''', 1, false)';
-    END IF;
-
-    -- For minting_queue_items table
-    SELECT pg_get_serial_sequence('public.minting_queue_items', 'id') INTO sequence_name;
-    IF sequence_name IS NOT NULL THEN
-        EXECUTE 'SELECT setval(''' || sequence_name || ''', 1, false)';
-    END IF;
-
-    -- For referral_codes table
-    SELECT pg_get_serial_sequence('public.referral_codes', 'id') INTO sequence_name;
-    IF sequence_name IS NOT NULL THEN
-        EXECUTE 'SELECT setval(''' || sequence_name || ''', 1, false)';
-    END IF;
-
-    -- For referrals table (alternative to referral_uses)
-    SELECT pg_get_serial_sequence('public.referrals', 'id') INTO sequence_name;
-    IF sequence_name IS NOT NULL THEN
-        EXECUTE 'SELECT setval(''' || sequence_name || ''', 1, false)';
-    END IF;
-
-    -- For auth_tokens table
-    SELECT pg_get_serial_sequence('public.auth_tokens', 'id') INTO sequence_name;
-    IF sequence_name IS NOT NULL THEN
-        EXECUTE 'SELECT setval(''' || sequence_name || ''', 1, false)';
-    END IF;
-
-    -- For sessions table
-    SELECT pg_get_serial_sequence('public.sessions', 'id') INTO sequence_name;
-    IF sequence_name IS NOT NULL THEN
-        EXECUTE 'SELECT setval(''' || sequence_name || ''', 1, false)';
-    END IF;
-
-    -- For profiles table
-    SELECT pg_get_serial_sequence('public.profiles', 'id') INTO sequence_name;
-    IF sequence_name IS NOT NULL THEN
-        EXECUTE 'SELECT setval(''' || sequence_name || ''', 1, false)';
-    END IF;
-END \$\$;
+-- Reset sequence values for ID columns that we know exist
+ALTER SEQUENCE IF EXISTS public.users_id_seq RESTART WITH 1;
+ALTER SEQUENCE IF EXISTS public.wallets_id_seq RESTART WITH 1;
+ALTER SEQUENCE IF EXISTS public.user_devices_id_seq RESTART WITH 1;
+ALTER SEQUENCE IF EXISTS public.user_sessions_id_seq RESTART WITH 1;
+ALTER SEQUENCE IF EXISTS public.minting_queue_items_id_seq RESTART WITH 1;
+ALTER SEQUENCE IF EXISTS public.referral_codes_id_seq RESTART WITH 1;
+ALTER SEQUENCE IF EXISTS public.referrals_id_seq RESTART WITH 1;
+ALTER SEQUENCE IF EXISTS public.profiles_id_seq RESTART WITH 1;
 
 -- Commit the transaction
 COMMIT;
@@ -277,14 +184,14 @@ if [ $DB_RESULT -eq 0 ]; then
         unset PGPASSWORD
     fi
     
-    # Add a check command to display table schema
+    # Add a check command to display table counts to verify cleaning
     if [ "$USE_SUDO" = true ]; then
-        echo "Available tables in database:"
-        sudo -u postgres psql -d $DB_NAME -c "SELECT table_name FROM information_schema.tables WHERE table_schema = 'public' ORDER BY table_name;"
+        echo "Verifying tables were cleaned (should show zero counts):"
+        sudo -u postgres psql -d $DB_NAME -c "SELECT 'users' as table_name, COUNT(*) as count FROM users UNION ALL SELECT 'wallets', COUNT(*) FROM wallets UNION ALL SELECT 'minting_queue_items', COUNT(*) FROM minting_queue_items ORDER BY table_name;"
     else
         export PGPASSWORD="$DB_PASSWORD"
-        echo "Available tables in database:"
-        psql -U $DB_USER -h localhost -d $DB_NAME -c "SELECT table_name FROM information_schema.tables WHERE table_schema = 'public' ORDER BY table_name;"
+        echo "Verifying tables were cleaned (should show zero counts):"
+        psql -U $DB_USER -h localhost -d $DB_NAME -c "SELECT 'users' as table_name, COUNT(*) as count FROM users UNION ALL SELECT 'wallets', COUNT(*) FROM wallets UNION ALL SELECT 'minting_queue_items', COUNT(*) FROM minting_queue_items ORDER BY table_name;"
         unset PGPASSWORD
     fi
     
@@ -292,17 +199,11 @@ if [ $DB_RESULT -eq 0 ]; then
 else
     echo "========================================================"
     echo "Error: Database cleaning may have encountered issues."
-    echo "Some tables were truncated, but not all operations completed."
-    echo "You may need to:"
-    echo "1. Check if the database schema matches the script expectations"
-    echo "2. Run with --sudo option if not already: ./clean-db-for-testing.sh --sudo"
-    echo "3. Check if some tables don't exist in your schema"
-    echo ""
-    echo "To see your actual database tables, run:"
+    echo "Please manually check if tables were cleared using:"
     if [ "$USE_SUDO" = true ]; then
-        echo "sudo -u postgres psql -d $DB_NAME -c \"SELECT table_name FROM information_schema.tables WHERE table_schema = 'public';\""
+        echo "sudo -u postgres psql -d $DB_NAME -c \"SELECT 'users' as table, COUNT(*) FROM users; SELECT 'wallets' as table, COUNT(*) FROM wallets;\""
     else
-        echo "psql -U $DB_USER -h localhost -d $DB_NAME -c \"SELECT table_name FROM information_schema.tables WHERE table_schema = 'public';\""
+        echo "psql -U $DB_USER -h localhost -d $DB_NAME -c \"SELECT 'users' as table, COUNT(*) FROM users; SELECT 'wallets' as table, COUNT(*) FROM wallets;\""
     fi
     echo "========================================================"
     
@@ -311,7 +212,5 @@ else
         unset PGPASSWORD
     fi
     
-    # Regardless of errors, the script truncated whatever tables it could, so
-    # consider that a partial success for testing purposes
-    exit 0
+    exit 1
 fi

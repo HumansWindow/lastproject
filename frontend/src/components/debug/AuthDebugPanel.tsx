@@ -1,5 +1,11 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import walletService from '../../services/wallet';
+
+interface LogEntry {
+  timestamp: string;
+  message: string;
+  isError: boolean;
+}
 
 interface Props {
   visible?: boolean;
@@ -7,15 +13,54 @@ interface Props {
 }
 
 const AuthDebugPanel: React.FC<Props> = ({ visible = true, onClose }) => {
-  const [logs, setLogs] = useState<string[]>([]);
+  const [logs, setLogs] = useState<LogEntry[]>([]);
   const [isActive, setIsActive] = useState<boolean>(visible);
   const [minimized, setMinimized] = useState<boolean>(false);
+  const logsContainerRef = useRef<HTMLDivElement>(null);
 
+  // Listen for wallet authentication logs
   useEffect(() => {
     if (!isActive) return;
+    
+    // Legacy logs update - if needed
     updateLogs();
-    const interval = setInterval(updateLogs, 1000);
-    return () => clearInterval(interval);
+    
+    // Listen for new wallet-auth:log events
+    const handleWalletAuthLog = (event: CustomEvent) => {
+      const { timestamp, message, isError } = event.detail;
+      setLogs(prevLogs => [...prevLogs, { timestamp, message, isError }]);
+      
+      // Scroll to bottom on new log
+      setTimeout(() => {
+        if (logsContainerRef.current) {
+          logsContainerRef.current.scrollTop = logsContainerRef.current.scrollHeight;
+        }
+      }, 50);
+    };
+    
+    // Add event listener with type assertion
+    window.addEventListener(
+      'wallet-auth:log',
+      handleWalletAuthLog as EventListener
+    );
+    
+    // Enable debugging in wallet authenticator
+    if (walletService.authenticator) {
+      walletService.authenticator.enableDebug(true);
+    }
+    
+    return () => {
+      // Clean up event listener
+      window.removeEventListener(
+        'wallet-auth:log', 
+        handleWalletAuthLog as EventListener
+      );
+      
+      // Disable debugging when component is unmounted
+      if (walletService.authenticator) {
+        walletService.authenticator.enableDebug(false);
+      }
+    };
   }, [isActive]);
 
   useEffect(() => {
@@ -23,8 +68,31 @@ const AuthDebugPanel: React.FC<Props> = ({ visible = true, onClose }) => {
   }, [visible]);
 
   const updateLogs = () => {
+    // Legacy method for backward compatibility
     const currentLogs = walletService.getDebugLogs?.() || [];
-    setLogs(currentLogs);
+    if (currentLogs.length > 0) {
+      const formattedLogs = currentLogs.map((log: string) => {
+        const isError = log.includes('ERROR') || log.includes('Error') || log.includes('error');
+        // Extract timestamp if available or use current time
+        const timestampMatch = log.match(/^\[(.*?)\]/);
+        const timestamp = timestampMatch ? timestampMatch[1] : new Date().toISOString();
+        
+        return {
+          timestamp,
+          message: log,
+          isError
+        };
+      });
+      
+      setLogs(prevLogs => {
+        // Deduplicate logs based on message content
+        const allLogs = [...prevLogs, ...formattedLogs];
+        const uniqueLogs = allLogs.filter((log, index, self) => 
+          index === self.findIndex(l => l.message === log.message)
+        );
+        return uniqueLogs;
+      });
+    }
   };
 
   const handleClose = () => {
@@ -33,8 +101,10 @@ const AuthDebugPanel: React.FC<Props> = ({ visible = true, onClose }) => {
   };
 
   const handleClearLogs = () => {
-    walletService.clearDebugLogs?.();
     setLogs([]);
+    if (walletService.clearDebugLogs) {
+      walletService.clearDebugLogs();
+    }
   };
 
   const toggleMinimized = () => {
@@ -72,7 +142,7 @@ const AuthDebugPanel: React.FC<Props> = ({ visible = true, onClose }) => {
         paddingBottom: '5px',
         marginBottom: minimized ? '0' : '5px'
       }}>
-        <div style={{ fontWeight: 'bold' }}>🔍 Auth Debugger</div>
+        <div style={{ fontWeight: 'bold' }}>🔍 Wallet Auth Debugger</div>
         <div>
           <button
             onClick={toggleMinimized}
@@ -104,31 +174,34 @@ const AuthDebugPanel: React.FC<Props> = ({ visible = true, onClose }) => {
       
       {!minimized && (
         <>
-          <div style={{ 
-            overflowY: 'auto', 
-            flex: 1, 
-            paddingRight: '5px'
-          }}>
+          <div 
+            ref={logsContainerRef}
+            style={{ 
+              overflowY: 'auto', 
+              flex: 1, 
+              paddingRight: '5px'
+            }}
+          >
             {logs.length === 0 ? (
               <div style={{ color: '#888', fontStyle: 'italic' }}>No logs yet...</div>
             ) : (
-              logs.map((log, index) => {
-                const isError = log.includes('❌ ERROR');
-                return (
-                  <div 
-                    key={index} 
-                    style={{ 
-                      color: isError ? '#ff5555' : '#00ff00',
-                      marginBottom: '3px',
-                      fontSize: '11px',
-                      whiteSpace: 'pre-wrap',
-                      wordBreak: 'break-word'
-                    }}
-                  >
-                    {log}
-                  </div>
-                );
-              })
+              logs.map((log, index) => (
+                <div 
+                  key={index} 
+                  style={{ 
+                    color: log.isError ? '#ff5555' : '#00ff00',
+                    marginBottom: '3px',
+                    fontSize: '11px',
+                    whiteSpace: 'pre-wrap',
+                    wordBreak: 'break-word'
+                  }}
+                >
+                  <span style={{ color: '#888' }}>{log.timestamp.slice(-13)}</span>
+                  {" "}
+                  {log.isError ? '❌ ' : '✓ '}
+                  {log.message}
+                </div>
+              ))
             )}
           </div>
           

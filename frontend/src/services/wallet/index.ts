@@ -17,7 +17,7 @@ const RPC_URLS = {
 };
 
 // API base URL for authentication
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
 class WalletService {
   private authService: WalletAuthenticator;
@@ -29,7 +29,7 @@ class WalletService {
 
   constructor() {
     // Initialize the auth property with API base URL
-    const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api';
+    const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
     this.authService = new WalletAuthenticator(apiBaseUrl);
 
     // Create wallet connection instance
@@ -57,6 +57,11 @@ class WalletService {
     this.logDebug('WalletService initialized');
   }
 
+  // Getter for accessing the authenticator
+  get authenticator(): WalletAuthenticator {
+    return this.authService;
+  }
+
   async connect(providerType: WalletProviderType): Promise<WalletInfo | null> {
     const provider = this.providers[providerType as keyof typeof this.providers];
     if (!provider) {
@@ -81,7 +86,8 @@ class WalletService {
   async getChallenge(address: string): Promise<string> {
     this.logDebug(`Getting challenge for address: ${address}`);
     try {
-      const challenge = await this.authService.getAuthChallenge(address);
+      const challengeObj = await this.authService.getAuthChallenge(address);
+      const challenge = challengeObj.challenge;
       this.logDebug(`Challenge received: ${challenge.substring(0, 20)}...`);
       return challenge;
     } catch (error) {
@@ -93,15 +99,15 @@ class WalletService {
   async authenticate(
     walletInfo: WalletInfo,
     signature: string,
+    nonce: string,
     email?: string,
-    nonce?: string,
     deviceFingerprint?: string
   ): Promise<AuthResult> {
     this.logDebug(`Authenticating with signature: ${signature.substring(0, 15)}...`);
     this.logDebug(`Wallet Info: ${walletInfo.address}, Chain ID: ${walletInfo.chainId}`);
     
     try {
-      const authResult = await this.authService.authenticate(walletInfo, signature, email, nonce, deviceFingerprint);
+      const authResult = await this.authService.authenticate(walletInfo, signature, nonce, email, deviceFingerprint);
       this.logDebug(`Authentication successful, token received: ${
         'accessToken' in authResult 
           ? (authResult as any).accessToken.substring(0, 15) + '...' 
@@ -154,49 +160,200 @@ class WalletService {
       throw new Error('No wallet connected');
     }
 
+    if (!message) {
+      this.logDebug('Empty message provided for signing', true);
+      throw new Error('Cannot sign an empty message');
+    }
+
     try {
+      // Ensure the message is properly formatted for Ethereum signing
+      const formattedMessage = message.startsWith('\x19Ethereum Signed Message:') 
+        ? message 
+        : message;
+      
+      this.logDebug(`Formatted message for signing: ${formattedMessage.substring(0, 30)}...`);
+      
       // Different wallet providers have different methods for signing
-      // This is a common approach that works with most providers
       if (walletInfo.provider.request) {
-        const accounts = await walletInfo.provider.request({ method: 'eth_accounts' });
-        const from = accounts[0];
-        this.logDebug(`Using account for signing: ${from}`);
+        try {
+          // Important fix: Always use the connected wallet address
+          // instead of requesting accounts which might return a different account
+          const from = walletInfo.address;
+          this.logDebug(`Using account for signing: ${from}`);
 
-        // Most providers use eth_signTypedData_v4 or personal_sign
-        this.logDebug('Prompting wallet for signature...');
-        const signature = await walletInfo.provider.request({
-          method: 'personal_sign',
-          params: [message, from]
-        });
+          // Most providers use personal_sign
+          this.logDebug('Prompting wallet for signature...');
+          
+          // Add timeout protection for wallet requests that might hang
+          const timeoutPromise = new Promise<never>((_, reject) => {
+            setTimeout(() => reject(new Error('Wallet signature request timed out after 60 seconds')), 60000);
+          });
+          
+          // Create the signature request promise
+          const signaturePromise = walletInfo.provider.request({
+            method: 'personal_sign',
+            params: [formattedMessage, from]
+          });
+          
+          // Race the signature request against the timeout
+          const signature = await Promise.race([signaturePromise, timeoutPromise]);
+          
+          if (!signature) {
+            this.logDebug('Empty signature returned from wallet', true);
+            throw new Error('No signature returned from wallet');
+          }
 
-        this.logDebug(`Signature received: ${signature.substring(0, 15)}...`);
-        return signature;
+          this.logDebug(`Signature received: ${signature.substring(0, 15)}...`);
+          return signature;
+        } catch (err) {
+          // Improved error handling with better error visualization
+          let errorMessage = 'Unknown error';
+          
+          if (err instanceof Error) {
+            errorMessage = err.message;
+          } else if (typeof err === 'object' && err !== null) {
+            try {
+              // Properly stringify error objects
+              errorMessage = JSON.stringify(err);
+            } catch (e) {
+              // If circular reference, try to extract useful properties
+              const errObj = err as any;
+              errorMessage = `Error Code: ${errObj.code || 'unknown'}, Message: ${errObj.message || 'No message'}`;
+            }
+          } else {
+            errorMessage = String(err);
+          }
+          
+          this.logDebug(`Provider request error: ${errorMessage}`, true);
+          
+          // Detect wallet rejection patterns across different providers
+          if (typeof errorMessage === 'string' && (
+              errorMessage.includes('user rejected') || 
+              errorMessage.includes('User denied') || 
+              errorMessage.includes('user denied') ||
+              errorMessage.includes('rejected') ||
+              errorMessage.toLowerCase().includes('canceled') ||
+              errorMessage.toLowerCase().includes('cancelled') ||
+              errorMessage.includes('User rejected')
+            )) {
+            this.logDebug('User rejected the signature request', true);
+            throw new Error('User denied message signature');
+          }
+          
+          // Detect connection errors
+          if (typeof errorMessage === 'string' && (
+              errorMessage.includes('disconnected') ||
+              errorMessage.includes('network') ||
+              errorMessage.includes('connection')
+            )) {
+            this.logDebug('Wallet connection error during signing', true);
+            throw new Error('Wallet connection error. Please check your wallet and try again.');
+          }
+          
+          // Rethrow with more context
+          throw new Error(`Failed to sign message: ${errorMessage}`);
+        }
       } else if (walletInfo.provider.send) {
-        // Fallback for older providers
+        // Fallback for older providers that use send instead of request
         this.logDebug('Using legacy provider.send method for signing');
+        
         return new Promise((resolve, reject) => {
+          // Add a timeout for the legacy method as well
+          const timeoutId = setTimeout(() => {
+            reject(new Error('Wallet signature request timed out after 60 seconds'));
+          }, 60000);
+          
           walletInfo.provider.send(
             {
               method: 'personal_sign',
-              params: [message, walletInfo.address]
+              params: [formattedMessage, walletInfo.address]
             },
             (err: Error, response: { result: string }) => {
+              clearTimeout(timeoutId);
+              
               if (err) {
-                this.logDebug(`Signing error: ${err.message}`, true);
-                return reject(err);
+                this.logDebug(`Legacy signing error: ${err.message}`, true);
+                
+                // Check for user rejection in legacy errors
+                if (err.message?.includes('User denied') || err.message?.includes('rejected')) {
+                  return reject(new Error('User denied message signature'));
+                }
+                
+                return reject(new Error(`Signing error: ${err.message}`));
               }
-              this.logDebug(`Signature received: ${response.result.substring(0, 15)}...`);
+              
+              if (!response || !response.result) {
+                this.logDebug('No signature result returned from legacy method', true);
+                return reject(new Error('No signature result returned'));
+              }
+              
+              this.logDebug(`Legacy signature received: ${response.result.substring(0, 15)}...`);
               resolve(response.result);
             }
           );
         });
+      } else if (walletInfo.provider.signMessage || (walletInfo.provider as any).ethSign) {
+        // Handle specialized wallet providers
+        this.logDebug('Using provider-specific signing method');
+        
+        try {
+          // Try native signMessage method first (common in some mobile wallets)
+          if (walletInfo.provider.signMessage) {
+            const signature = await walletInfo.provider.signMessage(formattedMessage, walletInfo.address);
+            this.logDebug(`Native signature received: ${signature.substring(0, 15)}...`);
+            return signature;
+          } 
+          
+          // Try ethSign as fallback (some less common wallets)
+          if ((walletInfo.provider as any).ethSign) {
+            const signature = await (walletInfo.provider as any).ethSign(walletInfo.address, formattedMessage);
+            this.logDebug(`ethSign signature received: ${signature.substring(0, 15)}...`);
+            return signature;
+          }
+          
+          throw new Error('Provider has signMessage property but it is not a function');
+        } catch (err) {
+          const errorMessage = err instanceof Error ? err.message : String(err);
+          this.logDebug(`Provider-specific signing error: ${errorMessage}`, true);
+          throw new Error(`Failed to sign with provider-specific method: ${errorMessage}`);
+        }
       }
 
-      this.logDebug('Wallet provider does not support signing', true);
+      this.logDebug('Wallet provider does not support any known signing method', true);
       throw new Error('Wallet provider does not support signing');
     } catch (error) {
-      this.logDebug(`Error signing message: ${error instanceof Error ? error.message : String(error)}`, true);
-      throw new Error('Failed to sign message with wallet');
+      // Improve error logging and propagation
+      if (error instanceof Error) {
+        this.logDebug(`Error signing message: ${error.message}`, true);
+        
+        // Log error details for debugging but clean up the error for users
+        if ('code' in error) {
+          this.logDebug(`Error code: ${(error as any).code}`, true);
+        }
+        
+        // Return user-friendly errors for common issues
+        if (error.message.includes('denied') || error.message.includes('rejected')) {
+          throw new Error('User denied message signature');
+        } else if (error.message.includes('timeout')) {
+          throw new Error('Wallet signature request timed out. Please try again.');
+        } else if (error.message.includes('connection')) {
+          throw new Error('Wallet connection error. Please check your wallet connection and try again.');
+        }
+        
+        throw error; // Re-throw the original error
+      } else {
+        // For non-Error objects, stringify for logging but create a proper Error
+        let errorDetail = 'Unknown error';
+        try {
+          errorDetail = JSON.stringify(error);
+          this.logDebug(`Non-standard error signing message: ${errorDetail}`, true);
+        } catch (jsonErr) {
+          errorDetail = String(error);
+          this.logDebug(`Unserializable error signing message: ${errorDetail}`, true);
+        }
+        
+        throw new Error(`Failed to sign message with wallet: ${errorDetail}`);
+      }
     }
   }
 

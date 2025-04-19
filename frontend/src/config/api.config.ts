@@ -8,103 +8,120 @@
 const isProduction = process.env.NODE_ENV === 'production';
 const isDevelopment = process.env.NODE_ENV === 'development';
 
-// Base URLs based on environment - UPDATED PORT to 3001
+// Base URLs standardized to port 3001
 export const API_URL = isProduction 
   ? process.env.NEXT_PUBLIC_API_URL || 'https://api.alivehuman.com'
-  : process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
+  : 'http://localhost:3001'; // Always use port 3001 for development
 
 export const WEBSOCKET_URL = isProduction
   ? process.env.NEXT_PUBLIC_WEBSOCKET_URL || 'wss://api.alivehuman.com'
-  : process.env.NEXT_PUBLIC_WEBSOCKET_URL || 'ws://localhost:3001';
+  : 'ws://localhost:3001'; // Always use port 3001 for websocket too
+
+// Workaround for CORS - when testing, use same origin if we're already on localhost
+export const getSafeApiUrl = () => {
+  // In browser environment, check if we should use relative URLs to avoid CORS
+  if (typeof window !== 'undefined') {
+    const currentUrl = window.location.origin;
+    // If we're on localhost frontend and API is also localhost, use relative URL to avoid CORS
+    if (currentUrl.includes('localhost') && API_URL.includes('localhost')) {
+      return ''; // Use relative URL to current origin
+    }
+    // If the current URL matches the API domain, also use relative URLs
+    if (API_URL.includes(window.location.hostname)) {
+      return '';
+    }
+  }
+  return API_URL;
+};
 
 // Endpoints configuration
 export const endpoints = {
   // Auth endpoints
   auth: {
-    login: `${API_URL}/auth/login`,
-    register: `${API_URL}/auth/register`,
-    refreshToken: `${API_URL}/auth/refresh-token`,
-    forgotPassword: `${API_URL}/auth/forgot-password`,
-    resetPassword: `${API_URL}/auth/reset-password`,
-    verifyEmail: `${API_URL}/auth/verify-email`,
-    logout: `${API_URL}/auth/logout`,
+    login: `${getSafeApiUrl()}/auth/login`,
+    register: `${getSafeApiUrl()}/auth/register`,
+    refreshToken: `${getSafeApiUrl()}/auth/refresh-token`,
+    forgotPassword: `${getSafeApiUrl()}/auth/forgot-password`,
+    resetPassword: `${getSafeApiUrl()}/auth/reset-password`,
+    verifyEmail: `${getSafeApiUrl()}/auth/verify-email`,
+    logout: `${getSafeApiUrl()}/auth/logout`,
   },
   
   // Wallet auth endpoints
   walletAuth: {
-    connect: `${API_URL}/auth/wallet/connect`,
-    authenticate: `${API_URL}/auth/wallet/authenticate`,
-    nonce: `${API_URL}/auth/wallet/nonce`,
+    connect: `${getSafeApiUrl()}/auth/wallet/connect`,
+    authenticate: `${getSafeApiUrl()}/auth/wallet/authenticate`,
+    nonce: `${getSafeApiUrl()}/auth/wallet/nonce`,
   },
   
   // User endpoints
   users: {
-    profile: `${API_URL}/users/profile`,
-    devices: `${API_URL}/users/devices`,
-    sessions: `${API_URL}/users/sessions`,
-    updateProfile: `${API_URL}/users/profile/update`,
-    settings: `${API_URL}/users/settings`,
+    profile: `${getSafeApiUrl()}/users/profile`,
+    devices: `${getSafeApiUrl()}/users/devices`,
+    sessions: `${getSafeApiUrl()}/users/sessions`,
+    updateProfile: `${getSafeApiUrl()}/users/profile/update`,
+    settings: `${getSafeApiUrl()}/users/settings`,
   },
   
   // Wallet endpoints
   wallets: {
-    balance: `${API_URL}/wallets/balance`,
-    transactions: `${API_URL}/wallets/transactions`,
-    connect: `${API_URL}/wallets/connect`,
-    disconnect: `${API_URL}/wallets/disconnect`,
+    balance: `${getSafeApiUrl()}/wallets/balance`,
+    transactions: `${getSafeApiUrl()}/wallets/transactions`,
+    connect: `${getSafeApiUrl()}/wallets/connect`,
+    disconnect: `${getSafeApiUrl()}/wallets/disconnect`,
   },
   
   // Blockchain endpoints
   blockchain: {
-    mintToken: `${API_URL}/blockchain/mint`,
-    stakingPositions: `${API_URL}/blockchain/staking/positions`,
-    createStake: `${API_URL}/blockchain/staking/create`,
-    withdrawStake: `${API_URL}/blockchain/staking/withdraw`,
-    stakingRewards: `${API_URL}/blockchain/staking/rewards`,
+    mintToken: `${getSafeApiUrl()}/blockchain/mint`,
+    stakingPositions: `${getSafeApiUrl()}/blockchain/staking/positions`,
+    createStake: `${getSafeApiUrl()}/blockchain/staking/create`,
+    withdrawStake: `${getSafeApiUrl()}/blockchain/staking/withdraw`,
+    stakingRewards: `${getSafeApiUrl()}/blockchain/staking/rewards`,
   },
   
   // NFT endpoints
   nft: {
-    list: `${API_URL}/nft`,
-    metadata: (id: string) => `${API_URL}/nft/${id}/metadata`,
-    transfer: `${API_URL}/nft/transfer`,
-    mint: `${API_URL}/nft/mint`,
-    marketplace: `${API_URL}/nft/marketplace`,
-    userCollection: `${API_URL}/nft/collection`,
+    list: `${getSafeApiUrl()}/nft`,
+    metadata: (id: string) => `${getSafeApiUrl()}/nft/${id}/metadata`,
+    transfer: `${getSafeApiUrl()}/nft/transfer`,
+    mint: `${getSafeApiUrl()}/nft/mint`,
+    marketplace: `${getSafeApiUrl()}/nft/marketplace`,
+    userCollection: `${getSafeApiUrl()}/nft/collection`,
   },
   
   // Token endpoints
   token: {
-    balance: `${API_URL}/token/balance`,
-    transactions: `${API_URL}/token/transactions`,
-    priceHistory: `${API_URL}/token/price-history`,
-    transfer: `${API_URL}/token/transfer`,
+    balance: `${getSafeApiUrl()}/token/balance`,
+    transactions: `${getSafeApiUrl()}/token/transactions`,
+    priceHistory: `${getSafeApiUrl()}/token/price-history`,
+    transfer: `${getSafeApiUrl()}/token/transfer`,
   },
   
   // Diary endpoints
   diary: {
-    entries: `${API_URL}/diary`,
-    entry: (id: string) => `${API_URL}/diary/${id}`,
-    locations: `${API_URL}/diary/locations/list`,
-    create: `${API_URL}/diary/create`,
-    update: (id: string) => `${API_URL}/diary/${id}/update`,
-    delete: (id: string) => `${API_URL}/diary/${id}/delete`,
-    stats: `${API_URL}/diary/stats`,
+    entries: `${getSafeApiUrl()}/diary`,
+    entry: (id: string) => `${getSafeApiUrl()}/diary/${id}`,
+    locations: `${getSafeApiUrl()}/diary/locations/list`,
+    create: `${getSafeApiUrl()}/diary/create`,
+    update: (id: string) => `${getSafeApiUrl()}/diary/${id}/update`,
+    delete: (id: string) => `${getSafeApiUrl()}/diary/${id}/delete`,
+    stats: `${getSafeApiUrl()}/diary/stats`,
   },
   
   // Referral endpoints
   referral: {
-    generate: `${API_URL}/referral/generate`,
-    validate: `${API_URL}/referral/validate`,
-    stats: `${API_URL}/referral/stats`,
-    history: `${API_URL}/referral/history`,
-    rewards: `${API_URL}/referral/rewards`,
+    generate: `${getSafeApiUrl()}/referral/generate`,
+    validate: `${getSafeApiUrl()}/referral/validate`,
+    stats: `${getSafeApiUrl()}/referral/stats`,
+    history: `${getSafeApiUrl()}/referral/history`,
+    rewards: `${getSafeApiUrl()}/referral/rewards`,
   },
   
   // Health check
   health: {
-    status: `${API_URL}/health`,
-    version: `${API_URL}/health/version`,
+    status: `${getSafeApiUrl()}/health`,
+    version: `${getSafeApiUrl()}/health/version`,
   }
 };
 
@@ -169,9 +186,9 @@ export const websocket = {
 
 // API client configuration
 export const apiClientConfig = {
-  baseURL: API_URL,
+  baseURL: getSafeApiUrl() || '/',
   timeout: 15000, // 15 seconds
-  withCredentials: true,
+  withCredentials: false, // Set to false to avoid CORS preflight issues
   headers: {
     'Content-Type': 'application/json',
     'Accept': 'application/json',
@@ -189,6 +206,7 @@ const apiConfig = {
   apiClientConfig,
   isDevelopment,
   isProduction,
+  getSafeApiUrl,
 };
 
 export default apiConfig;

@@ -1,9 +1,9 @@
-import { WalletAuthenticator } from './wallet-auth';
+import { WalletAuthenticator, AuthChallenge } from './wallet-auth';
 import { WalletConnection } from '../core/connection';
 import { WalletInfo } from '../core/wallet-base';
 
 export class ChallengeManager {
-  private currentChallenge: string | null = null;
+  private currentChallenge: AuthChallenge | null = null;
 
   constructor(
     private walletConnection: WalletConnection,
@@ -39,7 +39,7 @@ export class ChallengeManager {
       }
       
       // Create a message for the user to sign
-      const messageToSign = `Sign this message to authenticate with our app: ${this.currentChallenge}`;
+      const messageToSign = `Sign this message to authenticate with our app: ${this.currentChallenge.challenge}`;
       
       // Sign the challenge with wallet
       const signature = await this.walletConnection.signMessage(messageToSign);
@@ -52,7 +52,7 @@ export class ChallengeManager {
       }
       
       // Authenticate with the signed challenge and original nonce
-      return await this.authService.authenticate(walletInfo, signature, email, this.currentChallenge);
+      return await this.authService.authenticate(walletInfo, signature, this.currentChallenge.challenge, email);
       
     } catch (error: unknown) {
       const err = error as { message?: string };

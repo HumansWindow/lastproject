@@ -15,5 +15,5 @@ echo "" >> "$LOG_FILE"
 # Change to backend directory
 cd backend
 
-# Run backend with NODE_OPTIONS for increased memory if needed
-NODE_OPTIONS="--max-old-space-size=4096" npm run start:dev >> "../$LOG_FILE" 2>&1
+# Run backend with NODE_OPTIONS for increased memory (8GB instead of 4GB)
+NODE_OPTIONS="--max-old-space-size=8192" npm run start:dev >> "../$LOG_FILE" 2>&1

@@ -6,7 +6,7 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, EntityManager } from 'typeorm';
 import { Profile } from './entities/profile.entity';
 import { User } from '../users/entities/user.entity';
 import { 
@@ -63,6 +63,48 @@ export class ProfileService {
     });
 
     return this.profileRepository.save(newProfile);
+  }
+
+  /**
+   * Create a new profile for a user within a transaction
+   * This method is used when creating profiles as part of a larger transaction
+   */
+  async createWithTransaction(
+    entityManager: EntityManager,
+    userId: string, 
+    createProfileDto: CreateProfileDto
+  ): Promise<Profile> {
+    this.logger.log(`Creating profile with transaction for user: ${userId}`);
+    
+    // Check if user exists using the provided entity manager
+    const user = await entityManager.findOne(User, { where: { id: userId } });
+    if (!user) {
+      throw new NotFoundException(`User with ID ${userId} not found`);
+    }
+
+    // Check if profile already exists using the provided entity manager
+    const existingProfile = await entityManager.findOne(Profile, { where: { userId } });
+    if (existingProfile) {
+      throw new ConflictException(`Profile for user ${userId} already exists`);
+    }
+
+    // Check if email is unique if provided
+    if (createProfileDto.email) {
+      const emailExists = await entityManager.findOne(Profile, {
+        where: { email: createProfileDto.email }
+      });
+      if (emailExists) {
+        throw new ConflictException(`Email ${createProfileDto.email} is already in use`);
+      }
+    }
+
+    // Create new profile using the entity manager
+    const newProfile = entityManager.create(Profile, {
+      userId,
+      ...createProfileDto,
+    });
+
+    return entityManager.save(newProfile);
   }
 
   /**

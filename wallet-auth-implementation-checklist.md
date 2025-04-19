@@ -9,19 +9,20 @@
 - [x] Implement better error handling to recover from failed authentication attempts
 - [x] Use useCallback for performAuthentication to prevent unnecessary re-renders
 
-### Backend (To Be Implemented)
-- [ ] Implement challenge cache in WalletAuthController to track issued challenges
-- [ ] Add request deduplication in WalletAuthController's connect method
-- [ ] Improve transaction handling in AuthService.walletLogin for atomic operations
-- [ ] Add wallet address normalization consistently across all methods
-- [ ] Update error handling to properly roll back partial user/wallet creation
-- [ ] Add request tracking IDs to correlate frontend/backend logs
+### Backend (Implemented)
+- [x] Implement challenge cache in WalletAuthController to track issued challenges
+- [x] Add request deduplication in WalletAuthController's connect method
+- [x] Improve transaction handling in AuthService.walletLogin for atomic operations
+- [x] Add wallet address normalization consistently across all methods
+- [x] Update error handling to properly roll back partial user/wallet creation
+- [x] Add request tracking IDs to correlate frontend/backend logs
+- [x] Fix database issue with refresh_tokens table (missing created_at column)
 
 ### Testing
-- [ ] Test WalletConnectButton to ensure single connection request
-- [ ] Verify user creation works properly with the improved flow
-- [ ] Test error scenarios (invalid signature, timeout, etc.)
-- [ ] Monitor logs to ensure no duplicate connection requests
+- [x] Test WalletConnectButton to ensure single connection request
+- [x] Verify user creation works properly with the improved flow
+- [x] Test error scenarios (invalid signature, timeout, etc.)
+- [x] Monitor logs to ensure no duplicate connection requests
 
 ## How to Test
 
@@ -47,8 +48,52 @@
 - Adding timeout cleanup prevents stale authentication attempts
 
 ### For Backend
-- Focus on making wallet connection and user creation transactional
-- Add proper checks for duplicate challenges based on wallet address
-- Consider adding a short-term cache (Redis or in-memory) for challenge tracking
-- Ensure wallet addresses are consistently normalized to lowercase
-- Add proper error classification for better frontend error handling
+- ✅ Implemented challenge cache in WalletAuthController to prevent duplicate challenges
+- ✅ Added wallet address normalization for consistent lookup and storage
+- ✅ Added request tracking IDs for better debugging and log correlation
+- ✅ Fixed database schema issue with missing created_at column in refresh_tokens table
+- ✅ Improved error handling with clearer error messages and proper transaction rollback
+
+## Additional Improvements
+
+### Frontend Enhancement
+- [ ] Add wallet connectivity status indicator
+- [ ] Implement better error UX with friendly error messages
+- [ ] Add connection timeout handling with automatic retry
+- [ ] Add wallet network detection and switching
+- [ ] Standardize API URL configuration to use port 3001 consistently
+- [ ] Clear localStorage cached URLs to prevent connection issues
+
+### Backend Enhancement
+- [ ] Implement rate limiting for wallet connection requests
+- [ ] Add enhanced security with device fingerprinting
+- [ ] Implement multi-wallet support for single user accounts
+- [ ] Add analytics for tracking authentication success rates
+- [ ] Fix refresh_tokens table schema (rename expires_at to expiresAt or vice versa for consistency)
+- [ ] Implement database transaction rollback on all authentication errors
+- [ ] Add comprehensive error logging for wallet authentication failures
+- [ ] Create automated health check for wallet authentication services
+
+## API URL Refactoring Plan
+
+### Issues Identified
+- [x] Inconsistent API URL configuration (mixing port 3000 and 3001)
+- [x] Cached localStorage URLs causing connection problems
+- [x] Frontend attempting to connect to incorrect endpoints
+
+### Refactoring Steps
+- [x] Create `fix-api-url.sh` script to standardize API configuration
+- [x] Set up `.env.local` with correct NEXT_PUBLIC_API_URL value
+- [x] Implement localStorage clearing on frontend startup
+- [x] Create port checking script to ensure backend runs on correct port
+- [ ] Consider consolidating API endpoints under consistent URL structure
+- [ ] Implement API versioning for better backward compatibility
+- [ ] Create API route documentation to ensure frontend uses correct endpoints
+- [ ] Add connectivity testing on startup to detect API configuration issues
+
+### How to Test API URL Fix
+1. Run `./fix-api-url.sh` script to apply URL configuration fixes
+2. Clear browser localStorage to remove any cached URLs
+3. Ensure backend is running on port 3001 using `./check-backend-port.sh`
+4. Restart frontend with `cd frontend && npm run dev`
+5. Test wallet authentication to verify successful API connections

@@ -30,7 +30,7 @@ const WalletConnectPage = () => {
       const signature = await walletService.signMessage(challenge, walletInfo);
       
       // 4. Authenticate with backend
-      const authResult = await walletService.authenticate(walletInfo, signature);
+      const authResult = await walletService.authenticate(walletInfo, signature, challenge);
       
       // 5. Handle successful authentication
       console.log('Authentication successful:', authResult);

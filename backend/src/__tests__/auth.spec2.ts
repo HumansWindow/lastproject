@@ -7,7 +7,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { User } from '../users/entities/user.entity';
 import { ConfigModule } from '@nestjs/config';
 import { JwtModule } from '@nestjs/jwt';
-import { RefreshToken } from '../auth/dto/refresh-token.entity';
+import { RefreshToken } from '../auth/entities/refresh-token.entity';
 
 describe('Auth', () => {
   let app: INestApplication;

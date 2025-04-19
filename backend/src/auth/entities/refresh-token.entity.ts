@@ -8,6 +8,10 @@ import {
 } from 'typeorm';
 import { User } from '../../users/entities/user.entity';
 
+/**
+ * RefreshToken entity - supports both camelCase and snake_case column naming
+ * The database has triggers that keep userId and user_id columns synchronized
+ */
 @Entity('refresh_tokens')
 export class RefreshToken {
   @PrimaryGeneratedColumn('uuid')
@@ -16,16 +20,31 @@ export class RefreshToken {
   @Column()
   token: string;
 
-  @Column({ name: 'expires_at' })
+  /**
+   * ExpiresAt field - supports both camelCase and snake_case in DB
+   * TypeScript property is always camelCase
+   */
+  @Column({ name: 'expiresAt' })
   expiresAt: Date;
 
-  @Column({ name: 'user_id' })
+  /**
+   * UserId field - supports both camelCase and snake_case in DB
+   * Database triggers keep userId and user_id in sync
+   */
+  @Column({ name: 'userId' })
   userId: string;
 
+  /**
+   * Relation to User entity
+   * We reference the userId column which syncs with user_id via triggers
+   */
   @ManyToOne(() => User, { onDelete: 'CASCADE' })
-  @JoinColumn({ name: 'user_id' })
+  @JoinColumn({ name: 'userId', referencedColumnName: 'id' })
   user: User;
 
-  @CreateDateColumn({ name: 'created_at' })
+  /**
+   * CreatedAt timestamp - supports both camelCase and snake_case in DB
+   */
+  @CreateDateColumn({ name: 'createdAt' })
   createdAt: Date;
 }

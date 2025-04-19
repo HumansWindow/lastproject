@@ -44,12 +44,18 @@ const processQueue = (error: Error | null, token: string | null = null) => {
   failedRequestsQueue = [];
 };
 
+// Function to get the backend URL - always uses API_URL (port 3001)
+const getWorkingBackendUrl = async (): Promise<string> => {
+  console.log(`Using backend API URL: ${API_URL} (port 3001)`);
+  return API_URL;
+};
+
 // Create axios instance with default config
 const apiClient = axios.create({
   baseURL: API_URL,
   timeout: apiClientConfig.timeout,
   headers: apiClientConfig.headers,
-  withCredentials: apiClientConfig.withCredentials
+  withCredentials: false  // Changed to false to avoid CORS issues with wallet authentication
 });
 
 // Create cache with appropriate configuration
@@ -85,7 +91,7 @@ apiClient.defaults.adapter = cache.adapter;
 
 // Add request interceptor to inject auth token and handle wallet requests specially
 apiClient.interceptors.request.use(
-  (config) => {
+  async (config) => {
     // Special handling for wallet authentication endpoints
     if (config.url?.includes('/auth/wallet')) {
       // For wallet endpoints, ensure proper content type and timeout
@@ -95,7 +101,16 @@ apiClient.interceptors.request.use(
       // Add additional header to indicate wallet request (helps with debugging)
       config.headers['X-Wallet-Request'] = 'true';
       
-      // Log wallet request for debugging
+      // Find a working backend URL for wallet requests
+      const workingUrl = await getWorkingBackendUrl();
+      
+      // If the baseURL is different from the working URL, update it for this request only
+      if (workingUrl !== API_URL) {
+        // Extract endpoint path from original URL
+        const endpoint = config.url.replace(/^https?:\/\/[^/]+/, '');
+        config.url = `${workingUrl}${endpoint}`;
+      }
+      
       console.log('Sending wallet request to:', config.url);
     }
     
@@ -129,6 +144,38 @@ apiClient.interceptors.response.use(
     
     // Special handling for wallet authentication errors
     if (originalConfig.url?.includes('/auth/wallet')) {
+      // Check if it's a connection refused error
+      if (error.code === 'ECONNREFUSED' || error.message?.includes('Network Error')) {
+        console.error('Wallet connection error (network issue):', error.message);
+        
+        // Try to find an alternative working endpoint
+        try {
+          const workingUrl = await getWorkingBackendUrl();
+          
+          // Extract endpoint path from original URL
+          let endpoint = originalConfig.url;
+          // If URL is absolute, extract just the path
+          if (endpoint.startsWith('http')) {
+            endpoint = endpoint.replace(/^https?:\/\/[^/]+/, '');
+          }
+          
+          // Create a new URL with the working backend
+          const newUrl = `${workingUrl}${endpoint}`;
+          console.log(`Retrying wallet request with alternative URL: ${newUrl}`);
+          
+          // Retry the request with the new URL
+          originalConfig.url = newUrl;
+          
+          // Set baseURL to null to avoid it being prepended to the URL again
+          originalConfig.baseURL = '';
+          
+          // Try the request again
+          return axios(originalConfig);
+        } catch (retryError) {
+          console.error('Failed to retry wallet request with alternative URL:', retryError);
+        }
+      }
+      
       // Enhanced error for wallet connection issues
       console.error('Wallet connection error:', error.message);
       
@@ -182,10 +229,20 @@ apiClient.interceptors.response.use(
           return Promise.reject(error);
         }
 
+        // Try to find a working backend URL for token refresh
+        const workingUrl = await getWorkingBackendUrl();
+        
         // Try to refresh the token
         const response = await axios.post(
-          `${API_URL}/auth/refresh-token`, 
-          { refreshToken }
+          `${workingUrl}/auth/refresh-token`, 
+          { refreshToken },
+          {
+            headers: {
+              'Content-Type': 'application/json',
+              'Accept': 'application/json'
+            },
+            withCredentials: false
+          }
         );
         
         const { accessToken, refreshToken: newRefreshToken } = response.data;
@@ -285,6 +342,12 @@ interface EnhancedApiClient extends AxiosInstance {
    * @returns Object containing authentication details
    */
   authenticateWallet: (address: string, signature: string, nonce: string) => Promise<any>;
+  
+  /**
+   * Get the best working backend URL
+   * @returns Promise that resolves to the best working backend URL
+   */
+  getWorkingBackendUrl: () => Promise<string>;
 }
 
 // Add additional methods to the API client
@@ -362,7 +425,23 @@ enhancedApiClient.getAuthState = () => {
 // Add wallet-specific methods
 enhancedApiClient.connectWallet = async (address: string): Promise<{ nonce: string }> => {
   try {
-    const response = await apiClient.post(endpoints.walletAuth.connect, { address });
+    // Get the best working backend URL
+    const workingUrl = await getWorkingBackendUrl();
+    
+    // Use the working URL for the wallet connect endpoint
+    const connectUrl = workingUrl + '/auth/wallet/connect';
+    
+    const response = await axios.post(connectUrl, { 
+      address 
+    }, {
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
+      },
+      timeout: 5000,
+      withCredentials: false
+    });
+    
     console.log('Wallet connect response:', response.data);
     return response.data;
   } catch (error) {
@@ -373,10 +452,23 @@ enhancedApiClient.connectWallet = async (address: string): Promise<{ nonce: stri
 
 enhancedApiClient.authenticateWallet = async (address: string, signature: string, nonce: string) => {
   try {
-    const response = await apiClient.post(endpoints.walletAuth.authenticate, {
+    // Get the best working backend URL
+    const workingUrl = await getWorkingBackendUrl();
+    
+    // Use the working URL for the wallet authentication endpoint
+    const authUrl = workingUrl + '/auth/wallet/authenticate';
+    
+    const response = await axios.post(authUrl, {
       address,
       signature,
       nonce
+    }, {
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
+      },
+      timeout: 5000,
+      withCredentials: false
     });
     
     const { accessToken, refreshToken, user } = response.data;
@@ -395,6 +487,9 @@ enhancedApiClient.authenticateWallet = async (address: string, signature: string
     throw error;
   }
 };
+
+// Expose the getWorkingBackendUrl function
+enhancedApiClient.getWorkingBackendUrl = getWorkingBackendUrl;
 
 // Export the enhanced API client
 export { enhancedApiClient as apiClient };

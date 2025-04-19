@@ -88,6 +88,7 @@ export interface WalletConnectRequest {
 export interface WalletConnectResponse {
   nonce: string;
   walletExists: boolean;
+  message?: string; // Optional message/challenge text from the server
 }
 
 export interface WalletAuthRequest {

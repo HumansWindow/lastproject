@@ -47,7 +47,7 @@ export class MerkleService implements OnModuleInit {
 
       this.logger.log(`Initializing merkle tree with ${walletAddresses.length} wallet addresses from database`);
       
-      // Initialize the merkle tree
+      // Initialize the merkle tree with validated addresses
       this.initializeMerkleTree(walletAddresses);
       this.initialized = true;
       
@@ -68,13 +68,45 @@ export class MerkleService implements OnModuleInit {
   }
 
   /**
+   * Validate if a string is a valid Ethereum address
+   * @param address Address to validate
+   * @returns True if the address is valid
+   */
+  private isValidEthereumAddress(address: string): boolean {
+    try {
+      if (!address || typeof address !== 'string') return false;
+      
+      // Check if address matches the Ethereum address pattern (0x followed by 40 hex chars)
+      if (!address.match(/^0x[0-9a-fA-F]{40}$/)) return false;
+      
+      // Try to normalize the address using ethers.js
+      const normalized = ethers.utils.getAddress(address);
+      return true;
+    } catch (error) {
+      return false;
+    }
+  }
+
+  /**
    * Initialize the merkle tree with a list of eligible addresses
    * @param addresses List of eligible addresses
    */
   initializeMerkleTree(addresses: string[]): void {
     try {
+      // Filter out invalid addresses
+      const validAddresses = addresses.filter(addr => this.isValidEthereumAddress(addr));
+      
+      if (validAddresses.length === 0) {
+        this.logger.warn('No valid wallet addresses found for merkle tree initialization');
+        return;
+      }
+
+      if (validAddresses.length !== addresses.length) {
+        this.logger.warn(`Filtered out ${addresses.length - validAddresses.length} invalid wallet addresses`);
+      }
+
       // Normalize addresses and create leaves
-      const normalizedAddresses = addresses.map(addr => addr.toLowerCase());
+      const normalizedAddresses = validAddresses.map(addr => addr.toLowerCase());
       this.leaves = normalizedAddresses.map(addr => ethers.utils.keccak256(addr));
       
       // Create the merkle tree
@@ -85,7 +117,7 @@ export class MerkleService implements OnModuleInit {
         this.addressToLeafIndex.set(addr, index);
       });
       
-      this.logger.log(`Merkle tree initialized with ${addresses.length} addresses`);
+      this.logger.log(`Merkle tree initialized with ${validAddresses.length} valid wallet addresses`);
     } catch (error) {
       this.logger.error(`Failed to initialize merkle tree: ${error.message}`, error.stack);
       throw new Error(`Failed to initialize merkle tree: ${error.message}`);

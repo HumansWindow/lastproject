@@ -4,30 +4,29 @@
   "private": true,
   "workspaces": [
     "backend",
-    "frontend",
-    "admin",
-    "mobile",
-    "shared/*"
+    "frontend"
   ],
   "scripts": {
-    "backend": "yarn workspace backend",
-    "frontend": "yarn workspace frontend",
-    "admin": "yarn workspace admin",
-    "mobile": "yarn workspace mobile",
-    "dev": "concurrently \"yarn backend dev\" \"yarn frontend dev\" \"yarn admin dev\"",
-    "build": "yarn workspaces run build",
-    "test": "yarn workspaces run test",
-    "test:coverage": "yarn workspaces run test:cov",
+    "backend": "cd backend && npm run",
+    "frontend": "cd frontend && npm run",
+    "dev:backend": "cd backend && npm run dev",
+    "dev:frontend": "cd frontend && npm run dev",
+    "dev": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\"",
+    "build": "concurrently \"cd backend && npm run build\" \"cd frontend && npm run build\"",
+    "test": "concurrently \"cd backend && npm run test\" \"cd frontend && npm run test\"",
+    "test:coverage": "concurrently \"cd backend && npm run test:cov\" \"cd frontend && npm run test:cov\"",
     "postinstall": "echo 'Installation completed successfully!'"
   },
   "devDependencies": {
     "@types/crypto-js": "^4.2.2",
+    "@types/node": "^22.14.1",
     "@typescript-eslint/eslint-plugin": "5.62.0",
     "@typescript-eslint/parser": "5.62.0",
     "chai": "^4.3.7",
     "concurrently": "^7.6.0",
     "eslint": "8.56.0",
-    "typescript": "^5.3.3"
+    "ts-node": "^10.9.2",
+    "typescript": "^5.8.3"
   },
   "resolutions": {
     "glob": "^10.3.10",
@@ -48,5 +47,9 @@
   "overrides": {
     "@eslint/config-array": "^0.19.2",
     "@eslint/object-schema": "^2.1.6"
+  },
+  "dependencies": {
+    "dotenv": "^16.5.0",
+    "pg": "^8.14.1"
   }
 }

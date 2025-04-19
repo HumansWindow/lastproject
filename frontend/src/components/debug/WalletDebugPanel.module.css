@@ -1,0 +1,164 @@
+.debugPanelContainer {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  width: 400px;
+  max-height: 500px;
+  background-color: #1e1e1e;
+  border: 1px solid #3a3a3a;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+  color: #e0e0e0;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  font-size: 14px;
+  display: flex;
+  flex-direction: column;
+  z-index: 9999;
+  overflow: hidden;
+}
+
+.debugPanelHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px;
+  background-color: #2a2a2a;
+  border-bottom: 1px solid #3a3a3a;
+}
+
+.debugPanelHeader h3 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: #00cc66;
+}
+
+.debugPanelControls {
+  display: flex;
+  gap: 8px;
+}
+
+.debugPanelControls button {
+  background-color: #333333;
+  border: 1px solid #444444;
+  color: #e0e0e0;
+  border-radius: 4px;
+  padding: 4px 8px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.debugPanelControls button:hover {
+  background-color: #444444;
+}
+
+.debugPanelActions {
+  display: flex;
+  gap: 8px;
+  padding: 12px 16px;
+  border-bottom: 1px solid #3a3a3a;
+}
+
+.debugPanelActions button {
+  background-color: #2a2a2a;
+  border: 1px solid #444444;
+  color: #e0e0e0;
+  border-radius: 4px;
+  padding: 6px 12px;
+  font-size: 13px;
+  cursor: pointer;
+  flex: 1;
+  transition: background-color 0.2s;
+}
+
+.debugPanelActions button:hover:not(:disabled) {
+  background-color: #3a3a3a;
+}
+
+.debugPanelActions button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.walletTestContainer {
+  display: flex;
+  gap: 8px;
+  padding: 12px 16px;
+  border-bottom: 1px solid #3a3a3a;
+}
+
+.walletAddressInput {
+  flex: 1;
+  background-color: #2a2a2a;
+  border: 1px solid #444444;
+  color: #e0e0e0;
+  border-radius: 4px;
+  padding: 6px 12px;
+  font-size: 13px;
+}
+
+.testWalletButton {
+  background-color: #2a2a2a;
+  border: 1px solid #444444;
+  color: #e0e0e0;
+  border-radius: 4px;
+  padding: 6px 12px;
+  font-size: 13px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.testWalletButton:hover:not(:disabled) {
+  background-color: #3a3a3a;
+}
+
+.testWalletButton:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.logsContainer {
+  padding: 12px 16px;
+  overflow-y: auto;
+  max-height: 300px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.logEntry {
+  font-family: 'Courier New', monospace;
+  font-size: 12px;
+  line-height: 1.4;
+  white-space: pre-wrap;
+  word-break: break-word;
+  padding: 4px 8px;
+  border-radius: 4px;
+}
+
+.successLog {
+  background-color: rgba(0, 128, 0, 0.1);
+  border-left: 3px solid #00cc66;
+}
+
+.errorLog {
+  background-color: rgba(128, 0, 0, 0.1);
+  border-left: 3px solid #ff3333;
+}
+
+.timestamp {
+  opacity: 0.7;
+  margin-right: 8px;
+}
+
+.message {
+  display: inline-block;
+}
+
+.emptyLogs {
+  color: #888888;
+  text-align: center;
+  padding: 20px;
+  font-style: italic;
+}

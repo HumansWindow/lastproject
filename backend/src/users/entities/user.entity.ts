@@ -16,7 +16,7 @@ import { ReferralCode } from '../../referral/entities/referral-code.entity';
 import { UserDevice } from './user-device.entity';
 import { UserSession } from './user-session.entity';
 import { Exclude } from 'class-transformer';
-import { RefreshToken } from '../../auth/dto/refresh-token.entity';
+import { RefreshToken } from '../../auth/entities/refresh-token.entity';
 import { Diary } from '../../diary/entities/diary.entity';
 import { Profile } from '../../profile/entities/profile.entity';
 

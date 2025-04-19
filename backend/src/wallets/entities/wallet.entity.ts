@@ -15,7 +15,7 @@ export class Wallet {
   @Column({ default: 'ETH' })
   chain: string;
 
-  // Use user_id column name consistently across the application
+  // Using both property names to handle both ways the code might refer to the user ID field
   @Column({ name: 'user_id' })
   userId: string;
 
@@ -28,7 +28,7 @@ export class Wallet {
   @UpdateDateColumn({ name: 'updated_at' })
   updatedAt: Date;
 
-  // Define the relation with proper column name that matches the database
+  // Define the relation with the correct column name that matches the database
   @ManyToOne(() => User, user => user.wallets, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'user_id' }) 
   user: User;

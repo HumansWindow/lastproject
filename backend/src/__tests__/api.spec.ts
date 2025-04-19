@@ -6,7 +6,7 @@ import { TestModule } from './test.module';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { User } from '../users/entities/user.entity';
 import { Wallet } from '../wallets/entities/wallet.entity';
-import { RefreshToken } from '../auth/dto/refresh-token.entity';
+import { RefreshToken } from '../auth/entities/refresh-token.entity';
 import { ReferralCode } from '../referral/entities/referral-code.entity';
 import { UserDevice } from '../users/entities/user-device.entity';
 import { UserSession } from '../users/entities/user-session.entity';

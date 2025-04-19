@@ -1,6 +1,6 @@
 import { Injectable, Logger, ForbiddenException, NotFoundException, InternalServerErrorException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, In } from 'typeorm';
+import { Repository, In, EntityManager } from 'typeorm';
 import { UserDevice } from '../entities/user-device.entity';
 import { ConfigService } from '@nestjs/config';
 
@@ -247,6 +247,107 @@ export class UserDevicesService {
   }
 
   /**
+   * Register a device for a user within a transaction
+   * This method is used when registering devices as part of a larger transaction
+   */
+  async registerDeviceWithTransaction(
+    entityManager: EntityManager,
+    userId: string, 
+    deviceId: string, 
+    deviceInfo: any
+  ): Promise<UserDevice> {
+    this.logger.log(`Transactional device registration - UserId: ${userId}, DeviceId: ${deviceId.substring(0, 8)}...`);
+    
+    try {
+      // Check for existing devices with this ID using the entity manager
+      const devices = await entityManager.find(UserDevice, {
+        where: { deviceId }
+      });
+      
+      // If device already exists for this user, update it
+      const userDevice = devices.find(device => device.userId === userId);
+      if (userDevice) {
+        // Update last seen and visit count
+        userDevice.lastSeen = new Date();
+        if (userDevice.lastSeenAt) {
+          userDevice.lastSeenAt = new Date();
+        }
+        userDevice.visitCount += 1;
+        userDevice.isActive = true;
+        
+        // Update device info if provided
+        if (deviceInfo) {
+          if (deviceInfo.deviceType) userDevice.deviceType = deviceInfo.deviceType;
+          if (deviceInfo.platform) userDevice.platform = deviceInfo.platform;
+          if (deviceInfo.os) userDevice.os = deviceInfo.os;
+          if (deviceInfo.osVersion) userDevice.osVersion = deviceInfo.osVersion;
+          if (deviceInfo.browser) userDevice.browser = deviceInfo.browser;
+          if (deviceInfo.browserVersion) userDevice.browserVersion = deviceInfo.browserVersion;
+          if (deviceInfo.lastIpAddress) userDevice.lastIpAddress = deviceInfo.lastIpAddress;
+        }
+        
+        await entityManager.save(userDevice);
+        this.logger.log(`Updated existing device record for userId: ${userId} within transaction`);
+        return userDevice;
+      }
+      
+      // Create new device record
+      this.logger.log(`Creating new device record for user ${userId} within transaction`);
+      try {
+        // Prepare base device data
+        const deviceData: Partial<UserDevice> = {
+          userId,
+          deviceId,
+          deviceType: deviceInfo?.deviceType || 'unknown',
+          name: deviceInfo?.deviceName || deviceInfo?.name || 'Unknown device',
+          platform: deviceInfo?.platform || 'unknown',
+          os: deviceInfo?.os || 'unknown',
+          osVersion: deviceInfo?.osVersion || 'unknown',
+          browser: deviceInfo?.browser || 'unknown',
+          browserVersion: deviceInfo?.browserVersion || 'unknown',
+          lastIpAddress: deviceInfo?.lastIpAddress || null,
+          isActive: true,
+          visitCount: 1,
+          firstSeen: new Date(),
+          lastSeen: new Date(),
+        };
+        
+        // Create device using the entity manager
+        const device = entityManager.create(UserDevice, deviceData);
+        
+        // Add wallet address to device if provided
+        if (deviceInfo?.walletAddress) {
+          try {
+            const walletAddress = deviceInfo.walletAddress.toLowerCase();
+            device.walletAddresses = JSON.stringify([walletAddress]);
+          } catch (error) {
+            this.logger.error(`Error setting wallet address within transaction: ${error.message}`);
+          }
+        }
+        
+        // Save using entity manager
+        return await entityManager.save(device);
+      } catch (error) {
+        this.logger.error(`Error while creating device within transaction: ${error.message}`);
+        
+        // Create a simplified version with only essential fields if there's an error
+        const minimumDeviceData: Partial<UserDevice> = {
+          userId,
+          deviceId,
+          isActive: true
+        };
+        
+        // Try saving with minimal data using entity manager
+        const fallbackDevice = entityManager.create(UserDevice, minimumDeviceData);
+        return await entityManager.save(fallbackDevice);
+      }
+    } catch (error) {
+      this.logger.error(`Failed to register device within transaction: ${error.message}`);
+      throw error; // Let the transaction handle the error
+    }
+  }
+
+  /**
    * Remove a device for a user
    */
   async removeDevice(deviceId: string, userId: string): Promise<void> {
@@ -348,10 +449,6 @@ export class UserDevicesService {
     }
   }
 
-  // Rest of the methods - only modify the most critical ones for now
-  // Keep the remaining methods as they are since they're not causing immediate issues
-  // ...existing code...
-
   /**
    * Reset all device associations for a user
    */
@@ -395,7 +492,6 @@ export class UserDevicesService {
     }
   }
 
-  // Remaining methods from the original file
   async isDeviceWalletCombinationRegistered(deviceId: string, walletAddress: string): Promise<boolean> {
     try {
       this.logger.log(`Checking if device ${deviceId.substring(0, 8)}... with wallet ${walletAddress.substring(0, 8)}... is already registered`);

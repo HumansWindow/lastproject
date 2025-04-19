@@ -2,10 +2,14 @@ import { CorsOptions } from '@nestjs/common/interfaces/external/cors-options.int
 
 /**
  * CORS configuration for the application
- * Adjusts allowed origins based on environment
+ * Adjusts allowed origins based on environment and includes all necessary auth headers
  */
 export const getCorsConfig = (): CorsOptions => {
-  const allowedOrigins = process.env.NODE_ENV === 'production'
+  // Get allowed origins from environment variable
+  const allowedOrigins = process.env.ALLOWED_ORIGINS;
+  
+  // Default origins based on environment
+  const defaultOrigins = process.env.NODE_ENV === 'production'
     ? [
         'https://alivehuman.com',
         'https://app.alivehuman.com',
@@ -14,15 +18,30 @@ export const getCorsConfig = (): CorsOptions => {
     : [
         'http://localhost:3000',
         'http://127.0.0.1:3000',
-        // Add other development domains as needed
+        'http://localhost:3001',
+        'http://localhost:8000',
+        'http://localhost:8080',
+        'https://localhost:3000',  // Add HTTPS variant for secure local development
+        'https://127.0.0.1:3000',  // Add HTTPS variant with IP
+        // Allow any localhost origin for development
+        /^http:\/\/localhost(:[0-9]+)?$/,
+        /^http:\/\/127\.0\.0\.1(:[0-9]+)?$/,
+        'null',                    // Allow for file:// protocol in development
       ];
+  
+  // Use specified origins or fall back to defaults
+  const origins = allowedOrigins
+    ? allowedOrigins.split(',').map(origin => origin.trim())
+    : defaultOrigins;
 
   return {
-    origin: allowedOrigins,
-    methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
+    origin: origins,
+    methods: ['GET', 'HEAD', 'PUT', 'PATCH', 'POST', 'DELETE', 'OPTIONS'],
     credentials: true,
-    allowedHeaders: 'Content-Type, Accept, Authorization, X-Requested-With',
+    allowedHeaders: 'Origin, X-Requested-With, Content-Type, Accept, Authorization, Access-Control-Allow-Headers, X-Device-Id, X-Device-Fingerprint, X-Wallet-Chain-Id, Cache-Control, Pragma',
+    exposedHeaders: 'X-Total-Count',
     preflightContinue: false,
     optionsSuccessStatus: 204,
+    maxAge: 86400, // 24 hours
   };
 };

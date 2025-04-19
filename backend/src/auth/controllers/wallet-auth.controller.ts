@@ -8,10 +8,19 @@ import { verifyMessage } from 'ethers/lib/utils';
 import { UserDevicesService } from '../../users/services/user-devices.service';
 import { DeviceDetectorService } from '../../shared/services/device-detector.service';
 
+// Challenge cache to prevent duplicate wallet connection requests
+interface ChallengeRecord {
+  challenge: string;
+  timestamp: number;
+  expiresAt: number;
+}
+
 @ApiTags('wallet-auth')
 @Controller('auth/wallet')
 export class WalletAuthController {
   private readonly logger = new Logger(WalletAuthController.name);
+  private challengeCache: Map<string, ChallengeRecord> = new Map();
+  private readonly CHALLENGE_EXPIRATION = 3600000; // 1 hour in milliseconds
 
   constructor(
     private readonly authService: AuthService,
@@ -32,7 +41,25 @@ export class WalletAuthController {
       throw new BadRequestException('Wallet address is required');
     }
     
-    this.logger.log(`Wallet connection request received for address: ${body.address}`);
+    // Normalize the address to lowercase
+    const normalizedAddress = body.address.toLowerCase();
+    
+    this.logger.log(`Wallet connection request received for address: ${normalizedAddress}`);
+    
+    // Check if we already have a valid challenge for this address
+    const existingChallenge = this.challengeCache.get(normalizedAddress);
+    if (existingChallenge && existingChallenge.expiresAt > Date.now()) {
+      this.logger.log(`Using cached challenge for ${normalizedAddress}`);
+      return {
+        address: normalizedAddress,
+        challenge: existingChallenge.challenge,
+        timestamp: existingChallenge.timestamp,
+        isExistingUser: false // This will be properly set by handleWalletConnect
+      };
+    }
+    
+    // Clean up expired challenges occasionally to prevent memory leaks
+    this.cleanupExpiredChallenges();
     
     // Get device ID from request
     const deviceId = req.headers['x-device-id'] as string || 
@@ -51,7 +78,7 @@ export class WalletAuthController {
       // If device is registered, check if it's registered with this wallet address
       const isDeviceWalletPaired = await this.userDevicesService.validateDeviceWalletPairing(
         deviceId, 
-        body.address.toLowerCase()
+        normalizedAddress
       );
       
       if (!isDeviceWalletPaired) {
@@ -64,8 +91,16 @@ export class WalletAuthController {
     
     try {
       // Generate a challenge for the wallet to sign
-      const response = await this.authService.handleWalletConnect(body.address);
-      this.logger.log(`Generated challenge for ${body.address}: ${response.challenge.substring(0, 20)}...`);
+      const response = await this.authService.handleWalletConnect(normalizedAddress);
+      this.logger.log(`Generated challenge for ${normalizedAddress}: ${response.challenge.substring(0, 20)}...`);
+      
+      // Store challenge in cache
+      this.challengeCache.set(normalizedAddress, {
+        challenge: response.challenge,
+        timestamp: response.timestamp,
+        expiresAt: Date.now() + this.CHALLENGE_EXPIRATION
+      });
+      
       return response;
     } catch (error) {
       this.logger.error(`Error in wallet connect: ${error.message}`);
@@ -78,12 +113,18 @@ export class WalletAuthController {
   @ApiResponse({ status: 200, description: 'Authentication successful' })
   @ApiResponse({ status: 401, description: 'Invalid signature' })
   async authenticate(@Body() walletLoginDto: WalletLoginDto, @Req() req: Request) {
+    // Normalize wallet address
+    const normalizedAddress = walletLoginDto.address?.toLowerCase();
+    
+    // Add request tracking ID for correlation across logs
+    const requestId = Math.random().toString(36).substring(2, 15);
+    
     // Log the entire request for detailed debugging
-    this.logger.log(`Authentication request received from IP: ${req.ip}`);
+    this.logger.log(`[${requestId}] Authentication request received from IP: ${req.ip} for address: ${normalizedAddress}`);
     
     // Log the authentication request details
-    this.logger.log(`Authentication request details:`, {
-      address: walletLoginDto.address,
+    this.logger.log(`[${requestId}] Authentication request details:`, {
+      address: normalizedAddress,
       messageExists: !!walletLoginDto.message,
       messageLength: walletLoginDto.message?.length || 0,
       messagePreview: walletLoginDto.message?.substring(0, 20) || '',
@@ -95,7 +136,7 @@ export class WalletAuthController {
     
     try {
       // 1. Validate required fields
-      if (!walletLoginDto.address) {
+      if (!normalizedAddress) {
         throw new BadRequestException('Wallet address is required');
       }
       
@@ -110,13 +151,14 @@ export class WalletAuthController {
       // 2. Verify the signature independently for extra logging
       try {
         const recoveredAddress = verifyMessage(walletLoginDto.message, walletLoginDto.signature);
-        this.logger.log(`Signature pre-verification successful, recovered: ${recoveredAddress}`);
+        const recoveredNormalized = recoveredAddress.toLowerCase();
+        this.logger.log(`[${requestId}] Signature pre-verification successful, recovered: ${recoveredNormalized}`);
         
-        if (recoveredAddress.toLowerCase() !== walletLoginDto.address.toLowerCase()) {
-          this.logger.warn(`Address mismatch: ${recoveredAddress.toLowerCase()} vs ${walletLoginDto.address.toLowerCase()}`);
+        if (recoveredNormalized !== normalizedAddress) {
+          this.logger.warn(`[${requestId}] Address mismatch: ${recoveredNormalized} vs ${normalizedAddress}`);
         }
       } catch (verifyError) {
-        this.logger.error(`Pre-verification signature check failed: ${verifyError.message}`);
+        this.logger.error(`[${requestId}] Pre-verification signature check failed: ${verifyError.message}`);
         throw new UnauthorizedException(`Invalid signature format: ${verifyError.message}`);
       }
       
@@ -128,8 +170,6 @@ export class WalletAuthController {
                         req.headers['user-agent'] as string,
                         req.ip
                       );
-                      
-      const normalizedWalletAddress = walletLoginDto.address.toLowerCase();
       
       // Check if device is already registered
       const isDeviceRegistered = await this.userDevicesService.isDeviceRegistered(deviceId);
@@ -138,11 +178,11 @@ export class WalletAuthController {
         // If device is registered, check if it can be used with this wallet
         const isWalletAllowedOnDevice = await this.userDevicesService.validateDeviceWalletPairing(
           deviceId,
-          normalizedWalletAddress
+          normalizedAddress
         );
         
         if (!isWalletAllowedOnDevice) {
-          this.logger.warn(`Preventing second registration: Device ${deviceId.substring(0, 10)}... already registered with a different wallet`);
+          this.logger.warn(`[${requestId}] Preventing second registration: Device ${deviceId.substring(0, 10)}... already registered with a different wallet`);
           throw new ForbiddenException(
             'This device is already associated with a different wallet. For security reasons, each device can only be used with one wallet.'
           );
@@ -150,11 +190,19 @@ export class WalletAuthController {
       }
       
       // 4. Now proceed with the actual authentication
-      const result = await this.authService.authenticateWallet(walletLoginDto, req);
-      this.logger.log(`Authentication successful for: ${walletLoginDto.address}`);
+      const result = await this.authService.authenticateWallet(
+        { ...walletLoginDto, address: normalizedAddress },
+        req
+      );
+      
+      this.logger.log(`[${requestId}] Authentication successful for: ${normalizedAddress}`);
+      
+      // 5. Clear the challenge from cache after successful authentication
+      this.challengeCache.delete(normalizedAddress);
+      
       return result;
     } catch (error) {
-      this.logger.error(`Authentication error for ${walletLoginDto?.address || 'unknown'}: ${error.message}`);
+      this.logger.error(`[${requestId}] Authentication error for ${normalizedAddress || 'unknown'}: ${error.message}`);
       
       // More detailed error information
       if (error instanceof BadRequestException) {
@@ -166,8 +214,27 @@ export class WalletAuthController {
       }
       
       // Log detailed error for troubleshooting
-      this.logger.error(`Detailed error:`, error);
+      this.logger.error(`[${requestId}] Detailed error:`, error);
       throw error;
+    }
+  }
+  
+  /**
+   * Clean up expired challenges from the cache
+   */
+  private cleanupExpiredChallenges(): void {
+    const now = Date.now();
+    let expiredCount = 0;
+    
+    for (const [address, record] of this.challengeCache.entries()) {
+      if (record.expiresAt < now) {
+        this.challengeCache.delete(address);
+        expiredCount++;
+      }
+    }
+    
+    if (expiredCount > 0) {
+      this.logger.debug(`Cleaned up ${expiredCount} expired challenges from cache`);
     }
   }
 }

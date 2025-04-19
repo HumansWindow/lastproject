@@ -14,7 +14,7 @@ import {
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, MoreThan } from 'typeorm';
+import { Repository, MoreThan, Connection } from 'typeorm';
 import * as bcrypt from 'bcrypt';
 import { verifyMessage } from 'ethers/lib/utils';
 import { User, UserRole } from '../users/entities/user.entity';
@@ -71,6 +71,7 @@ export class AuthService {
     private readonly eventEmitter: EventEmitter2,
     @Inject(forwardRef(() => ProfileService))
     private readonly profileService: ProfileService,
+    private readonly connection: Connection, // Add TypeORM connection for transactions
   ) {}
 
   /**
@@ -318,10 +319,18 @@ export class AuthService {
    * This is the preferred authentication method in the new system
    */
   async walletLogin(walletLoginDto: WalletLoginDto, req: Request) {
+    // Create a unique request ID for tracing
+    const requestId = Math.random().toString(36).substring(2, 15);
+    this.logger.log(`[${requestId}] Starting wallet login for address: ${walletLoginDto.address}`);
+  
+    // Use TypeORM transaction to ensure atomicity
+    const queryRunner = this.connection.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
+    
     try {
       const { address, signature, message, email } = walletLoginDto;
-      this.logger.log(`Wallet login attempt for address: ${address}`);
-  
+      
       // Always normalize the wallet address to lowercase
       const normalizedAddress = address.toLowerCase();
       
@@ -348,38 +357,47 @@ export class AuthService {
         
         if (wallet?.user) {
           user = wallet.user;
-          this.logger.log(`Found existing wallet for user ID: ${user.id}`);
+          this.logger.log(`[${requestId}] Found existing wallet for user ID: ${user.id}`);
         }
       } else {
-        this.logger.log(`Found user with wallet address: ${user.id}`);
+        this.logger.log(`[${requestId}] Found user with wallet address: ${user.id}`);
       }
   
       let wallet = null;
       let isNewUser = false;
       let newProfile = false;
   
-      // If user doesn't exist, create a new one
+      // If user doesn't exist, create a new one using transaction
       if (!user) {
-        // Create a new user with wallet - NO EMAIL REQUIRED
-        this.logger.log(`Creating new user and wallet for address: ${normalizedAddress}`);
+        this.logger.log(`[${requestId}] Creating new user and wallet for address: ${normalizedAddress}`);
         isNewUser = true;
         
         // Check device constraints if not skipped
         if (!skipDeviceCheck) {
           // Validate the device-wallet pairing
-          const isValidPairing = await this.userDevicesService.validateDeviceWalletPairing(
-            deviceId, 
-            normalizedAddress
-          );
-          
-          if (!isValidPairing) {
-            throw new ForbiddenException('This device has already been registered with another wallet address');
+          try {
+            const isValidPairing = await this.userDevicesService.validateDeviceWalletPairing(
+              deviceId, 
+              normalizedAddress
+            );
+            
+            if (!isValidPairing) {
+              this.logger.warn(`[${requestId}] Device validation failed - already registered with another wallet`);
+              throw new ForbiddenException('This device has already been registered with another wallet address');
+            }
+          } catch (error) {
+            if (error instanceof ForbiddenException) {
+              throw error;
+            }
+            this.logger.error(`[${requestId}] Device validation error: ${error.message}`);
+            throw new BadRequestException('Device validation error: ' + error.message);
           }
         }
   
         try {
+          // Start transactional operations
           // Create user with only the wallet address - no password, email is moved to profile
-          user = this.userRepository.create({
+          user = queryRunner.manager.create(User, {
             isVerified: true, // Wallet users are automatically verified
             role: UserRole.USER,
             walletAddress: normalizedAddress, // Store wallet address directly
@@ -391,15 +409,15 @@ export class AuthService {
           });
     
           // Save the user and get the generated ID
-          const savedUser = await this.userRepository.save(user);
+          const savedUser = await queryRunner.manager.save(user);
             
           // Ensure we have the user ID
           user = savedUser;
           
-          this.logger.log(`Created new user with ID: ${user.id} for wallet: ${normalizedAddress}`);
+          this.logger.log(`[${requestId}] Created new user with ID: ${user.id} for wallet: ${normalizedAddress}`);
     
           // Create wallet record linked to the user - use userId consistently
-          wallet = this.walletRepository.create({
+          wallet = queryRunner.manager.create(Wallet, {
             address: normalizedAddress,
             userId: user.id,
             chain: 'ETH',
@@ -408,30 +426,41 @@ export class AuthService {
             updatedAt: new Date(),
           });
     
-          await this.walletRepository.save(wallet);
-          this.logger.log(`Created new wallet record for user ID: ${user.id}`);
+          await queryRunner.manager.save(wallet);
+          this.logger.log(`[${requestId}] Created new wallet record for user ID: ${user.id}`);
   
           // If email was provided, create a profile for the user
           if (email) {
             try {
-              await this.profileService.create(user.id, {
-                email,
-                firstName: user.firstName,
-                lastName: user.lastName
-              });
-              newProfile = true;
-              this.logger.log(`Created profile with email ${email} for user ID: ${user.id}`);
+              // Create profile directly using transaction manager
+              const profile = await this.profileService.createWithTransaction(
+                queryRunner.manager,
+                user.id,
+                {
+                  email,
+                  firstName: user.firstName,
+                  lastName: user.lastName
+                }
+              );
+              
+              if (profile) {
+                newProfile = true;
+                this.logger.log(`[${requestId}] Created profile with email ${email} for user ID: ${user.id}`);
+              }
             } catch (error) {
-              this.logger.error(`Failed to create profile: ${error.message}`);
+              this.logger.error(`[${requestId}] Failed to create profile: ${error.message}`);
               // Don't fail login if profile creation fails
             }
           }
-    
-          // Mint 1 SHAHI token for new users (with retry)
-          this.mintTokensForNewUser(normalizedAddress);
         } catch (error) {
-          this.logger.error(`Failed to create new user: ${error.message}`, error.stack);
-          throw new InternalServerErrorException('Failed to create user account during wallet authentication');
+          // Rollback the transaction on error
+          await queryRunner.rollbackTransaction();
+          
+          this.logger.error(`[${requestId}] Failed to create new user: ${error.message}`, error.stack);
+          if (error.code === '23505') {
+            throw new ConflictException('Wallet address already in use');
+          }
+          throw new InternalServerErrorException(`Failed to create user account: ${error.message}`);
         }
       } else {
         // If user exists, check if they have a profile
@@ -446,7 +475,7 @@ export class AuthService {
                 lastName: user.lastName
               });
               newProfile = true;
-              this.logger.log(`Created profile with email ${email} for existing user ID: ${user.id}`);
+              this.logger.log(`[${requestId}] Created profile with email ${email} for existing user ID: ${user.id}`);
             }
           } catch (error) {
             if (error instanceof NotFoundException && email) {
@@ -457,9 +486,9 @@ export class AuthService {
                 lastName: user.lastName
               });
               newProfile = true;
-              this.logger.log(`Created profile with email ${email} for existing user ID: ${user.id}`);
+              this.logger.log(`[${requestId}] Created profile with email ${email} for existing user ID: ${user.id}`);
             } else {
-              this.logger.error(`Error checking profile: ${error.message}`);
+              this.logger.error(`[${requestId}] Error checking profile: ${error.message}`);
             }
           }
         }
@@ -474,9 +503,9 @@ export class AuthService {
         
         if (!wallet) {
           // Create a wallet record if it doesn't exist
-          this.logger.log(`Creating wallet record for existing user: ${user.id}`);
+          this.logger.log(`[${requestId}] Creating wallet record for existing user: ${user.id}`);
           try {
-            wallet = this.walletRepository.create({
+            wallet = queryRunner.manager.create(Wallet, {
               address: normalizedAddress,
               userId: user.id,
               chain: 'ETH',
@@ -485,30 +514,40 @@ export class AuthService {
               updatedAt: new Date(),
             });
             
-            await this.walletRepository.save(wallet);
-            this.logger.log(`Created new wallet record for existing user ID: ${user.id}`);
+            await queryRunner.manager.save(wallet);
+            this.logger.log(`[${requestId}] Created new wallet record for existing user ID: ${user.id}`);
           } catch (error) {
-            this.logger.error(`Failed to create wallet record: ${error.message}`);
+            this.logger.error(`[${requestId}] Failed to create wallet record: ${error.message}`);
             // Continue as we already have a user, just log the error
           }
         }
   
         // Check if this device is already bound to another user account
         if (!skipDeviceCheck) {
-          // First, validate the device-wallet pairing
-          const isValidPairing = await this.userDevicesService.validateDeviceWalletPairing(
-            deviceId, 
-            normalizedAddress, 
-            user.id
-          );
-          
-          if (!isValidPairing) {
-            throw new ForbiddenException('This device has already been registered with another wallet address');
+          try {
+            // First, validate the device-wallet pairing
+            const isValidPairing = await this.userDevicesService.validateDeviceWalletPairing(
+              deviceId, 
+              normalizedAddress, 
+              user.id
+            );
+            
+            if (!isValidPairing) {
+              await queryRunner.rollbackTransaction();
+              this.logger.warn(`[${requestId}] Device validation failed - registered with another wallet`);
+              throw new ForbiddenException('This device has already been registered with another wallet address');
+            }
+          } catch (error) {
+            if (error instanceof ForbiddenException) {
+              throw error;
+            }
+            this.logger.error(`[${requestId}] Device validation error: ${error.message}`);
+            // Non-critical error, continue with auth process
           }
         }
         
         // Update last login time for existing users
-        await this.userRepository.update(user.id, {
+        await queryRunner.manager.update(User, user.id, {
           lastLoginAt: new Date(),
           lastLoginIp: ipAddress
         });
@@ -517,49 +556,76 @@ export class AuthService {
       // Update or create device record with wallet address
       try {
         const deviceInfo = this.deviceDetectorService.detect(userAgent);
-        const device = await this.userDevicesService.registerDevice(user.id, deviceId, {
-          ...deviceInfo,
-          userAgent: userAgent || 'unknown',
-          lastIpAddress: ipAddress,
-        });
+        const device = await this.userDevicesService.registerDeviceWithTransaction(
+          queryRunner.manager,
+          user.id, 
+          deviceId, 
+          {
+            ...deviceInfo,
+            userAgent: userAgent || 'unknown',
+            lastIpAddress: ipAddress,
+          }
+        );
         
         // Add wallet address to device record
         if (device && device.id) {
           // Update existing device to register wallet address
-          const existingDevice = await this.userDeviceRepository.findOne({ 
+          const existingDevice = await queryRunner.manager.findOne(UserDevice, { 
             where: { id: device.id } 
           });
           
           if (existingDevice) {
             await existingDevice.addWalletAddress(normalizedAddress);
-            await this.userDeviceRepository.save(existingDevice);
-            this.logger.log(`Added wallet address to device record: Device ${deviceId.substring(0, 8)}..., Wallet: ${normalizedAddress}`);
+            await queryRunner.manager.save(existingDevice);
+            this.logger.log(`[${requestId}] Added wallet address to device record: Device ${deviceId.substring(0, 8)}..., Wallet: ${normalizedAddress}`);
           }
         }
       } catch (error) {
         // Log device error but continue login flow
         // Only if this is not a ForbiddenException - in that case, we want to stop
         if (error instanceof ForbiddenException) {
+          await queryRunner.rollbackTransaction();
           throw error;
         }
-        this.logger.error(`Non-critical error managing device data: ${error.message}`);
+        this.logger.error(`[${requestId}] Non-critical error managing device data: ${error.message}`);
       }
   
       // Create session for wallet login
       try {
         const tokens = await this.getTokens(user.id);
         
-        await this.userSessionsService.createSession({
-          userId: user.id,
-          deviceId,
-          token: tokens.refreshToken,
-          ipAddress,
-          userAgent: userAgent || 'unknown',
-          expiresAt: new Date(Date.now() + this.getRefreshTokenExpiresInMs())
-        }).catch(error => {
-          this.logger.error(`Error creating session: ${error.message}`);
+        // Create session using transaction manager
+        await this.userSessionsService.createSessionWithTransaction(
+          queryRunner.manager,
+          {
+            userId: user.id,
+            deviceId,
+            token: tokens.refreshToken,
+            ipAddress,
+            userAgent: userAgent || 'unknown',
+            expiresAt: new Date(Date.now() + this.getRefreshTokenExpiresInMs())
+          }
+        ).catch(error => {
+          this.logger.error(`[${requestId}] Error creating session: ${error.message}`);
           // Continue even if session creation fails
         });
+        
+        // Commit the transaction
+        await queryRunner.commitTransaction();
+        
+        // Now that everything is committed, we can emit events outside the transaction
+        if (isNewUser) {
+          // Mint 1 SHAHI token for new users (with retry)
+          this.mintTokensForNewUser(normalizedAddress);
+          
+          // Emit user created event
+          this.eventEmitter.emit('user.created', { 
+            userId: user.id,
+            walletAddress: normalizedAddress
+          });
+        }
+        
+        this.logger.log(`[${requestId}] Successfully completed wallet login for: ${normalizedAddress}`);
         
         return {
           ...await this.generateToken(user),
@@ -568,20 +634,55 @@ export class AuthService {
           newProfile,
         };
       } catch (error) {
-        this.logger.error(`Authentication error: ${error.message}`);
-        throw new InternalServerErrorException('Authentication failed');
+        // Rollback on any error during token/session creation
+        await queryRunner.rollbackTransaction();
+        this.logger.error(`[${requestId}] Token generation error: ${error.message}`);
+        throw new InternalServerErrorException(`Failed to generate authentication tokens: ${error.message}`);
       }
     } catch (error) {
-      // Ensure all errors are properly logged and classified
-      if (error instanceof UnauthorizedException ||
-          error instanceof BadRequestException || 
-          error instanceof ForbiddenException) {
-        throw error; // Re-throw application-level exceptions
+      // Ensure rollback on any error
+      if (queryRunner.isTransactionActive) {
+        await queryRunner.rollbackTransaction();
       }
       
-      // Log unexpected errors and throw a generic message
-      this.logger.error(`Wallet login error: ${error.message}`, error.stack);
-      throw new InternalServerErrorException('Wallet authentication failed');
+      // Ensure all errors are properly logged and classified with specific error codes
+      if (error instanceof UnauthorizedException ||
+          error instanceof BadRequestException || 
+          error instanceof ForbiddenException ||
+          error instanceof ConflictException) {
+        // Add request ID to error message for tracking
+        const enhancedMessage = `[${requestId}] ${error.message}`;
+        
+        // Re-throw with enhanced message but preserve the original error type
+        const errorClass = error.constructor as new (message: string) => HttpException;
+        throw new errorClass(enhancedMessage);
+      }
+      
+      // Classify and log unexpected errors with specific error codes
+      this.logger.error(`[${requestId}] Wallet login error: ${error.message}`, error.stack);
+      
+      // Database-related errors
+      if (error.code === '23505') { // Postgres duplicate key violation
+        throw new ConflictException(`Wallet address already registered: ${walletLoginDto.address}`);
+      } else if (error.code && error.code.startsWith('23')) { // Other database constraint violations
+        throw new BadRequestException(`Database constraint violation: ${error.message}`);
+      } else if (error.code && error.code.startsWith('42')) { // Database syntax issues
+        throw new InternalServerErrorException('Database query error');
+      } else if (error.name === 'QueryFailedError') {
+        throw new InternalServerErrorException('Database operation failed');
+      } else if (error.message && error.message.includes('signature')) {
+        // Signature-related errors
+        throw new UnauthorizedException('Invalid wallet signature');
+      } else if (error.message && error.message.includes('transaction')) {
+        // Transaction errors
+        throw new InternalServerErrorException('Transaction processing error');
+      } else {
+        // Generic errors with more context
+        throw new InternalServerErrorException(`Wallet authentication failed: ${error.message.substring(0, 100)}`);
+      }
+    } finally {
+      // Always ensure resources are released
+      await queryRunner.release();
     }
   }
 
