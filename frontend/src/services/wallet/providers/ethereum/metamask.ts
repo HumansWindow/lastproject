@@ -152,4 +152,11 @@ export class MetaMaskProvider implements WalletProvider {
     
     return chainIdMap[chainId] || BlockchainType.ETHEREUM;
   }
+
+  /**
+   * Check if MetaMask is available in the browser
+   */
+  isAvailable(): boolean {
+    return typeof window !== 'undefined' && !!window.ethereum;
+  }
 }

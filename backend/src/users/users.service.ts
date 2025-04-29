@@ -345,4 +345,17 @@ export class UsersService {
     await this.userRepository.save(user);
     this.logger.log(`Reset expired token tracking for ${walletAddress}`);
   }
+
+  /**
+   * Create a new user with a wallet address
+   */
+  async createWithWallet(walletAddress: string): Promise<User> {
+    const user = new User();
+    user.walletAddress = walletAddress.toLowerCase();
+    user.isVerified = true;
+    user.isActive = true;
+    user.role = UserRole.USER;
+    
+    return this.userRepository.save(user);
+  }
 }

@@ -6,8 +6,6 @@ import { useRouter } from 'next/router';
 import React, { useEffect } from 'react';
 import { useAuth } from '../contexts/auth';
 import { useWallet } from '../contexts/wallet';
-import { WalletConnectButton } from '../components/WalletConnectButton';
-import { WalletProviderType } from '../services/wallet';
 import { UserProfile } from '../types/api-types';
 
 export default function Home() {
@@ -73,24 +71,10 @@ export default function Home() {
             </div>
           ) : (
             <div className="bg-white p-6 rounded-lg shadow-md max-w-md mx-auto">
-              <h2 className="text-2xl font-semibold mb-4">Connect Your Wallet</h2>
+              <h2 className="text-2xl font-semibold mb-4">Welcome to AliveHuman</h2>
               <p className="mb-6">
-                Please connect your wallet to access the platform. We use your wallet for secure authentication.
+                To access the platform, please connect your wallet using the &quot;Connect Wallet&quot; button in the navigation bar above.
               </p>
-              
-              <div className="space-y-4 mb-6">
-                <WalletConnectButton 
-                  className="w-full py-2 px-4 bg-blue-600 text-white rounded hover:bg-blue-700 transition"
-                  providerType={WalletProviderType.METAMASK}
-                  autoAuthenticate={true}
-                />
-                
-                <WalletConnectButton
-                  className="w-full py-2 px-4 bg-purple-600 text-white rounded hover:bg-purple-700 transition"
-                  providerType={WalletProviderType.WALLETCONNECT}
-                  autoAuthenticate={true}
-                />
-              </div>
               
               <div className="text-sm text-gray-600">
                 <p className="mb-2">No wallet? Get started with one of these options:</p>

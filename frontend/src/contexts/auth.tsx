@@ -3,7 +3,7 @@ import walletService from '../services/wallet';
 import { profileService } from '../profile/profile-service';
 import { useWallet } from './wallet';
 import { UserProfile } from '@/types/api-types';
-import { secureStorage } from '../utils/secure-storage';
+import { secureStorage, clearCorruptedStorage } from '../utils/secure-storage';
 
 interface AuthContextType {
   user: UserProfile | null;
@@ -37,33 +37,47 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   // Initialize user from local storage and fetch current profile if authenticated
   useEffect(() => {
     const init = async () => {
-      // Use secure storage instead of localStorage directly
-      const token = secureStorage.getItem(TOKEN_KEY);
-      
-      if (token) {
-        try {
-          // We have a token, fetch the latest profile
-          const profile = await profileService.getUserProfile();
-          setUser(profile);
-          setIsAuthenticated(true);
-          
-          // Check if profile is complete
-          setIsProfileComplete(!!(
-            profile.firstName && 
-            profile.lastName && 
-            (profile.email || profile.walletAddresses?.length)
-          ));
-        } catch (err) {
-          // Invalid token or other error, clear it
-          console.error('Error initializing user:', err);
-          secureStorage.removeItem(TOKEN_KEY);
-          secureStorage.removeItem(REFRESH_TOKEN_KEY);
-          secureStorage.removeItem(USER_KEY);
-          secureStorage.removeItem(DEVICE_VERIFICATION_KEY);
+      try {
+        // First try to clear any corrupted storage that might be causing issues
+        const hasCorruptedStorage = secureStorage.getItem('_corrupted_flag') === 'true';
+        if (hasCorruptedStorage) {
+          console.warn('Detected previously corrupted storage, cleaning up...');
+          clearCorruptedStorage();
+          secureStorage.removeItem('_corrupted_flag');
         }
+        
+        // Use secure storage instead of localStorage directly
+        const token = secureStorage.getItem(TOKEN_KEY);
+        
+        if (token) {
+          try {
+            // We have a token, fetch the latest profile
+            const profile = await profileService.getUserProfile();
+            setUser(profile);
+            setIsAuthenticated(true);
+            
+            // Check if profile is complete
+            setIsProfileComplete(!!(
+              profile.firstName && 
+              profile.lastName && 
+              (profile.email || profile.walletAddresses?.length)
+            ));
+          } catch (err) {
+            // Invalid token or other error, clear it
+            console.error('Error initializing user:', err);
+            secureStorage.removeItem(TOKEN_KEY);
+            secureStorage.removeItem(REFRESH_TOKEN_KEY);
+            secureStorage.removeItem(USER_KEY);
+            secureStorage.removeItem(DEVICE_VERIFICATION_KEY);
+          }
+        }
+      } catch (e) {
+        console.error('Error during auth initialization:', e);
+        // Mark storage as corrupted for next reload
+        secureStorage.setItem('_corrupted_flag', 'true');
+      } finally {
+        setIsLoading(false);
       }
-      
-      setIsLoading(false);
     };
     
     init();
@@ -78,6 +92,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     try {
       setIsLoading(true);
       setError(null);
+      
+      // Clear any previous auth data that might be corrupted
+      walletService.clearStorageData?.();
       
       console.log("Starting wallet authentication process in auth context for", walletInfo.address);
       
@@ -94,7 +111,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           if (!challengeResult) {
             throw new Error("Empty challenge received");
           }
-          challenge = challengeResult;
+          // Use the appropriate properties that exist in WalletConnectResponse
+          // 'message' is the challenge text, fallback to 'nonce' if message is not available
+          challenge = challengeResult.message || challengeResult.nonce || '';
           console.log("Challenge received successfully:", challenge.substring(0, 20) + "...");
           break; // Success, exit the retry loop
         } catch (challengeError) {
@@ -129,7 +148,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           if (!signResult) {
             throw new Error("Empty signature received");
           }
-          signature = signResult;
+          signature = typeof signResult === 'string' ? signResult : 
+                     (signResult.signature || '');
           console.log("Signature received successfully:", signature.substring(0, 15) + "...");
           break; // Success, exit the retry loop
         } catch (signError) {
@@ -172,6 +192,17 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       while (authAttempts < maxAuthAttempts) {
         try {
           console.log(`Sending authentication request to backend (attempt ${authAttempts + 1}/${maxAuthAttempts})`);
+          
+          // Include detailed debugging info
+          console.log('Authentication payload:', {
+            address: walletInfo.address,
+            signatureLength: signature.length,
+            challenge: challenge.substring(0, 20) + '...',
+            hasEmail: !!email,
+            hasDeviceFingerprint: !!deviceFingerprint
+          });
+          
+          // Try using the direct wallet service authenticate method first 
           const authResult = await walletService.authenticate(
             walletInfo,
             signature,
@@ -179,12 +210,33 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             email,
             deviceFingerprint
           );
-          console.log("Authentication response received:", authResult.success ? 'Success' : 'Failed');
           
+          // If we get here, we have a response (success or error)
+          console.log("Authentication response received:", 
+            authResult ? JSON.stringify({
+              hasToken: !!authResult.accessToken,
+              hasRefreshToken: !!authResult.refreshToken,
+              hasError: !!authResult.error,
+              success: authResult.success,
+              userId: authResult.userId
+            }) : 'No response'
+          );
+
+          // Log a clear decision message based on our new criteria
+          if (authResult.accessToken) {
+            console.log('✅ Authentication successful: Access token received, treating as valid authentication');
+          } else if (authResult.success) {
+            console.log('✅ Authentication successful: Backend reported success flag');
+          } else {
+            console.log('❌ Authentication failed: No access token or success flag');
+          }
+
           // Assign the result to our variable
           result = authResult;
           
-          if (!authResult.success) {
+          // IMPORTANT: Modified success condition to consider responses with only accessToken as successful
+          // In our system, refreshToken may be missing in certain authentication scenarios
+          if (!authResult.success && !authResult.accessToken) {
             const errorMsg = authResult.error || 'Authentication failed with no specific error';
             console.error("Authentication response error:", errorMsg);
             
@@ -233,19 +285,30 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         }
       }
       
-      // Validate that we have a result and required tokens
+      // Validate that we have a result
       if (!result) {
         throw new Error('Authentication failed: No result received');
       }
       
-      if (!result.token || !result.refreshToken) {
-        throw new Error('Authentication successful but no tokens returned');
+      // Modified to consider authentication successful if we have an access token, even without success flag
+      // This handles cases where the backend returns accessToken but not refreshToken
+      if (!result.success && !result.accessToken) {
+        throw new Error(result.error || 'Authentication failed with server error');
       }
       
-      // 5. Store tokens securely
+      // 5. Store tokens securely if available
       console.log("Storing authentication tokens");
-      secureStorage.setItem(TOKEN_KEY, result.token);
-      secureStorage.setItem(REFRESH_TOKEN_KEY, result.refreshToken);
+      if (result.accessToken) {
+        secureStorage.setItem(TOKEN_KEY, result.accessToken);
+      } else {
+        console.warn('No access token returned, authentication may not persist');
+      }
+      
+      // Only store refresh token if it exists
+      if (result.refreshToken) {
+        secureStorage.setItem(REFRESH_TOKEN_KEY, result.refreshToken);
+      }
+      
       secureStorage.setItem(DEVICE_VERIFICATION_KEY, deviceFingerprint);
       
       // 6. Fetch the user profile with retry logic
@@ -287,6 +350,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         setIsProfileComplete(isComplete);
       }
       
+      // Mark as authenticated even without a profile
       setIsAuthenticated(true);
       return true;
     } catch (err: unknown) {
@@ -294,6 +358,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       console.error("Authentication process failed:", err);
       const errorMessage = err instanceof Error ? err.message : 'Unknown authentication error';
       setError(errorMessage);
+      
+      // Mark storage as potentially corrupted if we had auth errors
+      secureStorage.setItem('_corrupted_flag', 'true');
       return false;
     } finally {
       setIsLoading(false);

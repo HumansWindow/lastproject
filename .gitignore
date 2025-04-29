@@ -15,6 +15,12 @@ node_modules/
 # Specific blockchain contracts node_modules
 /backend/src/blockchain/contracts/node_modules
 
+# Package managers
+package-lock.json
+.npm
+.yarn-integrity
+**/*.tgz
+
 # Specific large binary files
 **/next-swc.linux-x64-musl.node
 **/next-swc.linux-x64-gnu.node
@@ -66,30 +72,94 @@ Thumbs.db
 .eslintcache
 .node_repl_history
 *.tsbuildinfo
-
-# Package files
-**/package-lock.json
-**/yarn.lock
-**/*.tgz
-
-# Large directories that can be rebuilt
-OldSystem/wallet
-
-# Optional: Large media files (adjust as needed)
-**/*.mp4
-**/*.mov
-**/*.avi
+tsconfig.build.tsbuildinfo
+.cache/
+.temp/
 
 # Testing
 /coverage
 *.lcov
 .nyc_output
+coverage/
 
 # Database
 *.sqlite
 *.sqlite3
+*.dump
+*.sql.gz
+*.bak
 
 # Temporary files
 .temp
 .tmp
 .cache
+
+# Generated files
+*.map
+*.tar.gz
+
+# Large media files
+**/*.mp4
+**/*.mov
+**/*.avi
+# Dependencies
+/node_modules
+/.pnp
+.pnp.js
+**/node_modules/
+**/src/blockchain/contracts/node_modules/
+
+# Build
+/dist
+/build
+
+# Env
+.env
+.env.local
+.env.*.local
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Package managers
+package-lock.json
+.npm
+.yarn-integrity
+
+# IDE
+.idea
+.vscode
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+
+# Jest types
+!node_modules/@types/jest
+
+# Generated files
+*.tsbuildinfo
+tsconfig.build.tsbuildinfo
+
+# Cache and temporary files
+.cache/
+.temp/
+coverage/
+
+# Database dumps and large data files
+*.dump
+*.sql.gz
+*.bak
+
+# Local development
+/local
+/tmp
+
+# Large binary files
+**/*.node
+**/*.map
+**/*.tar.gz
+**/*.tgz

@@ -18,16 +18,24 @@ const WalletConnectPage = () => {
       setError(null);
       
       // 1. Connect to wallet
-      const walletInfo = await walletService.connect(WalletProviderType.METAMASK);
-      if (!walletInfo) {
+      const connectResult = await walletService.connect(WalletProviderType.METAMASK);
+      if (!connectResult || !connectResult.success) {
         throw new Error('Failed to connect to wallet');
       }
       
+      const walletInfo = connectResult.walletInfo;
+      if (!walletInfo) {
+        throw new Error('No wallet info returned');
+      }
+      
       // 2. Request challenge
-      const challenge = await walletService.getChallenge(walletInfo.address);
+      const challengeResult = await walletService.getChallenge(walletInfo.address);
+      const challenge = challengeResult.nonce || challengeResult.message || '';
       
       // 3. Sign the challenge with the wallet
-      const signature = await walletService.signMessage(challenge, walletInfo);
+      const signResult = await walletService.signMessage(challenge, walletInfo);
+      const signature = typeof signResult === 'string' ? signResult : 
+                       (signResult.signature || '');
       
       // 4. Authenticate with backend
       const authResult = await walletService.authenticate(walletInfo, signature, challenge);

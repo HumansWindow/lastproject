@@ -283,16 +283,24 @@ export class ProfileResponseDto {
     example: '2025-04-14T08:22:31.000Z'
   })
   updatedAt: Date;
+
+  @ApiPropertyOptional({
+    description: 'Flag indicating if user chose to complete profile later',
+    example: true
+  })
+  completeLater?: boolean;
 }
 
 export class UpdateLocationDto {
-  @ApiProperty({ description: 'Latitude coordinate' })
+  @ApiPropertyOptional({ description: 'Latitude coordinate' })
+  @IsOptional()
   @IsLatitude()
-  latitude: number;
+  latitude?: number;
 
-  @ApiProperty({ description: 'Longitude coordinate' })
+  @ApiPropertyOptional({ description: 'Longitude coordinate' })
+  @IsOptional()
   @IsLongitude()
-  longitude: number;
+  longitude?: number;
 
   @ApiPropertyOptional({ description: 'Country of residence' })
   @IsOptional()
@@ -321,9 +329,10 @@ export class UpdateLocationDto {
 }
 
 export class UpdateProfileEmailDto {
-  @ApiProperty({ description: 'New email address' })
+  @ApiPropertyOptional({ description: 'New email address' })
+  @IsOptional()
   @IsEmail()
-  email: string;
+  email?: string;
 }
 
 export class UpdateProfilePasswordDto {
@@ -337,11 +346,22 @@ export class UpdateProfilePasswordDto {
 }
 
 export class UpdateNotificationSettingsDto {
-  @ApiProperty({ description: 'Email notification preference' })
+  @ApiPropertyOptional({ description: 'Email notification preference' })
+  @IsOptional()
   @IsBoolean()
-  emailNotifications: boolean;
+  emailNotifications?: boolean;
 
-  @ApiProperty({ description: 'Push notification preference' })
+  @ApiPropertyOptional({ description: 'Push notification preference' })
+  @IsOptional()
   @IsBoolean()
-  pushNotifications: boolean;
+  pushNotifications?: boolean;
+}
+
+export class CompleteLaterDto {
+  @ApiProperty({ 
+    description: 'Flag indicating user wants to complete profile later', 
+    default: true 
+  })
+  @IsBoolean()
+  completeLater: boolean;
 }

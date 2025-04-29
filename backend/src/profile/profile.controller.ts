@@ -12,6 +12,8 @@ import {
   HttpStatus,
   NotFoundException,
   BadRequestException,
+  InternalServerErrorException,
+  Logger,
 } from '@nestjs/common';
 import { 
   ApiTags, 
@@ -22,6 +24,7 @@ import {
   ApiBody,
 } from '@nestjs/swagger';
 import { ProfileService } from './profile.service';
+import { ProfileErrorHandlerService } from './profile-error-handler.service';
 import {
   CreateProfileDto,
   UpdateProfileDto,
@@ -30,28 +33,57 @@ import {
   UpdateProfileEmailDto,
   UpdateProfilePasswordDto,
   UpdateNotificationSettingsDto,
+  CompleteLaterDto,
 } from './dto/profile.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 
 @ApiTags('profile')
 @Controller('profile')
 export class ProfileController {
-  constructor(private readonly profileService: ProfileService) {}
+  private readonly logger = new Logger(ProfileController.name);
+
+  constructor(
+    private readonly profileService: ProfileService,
+    private readonly errorHandler: ProfileErrorHandlerService
+  ) {}
 
   @Post()
   @UseGuards(JwtAuthGuard)
   @ApiOperation({ summary: 'Create a new profile for the authenticated user' })
   @ApiResponse({ status: HttpStatus.CREATED, description: 'Profile successfully created', type: ProfileResponseDto })
   @ApiResponse({ status: HttpStatus.CONFLICT, description: 'Profile already exists' })
+  @ApiResponse({ status: HttpStatus.BAD_REQUEST, description: 'Invalid data or database naming inconsistency' })
   @ApiBearerAuth()
   async create(@Request() req, @Body() createProfileDto: CreateProfileDto) {
     try {
-      return await this.profileService.create(req.user.userId, createProfileDto);
+      // Extract userId from req.user - handle both property names
+      const userId = req.user.userId || req.user.id;
+      if (!userId) {
+        throw new BadRequestException('User ID missing from authentication token');
+      }
+      
+      return await this.profileService.create(userId, createProfileDto);
     } catch (error) {
-      if (error.message.includes('already exists')) {
+      if (error.message?.includes('already exists')) {
         throw new BadRequestException('Profile already exists for this user');
       }
-      throw error;
+      
+      // Check specifically for field naming inconsistency errors
+      if (error.response?.fieldNamingError) {
+        this.logger.error(`Field naming inconsistency detected in profile creation: ${error.response.message}`);
+        throw error; // Re-throw the already formatted error
+      }
+      
+      // Re-throw known exceptions
+      if (error instanceof BadRequestException || 
+          error instanceof NotFoundException || 
+          error instanceof InternalServerErrorException) {
+        throw error;
+      }
+      
+      // For other errors, provide better logging and response
+      this.logger.error(`Error creating profile: ${error.message}`, error.stack);
+      throw new InternalServerErrorException('An error occurred while creating the profile');
     }
   }
 
@@ -149,5 +181,86 @@ export class ProfileController {
   @ApiBearerAuth()
   async exists(@Request() req) {
     return { exists: await this.profileService.exists(req.user.userId) };
+  }
+
+  @Post('complete-later')
+  @UseGuards(JwtAuthGuard)
+  @ApiOperation({ summary: 'Mark profile as "complete later" for the authenticated user' })
+  @ApiResponse({ status: HttpStatus.OK, description: 'Profile marked as complete later', type: ProfileResponseDto })
+  @ApiResponse({ status: HttpStatus.BAD_REQUEST, description: 'Database field inconsistency detected' })
+  @ApiBearerAuth()
+  async completeLater(@Request() req, @Body() completeLaterDto: CompleteLaterDto) {
+    try {
+      // Extract userId from req.user - handle both property names
+      const userId = req.user.userId || req.user.id;
+      if (!userId) {
+        throw new BadRequestException('User ID missing from authentication token');
+      }
+      
+      return await this.profileService.markCompleteLater(userId, completeLaterDto);
+    } catch (error) {
+      // Check specifically for field naming inconsistency errors
+      if (error.response?.fieldNamingError) {
+        this.logger.error(`Field naming inconsistency detected in complete-later: ${error.response.message}`);
+        throw error; // Re-throw the already formatted error
+      }
+      
+      // For other errors, provide better logging
+      this.logger.error(`Error marking profile as complete later: ${error.message}`, error.stack);
+      throw error;
+    }
+  }
+  
+  @Post('complete')
+  @UseGuards(JwtAuthGuard)
+  @ApiOperation({ summary: 'Complete user profile after wallet authentication' })
+  @ApiResponse({ status: HttpStatus.OK, description: 'Profile completed successfully', type: ProfileResponseDto })
+  @ApiResponse({ status: HttpStatus.NOT_FOUND, description: 'Profile not found' })
+  @ApiResponse({ status: HttpStatus.BAD_REQUEST, description: 'Invalid data or database naming inconsistency' })
+  @ApiBearerAuth()
+  async completeProfile(@Request() req, @Body() updateProfileDto: UpdateProfileDto) {
+    try {
+      // Extract userId from req.user - handle both property names
+      const userId = req.user.userId || req.user.id;
+      if (!userId) {
+        throw new BadRequestException('User ID missing from authentication token');
+      }
+      
+      // Check if profile exists before attempting to update
+      const exists = await this.profileService.exists(userId);
+      
+      if (exists) {
+        // Update existing profile
+        return this.profileService.update(userId, updateProfileDto);
+      } else {
+        // Create new profile if it doesn't exist
+        return this.profileService.create(userId, updateProfileDto);
+      }
+    } catch (error) {
+      // Check specifically for field naming inconsistency errors
+      if (error.response?.fieldNamingError) {
+        this.logger.error(`Field naming inconsistency detected in profile completion: ${error.response.message}`, 
+          error.response.details);
+        throw error; // Re-throw the already formatted error
+      }
+      
+      // Handle other common errors
+      if (error instanceof BadRequestException || 
+          error instanceof NotFoundException) {
+        throw error;
+      }
+      
+      this.logger.error(`Error completing profile: ${error.message}`, error.stack);
+      throw new InternalServerErrorException('An error occurred while completing your profile');
+    }
+  }
+
+  // Helper method to extract user ID safely
+  private extractUserId(req: any): string {
+    const userId = req.user?.userId || req.user?.id;
+    if (!userId) {
+      throw new BadRequestException('User ID missing from authentication token');
+    }
+    return userId;
   }
 }

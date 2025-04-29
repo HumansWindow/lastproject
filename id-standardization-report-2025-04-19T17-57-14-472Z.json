@@ -1,0 +1,43 @@
+{
+  "date": "2025-04-19T17:57:14.471Z",
+  "stats": {
+    "filesAnalyzed": 20,
+    "entitiesFound": 19,
+    "uuidIssuesFound": 0,
+    "namingIssuesFound": 2,
+    "columnIssuesFound": 0,
+    "issuesFixed": 0,
+    "issuesSkipped": 0
+  },
+  "issues": [
+    {
+      "file": "backend/src/users/entities/user-device.entity.ts",
+      "issues": [
+        {
+          "line": 19,
+          "issue": "Potentially redundant ID field in user_devices entity: userId",
+          "severity": "low",
+          "suggestion": "Consider using a more specific name for self-references (like \"referrerId\" instead of \"userId\")"
+        }
+      ]
+    },
+    {
+      "file": "backend/src/users/entities/user-session.entity.ts",
+      "issues": [
+        {
+          "line": 18,
+          "issue": "Potentially redundant ID field in user_sessions entity: userId",
+          "severity": "low",
+          "suggestion": "Consider using a more specific name for self-references (like \"referrerId\" instead of \"userId\")"
+        }
+      ]
+    }
+  ],
+  "recommendations": [
+    "Use 'string' type consistently for all UUID fields",
+    "Always include explicit column name with @Column({ name: 'snake_case_name' })",
+    "Use descriptive names for self-referencing entities (e.g., 'referrerId' instead of 'userId')",
+    "Ensure all relationships use @JoinColumn with explicit column names",
+    "For primary keys, consistently use 'id' as the field name"
+  ]
+}

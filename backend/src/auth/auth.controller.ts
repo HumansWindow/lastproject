@@ -175,12 +175,12 @@ export class AuthController {
   async walletAuthenticate(@Body() walletLoginDto: WalletLoginDto, @Req() req: Request) {
     const requestId = Math.random().toString(36).substring(2, 12);
     try {
-      if (!walletLoginDto.address) {
+      if (!walletLoginDto.walletAddress) {
         throw new BadRequestException('Wallet address is required');
       }
       
       // Normalize the address
-      const normalizedAddress = walletLoginDto.address.toLowerCase();
+      const normalizedAddress = walletLoginDto.walletAddress.toLowerCase();
       
       this.logger.log(`[${requestId}] Wallet authentication request received for address: ${normalizedAddress}`);
       
@@ -284,5 +284,15 @@ export class AuthController {
   @Post('resend-verification')
   async resendVerification(@Body() body: { email: string }) {
     return this.authService.resendVerification(body.email);
+  }
+
+  @Get('me')
+  @UseGuards(JwtAuthGuard)
+  async getUserInfo(@Req() request: Request) {
+    // This assumes request.user is populated by the JwtAuthGuard
+    return {
+      user: request.user,
+      authenticated: true
+    };
   }
 }

@@ -100,7 +100,7 @@ async function bootstrap() {
       logger.log('Processing preflight OPTIONS request');
       res.header('Access-Control-Allow-Origin', req.headers.origin as string || '*');
       res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS');
-      res.header('Access-Control-Allow-Headers', 'Content-Type, Accept, Authorization, X-Requested-With, x-device-id, x-device-fingerprint, x-wallet-chain-id');
+      res.header('Access-Control-Allow-Headers', 'Content-Type, Accept, Authorization, X-Requested-With, x-device-id, x-device-fingerprint, x-wallet-chain-id, X-Request-Time');
       res.header('Access-Control-Allow-Credentials', 'true'); 
       res.header('Access-Control-Max-Age', '86400');
     }

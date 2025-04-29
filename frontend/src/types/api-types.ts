@@ -22,6 +22,7 @@ export interface UserProfile {
   phoneNumber?: string;
   bio?: string;
   walletAddresses?: string[];
+  completeLater?: boolean;
   createdAt?: string;
   updatedAt?: string;
 }
@@ -223,6 +224,16 @@ export interface DiaryStats {
 }
 
 // Wallet types
+export interface WalletInfo {
+  address: string;
+  chainId?: number;
+  networkName?: string;
+  balance?: string;
+  formattedBalance?: string;
+  isConnected?: boolean;
+  provider?: string;
+}
+
 export interface WalletData {
   id: string;
   address: string;

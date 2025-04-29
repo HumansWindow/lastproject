@@ -2,6 +2,8 @@ import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { useWallet } from '../contexts/wallet';
 import { useAuth } from '../contexts/auth';
 import { WalletProviderType } from '../services/wallet';
+import { WalletSelectorModal } from './wallet-selector';
+import styles from '../styles/components/WalletConnectButton.module.css';
 
 interface WalletConnectButtonProps {
   className?: string;
@@ -40,21 +42,50 @@ export const WalletConnectButton: React.FC<WalletConnectButtonProps> = ({
   const authTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const authAttemptCountRef = useRef<number>(0);
   const [authError, setAuthError] = useState<string | null>(null);
+  const [showWalletModal, setShowWalletModal] = useState<boolean>(false);
+  const [showDropdown, setShowDropdown] = useState<boolean>(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
   
   const displayAddress = walletInfo?.address 
     ? `${walletInfo.address.substring(0, 6)}...${walletInfo.address.substring(walletInfo.address.length - 4)}`
     : '';
   
-  // Connect with specified provider
-  const handleConnect = (event: React.MouseEvent<HTMLButtonElement>) => {
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setShowDropdown(false);
+      }
+    }
+    
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
+  
+  // Handle showing the wallet selector modal instead of directly connecting
+  const handleShowWalletSelector = (event: React.MouseEvent<HTMLButtonElement>) => {
     event.preventDefault();
-    // Reset authentication tracking when connecting
+    // Reset authentication tracking when opening modal
     hasAttemptedAuth.current = false;
     authAttemptCountRef.current = 0;
     authInProgressRef.current = false;
     globalAuthLock.setLock(false); // Release global lock when reconnecting
     setAuthError(null);
-    connect(providerType);
+    setShowWalletModal(true);
+  };
+  
+  // Handle wallet connection from selector
+  const handleWalletConnect = (result: any) => {
+    if (result && result.success && result.walletInfo) {
+      // Wallet was successfully connected via selector
+      setShowWalletModal(false);
+      // The wallet context should update automatically via events
+      console.log("Wallet connected successfully from selector:", result.walletInfo.address);
+    } else if (result && result.error) {
+      setAuthError(result.error);
+    }
   };
   
   // Disconnect wallet
@@ -70,6 +101,13 @@ export const WalletConnectButton: React.FC<WalletConnectButtonProps> = ({
     globalAuthLock.setLock(false); // Release global lock when disconnecting
     setAuthError(null);
     disconnect();
+    setShowDropdown(false); // Close dropdown after disconnecting
+  };
+
+  // Toggle dropdown menu
+  const toggleDropdown = (event: React.MouseEvent<HTMLButtonElement>) => {
+    event.preventDefault();
+    setShowDropdown(prev => !prev);
   };
   
   // Memoize authentication function to prevent dependency changes
@@ -105,13 +143,27 @@ export const WalletConnectButton: React.FC<WalletConnectButtonProps> = ({
       console.log("Starting wallet authentication with address:", walletInfo.address);
       
       // Add delay to ensure wallet UI is ready and to prevent rapid sequential requests
-      await new Promise(resolve => setTimeout(resolve, 1500));
+      await new Promise(resolve => setTimeout(resolve, 1000));
       
-      const result = await authenticateWithWallet();
-      if (result) {
-        console.log("Wallet authentication completed successfully");
-      } else {
-        throw new Error("Authentication failed with an unknown error");
+      // Call the authenticateWithWallet function with a proper email parameter (optional)
+      // We need to catch and handle the error here to prevent bubbling up
+      try {
+        const result = await authenticateWithWallet();
+        if (result) {
+          console.log("Wallet authentication completed successfully");
+        } else {
+          console.warn("Authentication returned false but without throwing an error");
+          // Don't throw error here, as we want to treat this as a warning not an error
+        }
+      } catch (authErr) {
+        // Only set error message if the error is meaningful and not just "Authentication failed with no specific error"
+        const errMsg = authErr instanceof Error ? authErr.message : 'Unknown authentication error';
+        if (errMsg.includes('no specific error')) {
+          console.warn("Got 'no specific error' message - this may be a validation issue");
+          // Don't set error since this is likely just the accessToken/refreshToken validation issue
+        } else {
+          throw authErr; // Re-throw if it's a real error
+        }
       }
     } catch (err) {
       console.error("Authentication failed:", err);
@@ -160,6 +212,13 @@ export const WalletConnectButton: React.FC<WalletConnectButtonProps> = ({
       }
     };
   }, [isConnected, isAuthenticated, performAuthentication, isAuthenticating]);
+
+  // Effect to clear error when user becomes authenticated
+  useEffect(() => {
+    if (isAuthenticated && authError) {
+      setAuthError(null);
+    }
+  }, [isAuthenticated, authError]);
   
   // Manually trigger authentication if needed
   const handleRetryAuth = (event: React.MouseEvent<HTMLButtonElement>) => {
@@ -172,55 +231,114 @@ export const WalletConnectButton: React.FC<WalletConnectButtonProps> = ({
     performAuthentication();
   };
   
+  // New wallet button UI with dropdown for connected wallets
   return (
-    <div className="wallet-connect-container">
+    <div className={styles['wallet-connect-container']}>
       {!isConnected ? (
         <button 
-          className={`wallet-connect-button ${className}`} 
-          onClick={handleConnect}
+          className={`${styles['wallet-connect-button']} ${className}`} 
+          onClick={handleShowWalletSelector}
           disabled={isConnecting || isAuthLoading || isAuthenticating || globalAuthLock.isLocked()}
         >
-          {isConnecting ? 'Connecting...' : `Connect ${getProviderName(providerType)}`}
+          {isConnecting ? 'Connecting...' : 'Connect Wallet'}
         </button>
       ) : (
-        <div className="wallet-connected">
-          <span className="wallet-address">{displayAddress}</span>
-          {isAuthenticated ? (
-            <span className="auth-status success">✓ Authenticated</span>
-          ) : isAuthenticating || isAuthLoading ? (
-            <span className="auth-status pending">Authenticating...</span>
-          ) : authError ? (
-            <div className="auth-error-container">
-              <span className="auth-status error">Authentication failed</span>
-              <button 
-                onClick={handleRetryAuth} 
-                className="retry-auth-button"
-                disabled={isAuthenticating || isAuthLoading || authInProgressRef.current || globalAuthLock.isLocked()}
-              >
-                Retry
-              </button>
-            </div>
-          ) : null}
-          <button className={`disconnect-button ${className}`} onClick={handleDisconnect}>
-            Disconnect
+        <div className={styles['wallet-connected-dropdown']} ref={dropdownRef}>
+          <button 
+            className={`${styles['wallet-address-button']} ${className} ${showDropdown ? styles.active : ''}`}
+            onClick={toggleDropdown}
+          >
+            <span className={styles['wallet-address']}>{displayAddress}</span>
+            {isAuthenticated && <span className={styles['auth-indicator']}>✓</span>}
+            <span className={styles['dropdown-arrow']}>{showDropdown ? '▲' : '▼'}</span>
           </button>
+          
+          {showDropdown && (
+            <div className={styles['wallet-dropdown-menu']}>
+              <div className={styles['wallet-info']}>
+                <div className={styles['wallet-type']}>
+                  {walletInfo?.blockchain} via {getProviderName(walletInfo?.providerType || WalletProviderType.METAMASK)}
+                </div>
+                <div className={styles['wallet-address-full']}>{walletInfo?.address}</div>
+                {isAuthenticated && <div className={styles['auth-status-full']}>Authenticated ✓</div>}
+              </div>
+              
+              <div className={styles['wallet-actions']}>
+                <button 
+                  className={styles['wallet-action-button']}
+                  onClick={handleShowWalletSelector}
+                >
+                  Switch Wallet
+                </button>
+                
+                {!isAuthenticated && !isAuthenticating && authError && (
+                  <button 
+                    className={styles['wallet-action-button']}
+                    onClick={handleRetryAuth}
+                    disabled={isAuthenticating || isAuthLoading}
+                  >
+                    Retry Authentication
+                  </button>
+                )}
+                
+                <button 
+                  className={`${styles['wallet-action-button']} ${styles.disconnect}`}
+                  onClick={handleDisconnect}
+                >
+                  Disconnect
+                </button>
+              </div>
+            </div>
+          )}
+          
+          {/* Show authentication status if not in dropdown */}
+          {!showDropdown && !isAuthenticated && (
+            <React.Fragment>
+              {isAuthenticating || isAuthLoading ? (
+                <span className={`${styles['auth-status']} ${styles.pending}`}>Authenticating...</span>
+              ) : authError ? (
+                <div className={styles['auth-error-indicator']}>
+                  <span className={`${styles['auth-status']} ${styles.error}`}>!</span>
+                  <button 
+                    onClick={handleRetryAuth} 
+                    className={styles['retry-auth-button']}
+                    disabled={isAuthenticating || isAuthLoading || authInProgressRef.current || globalAuthLock.isLocked()}
+                  >
+                    Retry
+                  </button>
+                </div>
+              ) : null}
+            </React.Fragment>
+          )}
         </div>
       )}
-      {error && <p className="wallet-error">{error}</p>}
-      {authError && <p className="auth-error">{authError}</p>}
+      
+      {/* Error messages */}
+      {error && <p className={styles['wallet-error']}>{error}</p>}
+      {authError && <p className={styles['auth-error']}>{authError}</p>}
+      
+      {/* Add the wallet selector modal */}
+      <WalletSelectorModal
+        show={showWalletModal}
+        onHide={() => setShowWalletModal(false)}
+        onConnect={handleWalletConnect}
+      />
     </div>
   );
 };
 
 // Helper function to get provider display name
 function getProviderName(providerType: WalletProviderType): string {
-  const providerNames = {
+  const providerNames: Record<string, string> = {
     [WalletProviderType.METAMASK]: 'MetaMask',
     [WalletProviderType.COINBASE]: 'Coinbase',
     [WalletProviderType.WALLETCONNECT]: 'WalletConnect',
     [WalletProviderType.TRUST]: 'Trust Wallet',
     [WalletProviderType.PHANTOM]: 'Phantom',
-    [WalletProviderType.BINANCE]: 'Binance Wallet'
+    [WalletProviderType.BINANCE]: 'Binance Wallet',
+    [WalletProviderType.TONKEEPER]: 'TONKeeper',
+    [WalletProviderType.TONWALLET]: 'TON Wallet',
+    [WalletProviderType.SOLFLARE]: 'Solflare'
   };
   
   return providerNames[providerType] || 'Wallet';

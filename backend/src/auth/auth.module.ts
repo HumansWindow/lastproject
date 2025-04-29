@@ -49,7 +49,11 @@ import { Profile } from '../profile/entities/profile.entity';
     WalletsModule,
     forwardRef(() => ProfileModule),
   ],
-  controllers: [AuthController, WalletAuthController, WalletAuthDebugController],
+  controllers: [
+    AuthController,
+    WalletAuthController,
+    WalletAuthDebugController, // Make sure this is included
+  ],
   providers: [
     AuthService,
     JwtStrategy,

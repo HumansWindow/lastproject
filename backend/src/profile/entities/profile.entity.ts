@@ -134,6 +134,9 @@ export class Profile {
   @Column({ name: 'push_notifications', default: true })
   pushNotifications: boolean;
 
+  @Column({ name: 'complete_later', default: false })
+  completeLater: boolean;
+
   // System fields
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;

@@ -4,7 +4,10 @@ export enum WalletProviderType {
   WALLETCONNECT = 'walletconnect',
   TRUST = 'trust',
   PHANTOM = 'phantom',
-  BINANCE = 'binance'
+  BINANCE = 'binance',
+  TONKEEPER = 'tonkeeper',
+  TONWALLET = 'tonwallet',
+  SOLFLARE = 'solflare'
 }
 
 export enum BlockchainType {
@@ -14,7 +17,8 @@ export enum BlockchainType {
   SOLANA = 'solana',
   AVALANCHE = 'avalanche',
   ARBITRUM = 'arbitrum',
-  OPTIMISM = 'optimism'
+  OPTIMISM = 'optimism',
+  TON = 'ton'
 }
 
 export interface WalletInfo {

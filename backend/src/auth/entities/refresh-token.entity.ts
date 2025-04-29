@@ -28,18 +28,29 @@ export class RefreshToken {
   expiresAt: Date;
 
   /**
-   * UserId field - supports both camelCase and snake_case in DB
+   * UserId field - camelCase version (matches TypeScript convention)
    * Database triggers keep userId and user_id in sync
    */
   @Column({ name: 'userId' })
   userId: string;
 
   /**
+   * UserId field - snake_case version (matches SQL convention)
+   * Database triggers keep userId and user_id in sync
+   * This property ensures both columns are populated during entity creation
+   */
+  @Column({ name: 'user_id' })
+  user_id: string;
+
+  /**
    * Relation to User entity
-   * We reference the userId column which syncs with user_id via triggers
+   * We join using both column names to ensure proper foreign key handling
    */
   @ManyToOne(() => User, { onDelete: 'CASCADE' })
-  @JoinColumn({ name: 'userId', referencedColumnName: 'id' })
+  @JoinColumn([
+    { name: 'userId', referencedColumnName: 'id' },
+    { name: 'user_id', referencedColumnName: 'id' }
+  ])
   user: User;
 
   /**

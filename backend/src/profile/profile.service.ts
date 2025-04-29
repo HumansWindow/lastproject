@@ -4,9 +4,11 @@ import {
   ConflictException,
   Logger,
   UnauthorizedException,
+  InternalServerErrorException,
+  BadRequestException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, EntityManager } from 'typeorm';
+import { Repository, EntityManager, QueryFailedError } from 'typeorm';
 import { Profile } from './entities/profile.entity';
 import { User } from '../users/entities/user.entity';
 import { 
@@ -15,9 +17,11 @@ import {
   UpdateLocationDto,
   UpdateProfileEmailDto,
   UpdateProfilePasswordDto,
-  UpdateNotificationSettingsDto
+  UpdateNotificationSettingsDto,
+  CompleteLaterDto
 } from './dto/profile.dto';
 import * as bcrypt from 'bcrypt';
+import { ProfileErrorHandlerService } from './profile-error-handler.service';
 
 @Injectable()
 export class ProfileService {
@@ -28,41 +32,71 @@ export class ProfileService {
     private readonly profileRepository: Repository<Profile>,
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
+    private readonly errorHandler: ProfileErrorHandlerService,
   ) {}
 
   /**
    * Create a new profile for a user
    */
   async create(userId: string, createProfileDto: CreateProfileDto): Promise<Profile> {
-    // Check if user exists
-    const user = await this.userRepository.findOne({ where: { id: userId } });
-    if (!user) {
-      throw new NotFoundException(`User with ID ${userId} not found`);
-    }
-
-    // Check if profile already exists
-    const existingProfile = await this.profileRepository.findOne({ where: { userId } });
-    if (existingProfile) {
-      throw new ConflictException(`Profile for user ${userId} already exists`);
-    }
-
-    // Check if email is unique if provided
-    if (createProfileDto.email) {
-      const emailExists = await this.profileRepository.findOne({
-        where: { email: createProfileDto.email }
-      });
-      if (emailExists) {
-        throw new ConflictException(`Email ${createProfileDto.email} is already in use`);
+    try {
+      // Check if user exists
+      const user = await this.userRepository.findOne({ where: { id: userId } });
+      if (!user) {
+        throw new NotFoundException(`User with ID ${userId} not found`);
       }
+
+      // Check if profile already exists
+      const existingProfile = await this.profileRepository.findOne({ where: { userId } });
+      if (existingProfile) {
+        throw new ConflictException(`Profile for user ${userId} already exists`);
+      }
+
+      // Check if email is unique if provided
+      if (createProfileDto.email) {
+        const emailExists = await this.profileRepository.findOne({
+          where: { email: createProfileDto.email }
+        });
+        if (emailExists) {
+          throw new ConflictException(`Email ${createProfileDto.email} is already in use`);
+        }
+      }
+
+      // Create new profile
+      const newProfile = this.profileRepository.create({
+        userId,
+        ...createProfileDto,
+      });
+
+      return await this.profileRepository.save(newProfile);
+    } catch (error) {
+      // Check for specific field naming inconsistency errors
+      if (this.errorHandler.isNamingInconsistencyError(error)) {
+        const { message, details } = this.errorHandler.parseDbError(error);
+        throw new BadRequestException({ 
+          message, 
+          details,
+          fieldNamingError: true 
+        });
+      }
+      
+      // Handle other database errors
+      if (error instanceof QueryFailedError) {
+        const { message } = this.errorHandler.parseDbError(error);
+        throw new InternalServerErrorException(message);
+      }
+      
+      // Re-throw known application exceptions
+      if (error instanceof NotFoundException || 
+          error instanceof ConflictException || 
+          error instanceof BadRequestException) {
+        throw error;
+      }
+      
+      // For any other errors, log and throw a generic error
+      this.logger.error(`Failed to create profile: ${error.message}`, error.stack);
+      throw new InternalServerErrorException('Failed to create profile');
     }
-
-    // Create new profile
-    const newProfile = this.profileRepository.create({
-      userId,
-      ...createProfileDto,
-    });
-
-    return this.profileRepository.save(newProfile);
   }
 
   /**
@@ -74,37 +108,53 @@ export class ProfileService {
     userId: string, 
     createProfileDto: CreateProfileDto
   ): Promise<Profile> {
-    this.logger.log(`Creating profile with transaction for user: ${userId}`);
-    
-    // Check if user exists using the provided entity manager
-    const user = await entityManager.findOne(User, { where: { id: userId } });
-    if (!user) {
-      throw new NotFoundException(`User with ID ${userId} not found`);
-    }
-
-    // Check if profile already exists using the provided entity manager
-    const existingProfile = await entityManager.findOne(Profile, { where: { userId } });
-    if (existingProfile) {
-      throw new ConflictException(`Profile for user ${userId} already exists`);
-    }
-
-    // Check if email is unique if provided
-    if (createProfileDto.email) {
-      const emailExists = await entityManager.findOne(Profile, {
-        where: { email: createProfileDto.email }
-      });
-      if (emailExists) {
-        throw new ConflictException(`Email ${createProfileDto.email} is already in use`);
+    try {
+      this.logger.log(`Creating profile with transaction for user: ${userId}`);
+      
+      // Check if user exists using the provided entity manager
+      const user = await entityManager.findOne(User, { where: { id: userId } });
+      if (!user) {
+        throw new NotFoundException(`User with ID ${userId} not found`);
       }
+
+      // Check if profile already exists using the provided entity manager
+      const existingProfile = await entityManager.findOne(Profile, { where: { userId } });
+      if (existingProfile) {
+        throw new ConflictException(`Profile for user ${userId} already exists`);
+      }
+
+      // Check if email is unique if provided
+      if (createProfileDto.email) {
+        const emailExists = await entityManager.findOne(Profile, {
+          where: { email: createProfileDto.email }
+        });
+        if (emailExists) {
+          throw new ConflictException(`Email ${createProfileDto.email} is already in use`);
+        }
+      }
+
+      // Create new profile using the entity manager
+      const newProfile = entityManager.create(Profile, {
+        userId,
+        ...createProfileDto,
+      });
+
+      return await entityManager.save(newProfile);
+    } catch (error) {
+      // Handle specific naming inconsistency errors
+      if (this.errorHandler.isNamingInconsistencyError(error)) {
+        const { message, details } = this.errorHandler.parseDbError(error);
+        this.logger.error(`Field naming inconsistency detected: ${message}`, details);
+        throw new BadRequestException({
+          message: 'Field naming inconsistency detected in database transaction',
+          details,
+          fieldNamingError: true
+        });
+      }
+      
+      // Re-throw the original error for transaction handling
+      throw error;
     }
-
-    // Create new profile using the entity manager
-    const newProfile = entityManager.create(Profile, {
-      userId,
-      ...createProfileDto,
-    });
-
-    return entityManager.save(newProfile);
   }
 
   /**
@@ -231,6 +281,97 @@ export class ProfileService {
     profile.pushNotifications = dto.pushNotifications;
 
     return this.profileRepository.save(profile);
+  }
+
+  /**
+   * Mark a profile as "complete later"
+   * @param userId User ID
+   * @param completeLaterDto Complete later data
+   * @returns Updated profile
+   */
+  async markCompleteLater(userId: string, completeLaterDto: CompleteLaterDto): Promise<Profile> {
+    try {
+      // First check if the profile exists
+      let profile: Profile;
+      try {
+        profile = await this.findByUserId(userId);
+        
+        // Update the existing profile
+        profile.completeLater = completeLaterDto.completeLater;
+        return await this.profileRepository.save(profile);
+      } catch (error) {
+        if (error instanceof NotFoundException) {
+          // If profile doesn't exist, create a minimal one with completeLater flag
+          const user = await this.userRepository.findOne({ where: { id: userId } });
+          if (!user) {
+            throw new NotFoundException(`User with ID ${userId} not found`);
+          }
+          
+          try {
+            // Create minimal profile with completeLater flag
+            // We use queryRunner to ensure transaction safety
+            const queryRunner = this.profileRepository.manager.connection.createQueryRunner();
+            await queryRunner.connect();
+            await queryRunner.startTransaction();
+            
+            try {
+              // Create the profile entity first
+              const newProfile = new Profile();
+              // Set only the required user ID field using snake_case convention
+              newProfile.userId = userId;  // This maps to user_id in the database
+              newProfile.completeLater = completeLaterDto.completeLater;
+              
+              // Save within the transaction
+              const savedProfile = await queryRunner.manager.save(newProfile);
+              await queryRunner.commitTransaction();
+              
+              return savedProfile;
+            } catch (txError) {
+              // If anything fails, roll back the transaction
+              await queryRunner.rollbackTransaction();
+              
+              // Check specifically for naming inconsistency errors
+              if (this.errorHandler.isNamingInconsistencyError(txError)) {
+                const { message, details } = this.errorHandler.parseDbError(txError);
+                this.logger.error(`Field naming inconsistency during complete-later: ${message}`, details);
+                throw new BadRequestException({
+                  message: 'Database field naming inconsistency detected',
+                  details,
+                  fieldNamingError: true
+                });
+              }
+              
+              this.logger.error(`Failed to create profile: ${txError.message}`, txError.stack);
+              throw txError;
+            } finally {
+              // Release the query runner
+              await queryRunner.release();
+            }
+          } catch (dbError) {
+            // Handle specific database errors with better messages
+            if (dbError instanceof QueryFailedError) {
+              const { message } = this.errorHandler.parseDbError(dbError);
+              throw new InternalServerErrorException(message);
+            }
+            
+            this.logger.error(`Database error creating profile: ${dbError.message}`, dbError.stack);
+            throw dbError;
+          }
+        }
+        
+        // Re-throw any other errors
+        throw error;
+      }
+    } catch (error) {
+      // Handle any uncaught errors
+      if (!(error instanceof NotFoundException) && 
+          !(error instanceof BadRequestException) && 
+          !(error instanceof InternalServerErrorException)) {
+        this.logger.error(`Unexpected error in markCompleteLater: ${error.message}`, error.stack);
+        throw new InternalServerErrorException('An unexpected error occurred while processing your request');
+      }
+      throw error;
+    }
   }
 
   /**

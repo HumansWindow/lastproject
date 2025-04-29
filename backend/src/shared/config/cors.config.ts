@@ -38,7 +38,7 @@ export const getCorsConfig = (): CorsOptions => {
     origin: origins,
     methods: ['GET', 'HEAD', 'PUT', 'PATCH', 'POST', 'DELETE', 'OPTIONS'],
     credentials: true,
-    allowedHeaders: 'Origin, X-Requested-With, Content-Type, Accept, Authorization, Access-Control-Allow-Headers, X-Device-Id, X-Device-Fingerprint, X-Wallet-Chain-Id, Cache-Control, Pragma',
+    allowedHeaders: 'Origin, X-Requested-With, Content-Type, Accept, Authorization, Access-Control-Allow-Headers, X-Device-Id, X-Device-Fingerprint, X-Wallet-Chain-Id, Cache-Control, Pragma, X-Request-Time',
     exposedHeaders: 'X-Total-Count',
     preflightContinue: false,
     optionsSuccessStatus: 204,

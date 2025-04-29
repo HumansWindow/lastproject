@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { UserProfile } from '@/types/api-types';
 import { useAuth } from '../contexts/auth';
+import { profileService } from '../profile/profile-service';
 import { useRouter } from 'next/router';
 
 interface ProfileOnboardingProps {
@@ -20,6 +21,7 @@ export const ProfileOnboarding: React.FC<ProfileOnboardingProps> = ({ onComplete
   });
   
   const [error, setError] = useState<string | null>(null);
+  const [isCompletingLater, setIsCompletingLater] = useState(false);
   
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -32,11 +34,6 @@ export const ProfileOnboarding: React.FC<ProfileOnboardingProps> = ({ onComplete
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
-    
-    if (!formData.firstName || !formData.lastName) {
-      setError('First name and last name are required');
-      return;
-    }
     
     try {
       const success = await completeUserProfile(formData);
@@ -55,10 +52,28 @@ export const ProfileOnboarding: React.FC<ProfileOnboardingProps> = ({ onComplete
     }
   };
   
+  const handleCompleteLater = async () => {
+    setIsCompletingLater(true);
+    setError(null);
+    
+    try {
+      await profileService.markCompleteLater();
+      
+      if (onComplete) {
+        onComplete();
+      } else {
+        router.push('/');
+      }
+    } catch (err: any) {
+      setError(err.message || 'An error occurred');
+      setIsCompletingLater(false);
+    }
+  };
+  
   return (
     <div className="bg-white p-6 rounded-lg shadow-md">
       <h2 className="text-2xl font-semibold mb-4">Complete Your Profile</h2>
-      <p className="mb-6">Please provide additional information to complete your profile setup.</p>
+      <p className="mb-6">All fields are optional. You can complete your profile later if you prefer.</p>
       
       <form onSubmit={handleSubmit}>
         {error && (
@@ -69,26 +84,24 @@ export const ProfileOnboarding: React.FC<ProfileOnboardingProps> = ({ onComplete
         
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
           <div>
-            <label className="block mb-1 font-medium">First Name*</label>
+            <label className="block mb-1 font-medium">First Name</label>
             <input
               type="text"
               name="firstName"
               value={formData.firstName}
               onChange={handleChange}
               className="w-full p-2 border rounded"
-              required
             />
           </div>
           
           <div>
-            <label className="block mb-1 font-medium">Last Name*</label>
+            <label className="block mb-1 font-medium">Last Name</label>
             <input
               type="text"
               name="lastName"
               value={formData.lastName}
               onChange={handleChange}
               className="w-full p-2 border rounded"
-              required
             />
           </div>
         </div>
@@ -102,9 +115,6 @@ export const ProfileOnboarding: React.FC<ProfileOnboardingProps> = ({ onComplete
             onChange={handleChange}
             className="w-full p-2 border rounded"
           />
-          <p className="text-sm text-gray-500 mt-1">
-            Email is optional but recommended for notifications and recovery options
-          </p>
         </div>
         
         <div className="mb-4">
@@ -129,13 +139,24 @@ export const ProfileOnboarding: React.FC<ProfileOnboardingProps> = ({ onComplete
           ></textarea>
         </div>
         
-        <button
-          type="submit"
-          className="w-full py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition"
-          disabled={isLoading}
-        >
-          {isLoading ? 'Saving...' : 'Complete Profile'}
-        </button>
+        <div className="flex flex-col md:flex-row gap-4">
+          <button
+            type="submit"
+            className="flex-1 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition"
+            disabled={isLoading || isCompletingLater}
+          >
+            {isLoading ? 'Saving...' : 'Save Profile'}
+          </button>
+          
+          <button
+            type="button"
+            onClick={handleCompleteLater}
+            className="flex-1 py-2 bg-gray-200 text-gray-800 rounded hover:bg-gray-300 transition"
+            disabled={isLoading || isCompletingLater}
+          >
+            {isCompletingLater ? 'Processing...' : 'Complete Later'}
+          </button>
+        </div>
       </form>
     </div>
   );

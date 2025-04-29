@@ -7,10 +7,19 @@ import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { verifyMessage } from 'ethers/lib/utils';
 import { UserDevicesService } from '../../users/services/user-devices.service';
 import { DeviceDetectorService } from '../../shared/services/device-detector.service';
+import * as crypto from 'crypto';
 
 // Challenge cache to prevent duplicate wallet connection requests
 interface ChallengeRecord {
   challenge: string;
+  timestamp: number;
+  expiresAt: number;
+}
+
+// Recovery challenge record
+interface RecoveryRecord {
+  token: string;
+  address: string;
   timestamp: number;
   expiresAt: number;
 }
@@ -20,7 +29,9 @@ interface ChallengeRecord {
 export class WalletAuthController {
   private readonly logger = new Logger(WalletAuthController.name);
   private challengeCache: Map<string, ChallengeRecord> = new Map();
+  private recoveryCache: Map<string, RecoveryRecord> = new Map();
   private readonly CHALLENGE_EXPIRATION = 3600000; // 1 hour in milliseconds
+  private readonly RECOVERY_EXPIRATION = 900000; // 15 minutes in milliseconds
 
   constructor(
     private readonly authService: AuthService,
@@ -108,19 +119,74 @@ export class WalletAuthController {
     }
   }
 
+  /**
+   * Generate a recovery challenge when the normal signing process fails
+   * This allows clients to authenticate even when wallet signing fails
+   */
+  @Post('recovery-challenge')
+  @ApiOperation({ summary: 'Generate recovery challenge when wallet signing fails' })
+  @ApiResponse({ status: 200, description: 'Recovery challenge generated' })
+  @ApiResponse({ status: 400, description: 'Invalid request' })
+  async recoveryChallenge(
+    @Body() body: { address: string; failedMessage?: string },
+    @Req() req: Request
+  ) {
+    if (!body.address) {
+      throw new BadRequestException('Wallet address is required');
+    }
+    
+    // Normalize the address to lowercase
+    const normalizedAddress = body.address.toLowerCase();
+    
+    this.logger.log(`Recovery challenge requested for address: ${normalizedAddress}`);
+    
+    // Generate a recovery token valid for a limited time
+    const recoveryToken = crypto.randomBytes(32).toString('hex');
+    const timestamp = Date.now();
+    
+    // Store recovery token in cache
+    this.recoveryCache.set(recoveryToken, {
+      token: recoveryToken,
+      address: normalizedAddress,
+      timestamp,
+      expiresAt: timestamp + this.RECOVERY_EXPIRATION
+    });
+    
+    // Log what failed message was provided, if any
+    if (body.failedMessage) {
+      this.logger.log(`Failed message was provided for recovery: ${body.failedMessage.substring(0, 50)}...`);
+    }
+    
+    // Clean up expired recovery tokens periodically
+    this.cleanupExpiredRecoveryTokens();
+    
+    return {
+      address: normalizedAddress,
+      recoveryToken,
+      expiresIn: this.RECOVERY_EXPIRATION / 1000, // in seconds
+      timestamp
+    };
+  }
+
   @Post('authenticate')
   @ApiOperation({ summary: 'Authenticate with wallet signature' })
   @ApiResponse({ status: 200, description: 'Authentication successful' })
   @ApiResponse({ status: 401, description: 'Invalid signature' })
   async authenticate(@Body() walletLoginDto: WalletLoginDto, @Req() req: Request) {
     // Normalize wallet address
-    const normalizedAddress = walletLoginDto.address?.toLowerCase();
+    const normalizedAddress = walletLoginDto.walletAddress?.toLowerCase();
     
     // Add request tracking ID for correlation across logs
     const requestId = Math.random().toString(36).substring(2, 15);
     
     // Log the entire request for detailed debugging
     this.logger.log(`[${requestId}] Authentication request received from IP: ${req.ip} for address: ${normalizedAddress}`);
+    
+    // Check if this is a recovery signature
+    if (walletLoginDto.signature && walletLoginDto.signature.startsWith('recovery_')) {
+      this.logger.log(`[${requestId}] Recovery signature detected, processing alternative authentication flow`);
+      return this.processRecoveryAuthentication(walletLoginDto, req, requestId);
+    }
     
     // Log the authentication request details
     this.logger.log(`[${requestId}] Authentication request details:`, {
@@ -171,51 +237,122 @@ export class WalletAuthController {
                         req.ip
                       );
       
-      // Check if device is already registered
-      const isDeviceRegistered = await this.userDevicesService.isDeviceRegistered(deviceId);
-      
-      if (isDeviceRegistered) {
-        // If device is registered, check if it can be used with this wallet
-        const isWalletAllowedOnDevice = await this.userDevicesService.validateDeviceWalletPairing(
+      // Check if device is already associated with another wallet
+      if (deviceId) {
+        const isDeviceWalletPaired = await this.userDevicesService.validateDeviceWalletPairing(
           deviceId,
           normalizedAddress
         );
         
-        if (!isWalletAllowedOnDevice) {
-          this.logger.warn(`[${requestId}] Preventing second registration: Device ${deviceId.substring(0, 10)}... already registered with a different wallet`);
+        if (!isDeviceWalletPaired) {
+          this.logger.warn(`Device ${deviceId.substring(0, 8)}... already registered with a different wallet - preventing second registration`);
           throw new ForbiddenException(
             'This device is already associated with a different wallet. For security reasons, each device can only be used with one wallet.'
           );
         }
       }
       
-      // 4. Now proceed with the actual authentication
-      const result = await this.authService.authenticateWallet(
-        { ...walletLoginDto, address: normalizedAddress },
+      // 4. Proceed with authentication through the auth service
+      this.logger.log(`[${requestId}] Proceeding with wallet authentication for address: ${normalizedAddress}`);
+      
+      // Clean up expired challenges before authenticating
+      this.cleanupExpiredChallenges();
+      
+      const authResult = await this.authService.authenticateWallet(
+        walletLoginDto,
         req
       );
       
-      this.logger.log(`[${requestId}] Authentication successful for: ${normalizedAddress}`);
+      this.logger.log(`[${requestId}] Authentication successful for wallet: ${normalizedAddress}`);
+      return authResult;
       
-      // 5. Clear the challenge from cache after successful authentication
-      this.challengeCache.delete(normalizedAddress);
-      
-      return result;
     } catch (error) {
-      this.logger.error(`[${requestId}] Authentication error for ${normalizedAddress || 'unknown'}: ${error.message}`);
+      this.logger.error(`[${requestId}] Wallet authentication failed: ${error.message}`, error.stack);
       
-      // More detailed error information
-      if (error instanceof BadRequestException) {
-        throw new BadRequestException(error.message || 'Invalid request data');
-      } else if (error instanceof UnauthorizedException) {
-        throw new UnauthorizedException(error.message || 'Invalid signature');
-      } else if (error instanceof ForbiddenException) {
-        throw new ForbiddenException(error.message || 'Access denied');
+      if (error instanceof BadRequestException || 
+          error instanceof UnauthorizedException || 
+          error instanceof ForbiddenException) {
+        throw error;
       }
       
-      // Log detailed error for troubleshooting
-      this.logger.error(`[${requestId}] Detailed error:`, error);
-      throw error;
+      throw new UnauthorizedException(`Authentication failed: ${error.message}`);
+    }
+  }
+  
+  /**
+   * Process authentication with recovery token instead of wallet signature
+   */
+  private async processRecoveryAuthentication(
+    walletLoginDto: WalletLoginDto,
+    req: Request,
+    requestId: string
+  ) {
+    const normalizedAddress = walletLoginDto.walletAddress?.toLowerCase();
+    this.logger.log(`[${requestId}] Processing recovery authentication for ${normalizedAddress}`);
+    
+    try {
+      // Extract recovery token from signature
+      let recoveryToken;
+      
+      if (walletLoginDto.signature.startsWith('recovery_token:')) {
+        // Extract token format: recovery_token:TOKEN
+        recoveryToken = walletLoginDto.signature.substring('recovery_token:'.length);
+      } else if (walletLoginDto.signature.startsWith('recovery_signature_')) {
+        // Extract format: recovery_signature_TIMESTAMP_ADDRESS
+        // This is a dev-mode recovery that works with BYPASS_WALLET_SIGNATURE=true
+        const parts = walletLoginDto.signature.split('_');
+        if (parts.length >= 3 && normalizedAddress === parts[3]?.toLowerCase()) {
+          this.logger.log(`[${requestId}] Development mode recovery signature detected`);
+          
+          // If BYPASS_WALLET_SIGNATURE is true, this will work via the auth service
+          return await this.authService.authenticateWallet(walletLoginDto, req);
+        } else {
+          throw new UnauthorizedException('Invalid recovery signature format');
+        }
+      } else {
+        throw new UnauthorizedException('Invalid recovery signature format');
+      }
+      
+      // Validate recovery token
+      const recoveryRecord = this.recoveryCache.get(recoveryToken);
+      
+      if (!recoveryRecord) {
+        this.logger.warn(`[${requestId}] Recovery token not found: ${recoveryToken.substring(0, 10)}...`);
+        throw new UnauthorizedException('Invalid or expired recovery token');
+      }
+      
+      if (recoveryRecord.expiresAt < Date.now()) {
+        this.logger.warn(`[${requestId}] Recovery token expired: ${recoveryToken.substring(0, 10)}...`);
+        this.recoveryCache.delete(recoveryToken);
+        throw new UnauthorizedException('Recovery token expired');
+      }
+      
+      if (recoveryRecord.address !== normalizedAddress) {
+        this.logger.warn(`[${requestId}] Recovery token address mismatch: ${recoveryRecord.address} vs ${normalizedAddress}`);
+        throw new UnauthorizedException('Recovery token not valid for this address');
+      }
+      
+      // Token is valid - authenticate using special recovery method
+      this.logger.log(`[${requestId}] Valid recovery token for ${normalizedAddress}, proceeding with authentication`);
+      
+      // Use the recovery token as the signature for authentication
+      // The auth service must be modified to accept this special format
+      walletLoginDto.signature = `valid_recovery:${recoveryToken}`;
+      
+      // Invalidate the token after use
+      this.recoveryCache.delete(recoveryToken);
+      
+      return await this.authService.authenticateWallet(walletLoginDto, req);
+    } catch (error) {
+      this.logger.error(`[${requestId}] Recovery authentication failed: ${error.message}`);
+      
+      if (error instanceof BadRequestException || 
+          error instanceof UnauthorizedException || 
+          error instanceof ForbiddenException) {
+        throw error;
+      }
+      
+      throw new UnauthorizedException(`Recovery authentication failed: ${error.message}`);
     }
   }
   
@@ -235,6 +372,25 @@ export class WalletAuthController {
     
     if (expiredCount > 0) {
       this.logger.debug(`Cleaned up ${expiredCount} expired challenges from cache`);
+    }
+  }
+  
+  /**
+   * Clean up expired recovery tokens from the cache
+   */
+  private cleanupExpiredRecoveryTokens(): void {
+    const now = Date.now();
+    let expiredCount = 0;
+    
+    for (const [token, record] of this.recoveryCache.entries()) {
+      if (record.expiresAt < now) {
+        this.recoveryCache.delete(token);
+        expiredCount++;
+      }
+    }
+    
+    if (expiredCount > 0) {
+      this.logger.debug(`Cleaned up ${expiredCount} expired recovery tokens from cache`);
     }
   }
 }

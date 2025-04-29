@@ -11,6 +11,12 @@
       "static/chunks/node_modules_walletconnect_modal-ui_dist_index_js.js"
     ]
   },
+  "../../../node_modules/i18next-http-backend/esm/request.js -> cross-fetch": {
+    "id": "../../../node_modules/i18next-http-backend/esm/request.js -> cross-fetch",
+    "files": [
+      "static/chunks/node_modules_cross-fetch_dist_browser-ponyfill_js.js"
+    ]
+  },
   "../../../node_modules/viem/_esm/actions/public/call.js -> ../../utils/ccip.js": {
     "id": "../../../node_modules/viem/_esm/actions/public/call.js -> ../../utils/ccip.js",
     "files": []
@@ -24,5 +30,17 @@
   "../../../node_modules/viem/_esm/utils/signature/recoverPublicKey.js -> @noble/curves/secp256k1": {
     "id": "../../../node_modules/viem/_esm/utils/signature/recoverPublicKey.js -> @noble/curves/secp256k1",
     "files": []
+  },
+  "../i18n.ts -> i18next-browser-languagedetector": {
+    "id": "../i18n.ts -> i18next-browser-languagedetector",
+    "files": [
+      "static/chunks/node_modules_i18next-browser-languagedetector_dist_esm_i18nextBrowserLanguageDetector_js.js"
+    ]
+  },
+  "../i18n.ts -> i18next-http-backend": {
+    "id": "../i18n.ts -> i18next-http-backend",
+    "files": [
+      "static/chunks/node_modules_i18next-http-backend_esm_index_js.js"
+    ]
   }
 }

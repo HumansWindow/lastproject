@@ -86,7 +86,18 @@ const cache = setupCache({
   debug: process.env.NODE_ENV !== 'production'
 });
 
-// Use the cache adapter
+// Create a standard axios instance without cache for auth operations
+const authClient = axios.create({
+  baseURL: API_URL,
+  timeout: 30000, // Longer timeout for auth operations
+  headers: {
+    ...apiClientConfig.headers,
+    'Content-Type': 'application/json',
+  },
+  withCredentials: false
+});
+
+// Use the cache adapter only for the main apiClient
 apiClient.defaults.adapter = cache.adapter;
 
 // Add request interceptor to inject auth token and handle wallet requests specially
@@ -170,7 +181,7 @@ apiClient.interceptors.response.use(
           originalConfig.baseURL = '';
           
           // Try the request again
-          return axios(originalConfig);
+          return authClient(originalConfig);
         } catch (retryError) {
           console.error('Failed to retry wallet request with alternative URL:', retryError);
         }
@@ -233,16 +244,9 @@ apiClient.interceptors.response.use(
         const workingUrl = await getWorkingBackendUrl();
         
         // Try to refresh the token
-        const response = await axios.post(
-          `${workingUrl}/auth/refresh-token`, 
-          { refreshToken },
-          {
-            headers: {
-              'Content-Type': 'application/json',
-              'Accept': 'application/json'
-            },
-            withCredentials: false
-          }
+        const response = await authClient.post(
+          `/auth/refresh-token`, 
+          { refreshToken }
         );
         
         const { accessToken, refreshToken: newRefreshToken } = response.data;
@@ -283,6 +287,19 @@ apiClient.interceptors.response.use(
     
     return Promise.reject(error);
   }
+);
+
+// Apply the same interceptors to authClient
+authClient.interceptors.request.use(
+  async (config) => {
+    // Get JWT token from localStorage for auth requests too
+    const token = localStorage.getItem('accessToken');
+    if (token) {
+      config.headers['Authorization'] = `Bearer ${token}`;
+    }
+    return config;
+  },
+  (error) => Promise.reject(error)
 );
 
 /**
@@ -425,23 +442,8 @@ enhancedApiClient.getAuthState = () => {
 // Add wallet-specific methods
 enhancedApiClient.connectWallet = async (address: string): Promise<{ nonce: string }> => {
   try {
-    // Get the best working backend URL
-    const workingUrl = await getWorkingBackendUrl();
-    
-    // Use the working URL for the wallet connect endpoint
-    const connectUrl = workingUrl + '/auth/wallet/connect';
-    
-    const response = await axios.post(connectUrl, { 
-      address 
-    }, {
-      headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json'
-      },
-      timeout: 5000,
-      withCredentials: false
-    });
-    
+    // Use the authClient (without cache adapter) for wallet connect operations
+    const response = await authClient.post('/auth/wallet/connect', { address });
     console.log('Wallet connect response:', response.data);
     return response.data;
   } catch (error) {
@@ -452,23 +454,11 @@ enhancedApiClient.connectWallet = async (address: string): Promise<{ nonce: stri
 
 enhancedApiClient.authenticateWallet = async (address: string, signature: string, nonce: string) => {
   try {
-    // Get the best working backend URL
-    const workingUrl = await getWorkingBackendUrl();
-    
-    // Use the working URL for the wallet authentication endpoint
-    const authUrl = workingUrl + '/auth/wallet/authenticate';
-    
-    const response = await axios.post(authUrl, {
-      address,
+    // Use the authClient (without cache adapter) for wallet authentication
+    const response = await authClient.post('/auth/wallet/authenticate', {
+      walletAddress: address, // Changed to match backend DTO field name
       signature,
-      nonce
-    }, {
-      headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json'
-      },
-      timeout: 5000,
-      withCredentials: false
+      message: nonce // Changed to match backend DTO field name
     });
     
     const { accessToken, refreshToken, user } = response.data;
@@ -477,6 +467,13 @@ enhancedApiClient.authenticateWallet = async (address: string, signature: string
     localStorage.setItem('accessToken', accessToken);
     localStorage.setItem('refreshToken', refreshToken);
     localStorage.setItem('walletAddress', address);
+    
+    // Store userId if available for session management
+    if (user && user.id) {
+      localStorage.setItem('userId', user.id);
+    } else if (response.data.userId) {
+      localStorage.setItem('userId', response.data.userId);
+    }
     
     // Set auth header
     apiClient.defaults.headers.common['Authorization'] = `Bearer ${accessToken}`;

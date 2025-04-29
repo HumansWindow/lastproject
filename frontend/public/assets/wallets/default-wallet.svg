@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="48px" height="48px" viewBox="0 0 48 48" version="1.1" xmlns="http://www.w3.org/2000/svg">
+    <title>Default Wallet</title>
+    <g stroke="none" stroke-width="1" fill="none" fill-rule="evenodd">
+        <circle fill="#F0F0F0" cx="24" cy="24" r="24"></circle>
+        <path d="M34,18 L34,14 C34,12.8954305 33.1045695,12 32,12 L16,12 C14.8954305,12 14,12.8954305 14,14 L14,34 C14,35.1045695 14.8954305,36 16,36 L32,36 C33.1045695,36 34,35.1045695 34,34 L34,30 L36,30 C37.1045695,30 38,29.1045695 38,28 L38,20 C38,18.8954305 37.1045695,18 36,18 L34,18 Z M32,18 L16,18 L16,14 L32,14 L32,18 Z M32,20 L32,30 L16,30 L16,20 L32,20 Z M34,28 L34,20 L36,20 L36,28 L34,28 Z" fill="#666666"></path>
+    </g>
+</svg>

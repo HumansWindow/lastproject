@@ -36,6 +36,7 @@ export class UserSessionsService {
 
       const sessionData = {
         userId: data.userId, // Use UUID string
+        user_id: data.userId, // Also set user_id for backward compatibility
         deviceId: deviceUuid,
         ipAddress: data.ipAddress,
         userAgent: data.userAgent,
@@ -85,6 +86,7 @@ export class UserSessionsService {
 
       const sessionData = {
         userId: data.userId, // Use UUID string
+        user_id: data.userId, // Also set user_id for backward compatibility
         deviceId: deviceUuid,
         ipAddress: data.ipAddress,
         userAgent: data.userAgent,

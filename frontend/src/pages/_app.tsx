@@ -6,12 +6,22 @@ import { AuthProvider } from '../contexts/auth';
 import { initializeDebugging } from '../utils/initialize-debug';
 import Layout from '../components/layout/Layout';
 import '../styles/globals.css';
+// Import i18n instance to ensure it's initialized early
+import '../i18n';
+// Import wallet initialization safety layer
+import { initializeWalletSafely } from '../services/wallet/wallet-initialization';
 
 // Import the ConnectionTestResult interface
 import type { ConnectionTestResult } from '../utils/wallet-connection-debugger';
 
 function MyApp({ Component, pageProps }: AppProps) {
   useEffect(() => {
+    // Initialize wallet environment safely before any wallet extensions try to access it
+    // This prevents the "Cannot read properties of null (reading 'type')" error
+    initializeWalletSafely().catch(err => {
+      console.warn('Wallet initialization error (non-critical):', err);
+    });
+
     // Initialize debugging in development mode
     if (process.env.NODE_ENV === 'development') {
       initializeDebugging();

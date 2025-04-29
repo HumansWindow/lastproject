@@ -17,6 +17,10 @@ export class UserSession {
   @Column({ name: 'user_id' })
   userId: string;
 
+  // Add explicit column for userId to handle dual-column schema requirement
+  @Column({ name: 'userId', nullable: false })
+  userIdDirect: string;
+
   @ManyToOne(() => User, user => user.sessions, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'user_id' })
   user: User;
