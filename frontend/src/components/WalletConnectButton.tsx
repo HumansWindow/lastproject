@@ -35,8 +35,7 @@ export const WalletConnectButton: React.FC<WalletConnectButtonProps> = ({
   autoAuthenticate = true
 }) => {
   const { isConnected, isConnecting, walletInfo, connect, disconnect, error } = useWallet();
-  const { authenticateWithWallet, isAuthenticated, isLoading: isAuthLoading } = useAuth();
-  const [isAuthenticating, setIsAuthenticating] = useState<boolean>(false);
+  const { authenticateWithWallet, isAuthenticated, isLoading: isAuthLoading, isAuthenticating, authStage } = useAuth();
   const authInProgressRef = useRef<boolean>(false); // Use ref to track actual auth state across renders
   const hasAttemptedAuth = useRef<boolean>(false);
   const authTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -49,6 +48,26 @@ export const WalletConnectButton: React.FC<WalletConnectButtonProps> = ({
   const displayAddress = walletInfo?.address 
     ? `${walletInfo.address.substring(0, 6)}...${walletInfo.address.substring(walletInfo.address.length - 4)}`
     : '';
+
+  // Get current auth stage for display
+  const getAuthStageText = () => {
+    switch (authStage) {
+      case 'challenge':
+        return 'Getting challenge...';
+      case 'signing':
+        return 'Waiting for signature...';
+      case 'fingerprint':
+        return 'Generating security key...';
+      case 'backend-authentication':
+        return 'Authenticating with backend...';
+      case 'storing-tokens':
+        return 'Storing credentials...';
+      case 'fetching-profile':
+        return 'Loading profile...';
+      default:
+        return 'Authenticating...';
+    }
+  };
   
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -136,7 +155,6 @@ export const WalletConnectButton: React.FC<WalletConnectButtonProps> = ({
       // Increment attempt counter for debugging
       authAttemptCountRef.current += 1;
       // Mark that we're starting authentication to prevent duplicate attempts
-      setIsAuthenticating(true);
       hasAttemptedAuth.current = true;
       setAuthError(null);
       
@@ -178,11 +196,10 @@ export const WalletConnectButton: React.FC<WalletConnectButtonProps> = ({
         globalAuthLock.setLock(false); // Release global lock
         // Only retry up to 3 times to prevent infinite loops
         if (authAttemptCountRef.current < 3) {
-          setIsAuthenticating(false);
+          hasAttemptedAuth.current = false;
         }
       }, 5000);
     } finally {
-      setIsAuthenticating(false);
       // Only release locks after timeout or success
       if (!authTimeoutRef.current) {
         authInProgressRef.current = false;
@@ -247,9 +264,11 @@ export const WalletConnectButton: React.FC<WalletConnectButtonProps> = ({
           <button 
             className={`${styles['wallet-address-button']} ${className} ${showDropdown ? styles.active : ''}`}
             onClick={toggleDropdown}
+            disabled={isAuthenticating} // Disable button while authenticating
           >
             <span className={styles['wallet-address']}>{displayAddress}</span>
             {isAuthenticated && <span className={styles['auth-indicator']}>✓</span>}
+            {isAuthenticating && <span className={styles['auth-indicator-spinner']}></span>}
             <span className={styles['dropdown-arrow']}>{showDropdown ? '▲' : '▼'}</span>
           </button>
           
@@ -261,12 +280,19 @@ export const WalletConnectButton: React.FC<WalletConnectButtonProps> = ({
                 </div>
                 <div className={styles['wallet-address-full']}>{walletInfo?.address}</div>
                 {isAuthenticated && <div className={styles['auth-status-full']}>Authenticated ✓</div>}
+                {isAuthenticating && (
+                  <div className={styles['auth-status-full']}>
+                    <span className={styles['auth-spinner']}></span>
+                    {getAuthStageText()}
+                  </div>
+                )}
               </div>
               
               <div className={styles['wallet-actions']}>
                 <button 
                   className={styles['wallet-action-button']}
                   onClick={handleShowWalletSelector}
+                  disabled={isAuthenticating}
                 >
                   Switch Wallet
                 </button>
@@ -284,6 +310,7 @@ export const WalletConnectButton: React.FC<WalletConnectButtonProps> = ({
                 <button 
                   className={`${styles['wallet-action-button']} ${styles.disconnect}`}
                   onClick={handleDisconnect}
+                  disabled={isAuthenticating} // Disable disconnect while authenticating
                 >
                   Disconnect
                 </button>
@@ -294,8 +321,11 @@ export const WalletConnectButton: React.FC<WalletConnectButtonProps> = ({
           {/* Show authentication status if not in dropdown */}
           {!showDropdown && !isAuthenticated && (
             <React.Fragment>
-              {isAuthenticating || isAuthLoading ? (
-                <span className={`${styles['auth-status']} ${styles.pending}`}>Authenticating...</span>
+              {isAuthenticating ? (
+                <span className={`${styles['auth-status']} ${styles.pending}`}>
+                  <span className={styles['auth-spinner']}></span>
+                  {getAuthStageText()}
+                </span>
               ) : authError ? (
                 <div className={styles['auth-error-indicator']}>
                   <span className={`${styles['auth-status']} ${styles.error}`}>!</span>

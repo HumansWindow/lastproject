@@ -97,6 +97,13 @@ export const profileService = {
    */
   async getUserProfile(): Promise<UserProfile> {
     try {
+      // Check if token exists before making API call
+      const token = secureStorage.getItem(TOKEN_KEY);
+      if (!token) {
+        console.debug('No auth token found, skipping profile fetch');
+        return {} as UserProfile; // Return empty profile if not authenticated
+      }
+      
       // Use the non-cached client for profile requests to avoid adapter issues
       const response = await profileClient.get('/profile');
       return response.data;
@@ -166,6 +173,13 @@ export const profileService = {
    */
   async isProfileComplete(): Promise<boolean> {
     try {
+      // Check if token exists before making API call
+      const token = secureStorage.getItem(TOKEN_KEY);
+      if (!token) {
+        console.debug('No auth token found, profile considered incomplete');
+        return false;
+      }
+      
       const profile = await this.getUserProfile();
       // All fields are optional now - profile is considered complete
       // if user has authenticated or if they've chosen to complete it later

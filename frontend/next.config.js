@@ -10,6 +10,14 @@ const nextConfig = {
   },
   images: {
     domains: ['ipfs.io', 'gateway.pinata.cloud'],
+    dangerouslyAllowSVG: true,
+    contentSecurityPolicy: "default-src 'self'; script-src 'none'; sandbox;",
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: '**',
+      },
+    ],
   },
   // Add crossOrigin to help with browser extension interactions
   crossOrigin: 'anonymous',
@@ -52,9 +60,8 @@ const nextConfig = {
       },
     ];
   },
-  // Prevent static generation for WebSocketDemo pages
+  // Removed the obsolete excludeDefaultMomentLocales option
   experimental: {
-    // Removed the obsolete excludeDefaultMomentLocales option
     // Add Trust Wallet compatibility settings
     esmExternals: 'loose',
   },

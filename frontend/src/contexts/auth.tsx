@@ -9,6 +9,8 @@ interface AuthContextType {
   user: UserProfile | null;
   isAuthenticated: boolean;
   isLoading: boolean;
+  isAuthenticating: boolean; // New state for tracking authentication process
+  authStage: string; // New state for tracking the stage of authentication
   error: string | null;
   isProfileComplete: boolean;
   
@@ -31,6 +33,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [user, setUser] = useState<UserProfile | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [isAuthenticating, setIsAuthenticating] = useState<boolean>(false); // New state
+  const [authStage, setAuthStage] = useState<string>(''); // New state
   const [error, setError] = useState<string | null>(null);
   const [isProfileComplete, setIsProfileComplete] = useState<boolean>(false);
   
@@ -49,19 +53,30 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         // Use secure storage instead of localStorage directly
         const token = secureStorage.getItem(TOKEN_KEY);
         
+        // Only proceed with profile fetch if we have a token
         if (token) {
+          console.debug('Found stored auth token, will fetch profile');
           try {
             // We have a token, fetch the latest profile
             const profile = await profileService.getUserProfile();
-            setUser(profile);
-            setIsAuthenticated(true);
             
-            // Check if profile is complete
-            setIsProfileComplete(!!(
-              profile.firstName && 
-              profile.lastName && 
-              (profile.email || profile.walletAddresses?.length)
-            ));
+            // Only set user if we got a non-empty profile
+            if (profile && Object.keys(profile).length > 0) {
+              setUser(profile);
+              setIsAuthenticated(true);
+              
+              // Check if profile is complete
+              setIsProfileComplete(!!(
+                profile.firstName && 
+                profile.lastName && 
+                (profile.email || profile.walletAddresses?.length)
+              ));
+            } else {
+              console.debug('Empty profile returned despite valid token, clearing auth state');
+              secureStorage.removeItem(TOKEN_KEY);
+              secureStorage.removeItem(REFRESH_TOKEN_KEY);
+              secureStorage.removeItem(USER_KEY);
+            }
           } catch (err) {
             // Invalid token or other error, clear it
             console.error('Error initializing user:', err);
@@ -70,6 +85,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             secureStorage.removeItem(USER_KEY);
             secureStorage.removeItem(DEVICE_VERIFICATION_KEY);
           }
+        } else {
+          console.debug('No auth token found, skipping profile fetch');
         }
       } catch (e) {
         console.error('Error during auth initialization:', e);
@@ -91,6 +108,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     
     try {
       setIsLoading(true);
+      setIsAuthenticating(true); // Set authenticating state to true
+      setAuthStage('starting'); // Set initial stage
       setError(null);
       
       // Clear any previous auth data that might be corrupted
@@ -99,6 +118,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       console.log("Starting wallet authentication process in auth context for", walletInfo.address);
       
       // 1. Get challenge with proper error handling and retry logic
+      setAuthStage('challenge'); // Update stage
       let challenge = ''; // Initialize with empty string to avoid "used before assigned" error
       let challengeAttempts = 0;
       const maxChallengeAttempts = 3;
@@ -137,6 +157,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       }
       
       // 2. Request user to sign the challenge with better error handling
+      setAuthStage('signing'); // Update stage
       let signature = ''; // Initialize with empty string to avoid type issues
       let signAttempts = 0;
       const maxSignAttempts = 2; // Fewer retries for signing since it requires user interaction
@@ -180,10 +201,12 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       }
       
       // 3. Generate device fingerprint for security
+      setAuthStage('fingerprint'); // Update stage
       console.log("Generating device fingerprint");
       const deviceFingerprint = await generateDeviceFingerprint();
       
       // 4. Call authenticate with proper error handling and retry logic
+      setAuthStage('backend-authentication'); // Update stage
       let result = undefined; // Initialize to explicitly track undefined state
       let authAttempts = 0;
       const maxAuthAttempts = 3;
@@ -297,6 +320,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       }
       
       // 5. Store tokens securely if available
+      setAuthStage('storing-tokens'); // Update stage
       console.log("Storing authentication tokens");
       if (result.accessToken) {
         secureStorage.setItem(TOKEN_KEY, result.accessToken);
@@ -312,6 +336,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       secureStorage.setItem(DEVICE_VERIFICATION_KEY, deviceFingerprint);
       
       // 6. Fetch the user profile with retry logic
+      setAuthStage('fetching-profile'); // Update stage
       let profile;
       let profileAttempts = 0;
       const maxProfileAttempts = 2;
@@ -350,8 +375,10 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         setIsProfileComplete(isComplete);
       }
       
-      // Mark as authenticated even without a profile
+      setAuthStage('complete'); // Final stage
       setIsAuthenticated(true);
+      setIsAuthenticating(false); // Reset authenticating state
+      setIsLoading(false);
       return true;
     } catch (err: unknown) {
       // Comprehensive error handling
@@ -361,6 +388,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       
       // Mark storage as potentially corrupted if we had auth errors
       secureStorage.setItem('_corrupted_flag', 'true');
+      setIsAuthenticating(false); // Reset authenticating state on error
+      setIsLoading(false);
+      setAuthStage('error');
       return false;
     } finally {
       setIsLoading(false);
@@ -468,6 +498,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         user,
         isAuthenticated,
         isLoading,
+        isAuthenticating, // New state
+        authStage, // New state
         error,
         isProfileComplete,
         authenticateWithWallet,

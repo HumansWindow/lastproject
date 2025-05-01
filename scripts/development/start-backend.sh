@@ -1,38 +1,31 @@
 #!/bin/bash
 
-# Check if port 3001 is available, if not, kill the process or use alternative port
+# Define constants
 PORT=3001
-FALLBACK_PORT=3002
+LOG_DIR="/home/alivegod/Desktop/4-Ordibehesht/LastProjectendpoint/LastProject/logs"
+TIMESTAMP=$(date "+%Y-%m-%d_%H-%M-%S")
+LOG_FILE="${LOG_DIR}/backend_${TIMESTAMP}.log"
 
+# Create logs directory if it doesn't exist
+mkdir -p "$LOG_DIR"
+
+# Check if port 3001 is in use and kill the process automatically
 if lsof -Pi :$PORT -sTCP:LISTEN -t >/dev/null ; then
     echo "Port $PORT is already in use!"
-    echo "Do you want to:"
-    echo "1) Kill the process and use port $PORT"
-    echo "2) Use alternative port $FALLBACK_PORT"
-    echo "3) Quit"
-    read -p "Select option (1-3): " OPTION
-    
-    case $OPTION in
-        1)
-            echo "Killing process on port $PORT..."
-            lsof -ti :$PORT | xargs kill -9
-            echo "Starting backend on port $PORT..."
-            cd backend && npm run start:dev
-            ;;
-        2)
-            echo "Starting backend on port $FALLBACK_PORT..."
-            PORT=$FALLBACK_PORT cd backend && npm run start:dev
-            ;;
-        3)
-            echo "Exiting..."
-            exit 0
-            ;;
-        *)
-            echo "Invalid option. Exiting..."
-            exit 1
-            ;;
-    esac
+    echo "Killing process on port $PORT..."
+    lsof -ti :$PORT | xargs kill -9
+fi
+
+# Navigate to backend directory and start the application
+echo "Starting backend on port $PORT..."
+echo "Log file will be saved at: $LOG_FILE"
+
+# Method 1: First attempt with Node directly (if dist/main.js exists)
+if [ -f "../../backend/dist/main.js" ]; then
+    echo "Starting with Node directly with garbage collection enabled..."
+    cd ../.. && cd backend && node --expose-gc --max-old-space-size=512 dist/main.js 2>&1 | tee "$LOG_FILE"
 else
-    echo "Port $PORT is available. Starting backend..."
-    cd backend && npm run start:dev
+    # Method 2: Fallback to npm script with increased memory limit only
+    echo "Starting with npm run start:dev with increased memory limit..."
+    cd ../.. && cd backend && NODE_OPTIONS="--max-old-space-size=512" npm run start:dev 2>&1 | tee "$LOG_FILE"
 fi

@@ -44,6 +44,12 @@
   background-color: #2563eb;
 }
 
+.wallet-address-button:disabled {
+  background-color: #6b7280;
+  opacity: 0.8;
+  cursor: not-allowed;
+}
+
 .wallet-address {
   margin-right: 8px;
   font-family: monospace;
@@ -54,6 +60,21 @@
   margin: 0 4px;
   font-size: 18px;
   line-height: 1;
+}
+
+.auth-indicator-spinner {
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  margin: 0 4px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-radius: 50%;
+  border-top-color: #fff;
+  animation: spin 1s ease-in-out infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
 }
 
 .dropdown-arrow {
@@ -100,6 +121,19 @@
   font-size: 14px;
   font-weight: 500;
   margin-top: 8px;
+  display: flex;
+  align-items: center;
+}
+
+.auth-spinner {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  margin-right: 8px;
+  border: 2px solid rgba(0, 0, 0, 0.1);
+  border-radius: 50%;
+  border-top-color: #3b82f6;
+  animation: spin 1s ease-in-out infinite;
 }
 
 .wallet-actions {
@@ -138,11 +172,12 @@
 }
 
 .auth-status {
-  display: inline-block;
+  display: inline-flex;
   font-size: 12px;
   border-radius: 4px;
   padding: 2px 6px;
   margin-left: 8px;
+  align-items: center;
 }
 
 .auth-status.pending {
@@ -180,6 +215,12 @@
 
 .retry-auth-button:hover {
   text-decoration: underline;
+}
+
+.retry-auth-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  text-decoration: none;
 }
 
 .wallet-error,

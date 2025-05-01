@@ -13,7 +13,7 @@ echo "========================================================"
 # Database connection parameters - update with your actual credentials
 DB_NAME="Alive-Db"
 DB_USER="Aliveadmin"
-DB_PASSWORD="alivehumans@2024"
+DB_PASSWORD="aliveHumans@2024"
 USE_SUDO=false
 CLEAN_LOGS=true
 LOG_DIR="${SCRIPT_DIR}/logs"

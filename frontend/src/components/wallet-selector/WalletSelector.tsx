@@ -1,8 +1,8 @@
-import React, { useEffect, useState } from 'react';
-import { walletSelector, AvailableWallet, WalletProviderType, WalletConnectionResult } from '@/services/wallet';
-import styles from './WalletSelector.module.css';
+import React, { useState, useEffect } from 'react';
 import Image from 'next/image';
 import { Spinner } from 'react-bootstrap';
+import styles from './WalletSelector.module.css';
+import { walletSelector, WalletConnectionResult, WalletProviderType, AvailableWallet } from '@/services/wallet';
 
 interface WalletSelectorProps {
   onConnect: (result: WalletConnectionResult) => void;
@@ -11,18 +11,17 @@ interface WalletSelectorProps {
 
 const WalletSelector: React.FC<WalletSelectorProps> = ({ onConnect, onCancel }) => {
   const [wallets, setWallets] = useState<AvailableWallet[]>([]);
-  const [connecting, setConnecting] = useState<WalletProviderType | null>(null);
-  const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
+  const [connecting, setConnecting] = useState<WalletProviderType | null>(null);
+  const [connectingStage, setConnectingStage] = useState<string>('');
+  const [error, setError] = useState<string | null>(null);
 
-  // Detect available wallets when component mounts
   useEffect(() => {
     const detectAvailableWallets = async () => {
       try {
-        setLoading(true);
-        const availableWallets = walletSelector.getAvailableWallets();
-        setWallets(availableWallets);
-      } catch (err) {
+        const available = await walletSelector.getAvailableWallets();
+        setWallets(available || []);
+      } catch (err: any) {
         console.error('Error detecting wallets:', err);
         setError('Failed to detect wallets');
       } finally {
@@ -37,19 +36,25 @@ const WalletSelector: React.FC<WalletSelectorProps> = ({ onConnect, onCancel }) 
   const handleConnectWallet = async (wallet: AvailableWallet) => {
     try {
       setConnecting(wallet.providerType);
+      setConnectingStage('initializing');
       setError(null);
 
+      // Initialize connection
+      setConnectingStage('connecting');
       const result = await walletSelector.connectWallet(wallet.providerType);
       
       if (result.success) {
+        setConnectingStage('authenticating');
+        // Artificial delay to show connecting state and give backend time to respond
+        await new Promise(resolve => setTimeout(resolve, 1000));
         onConnect(result);
       } else {
         setError(result.error || `Failed to connect to ${wallet.name}`);
+        setConnecting(null);
       }
     } catch (err: any) {
       console.error('Error connecting to wallet:', err);
       setError(err.message || `Failed to connect to ${wallet.name}`);
-    } finally {
       setConnecting(null);
     }
   };
@@ -68,6 +73,20 @@ const WalletSelector: React.FC<WalletSelectorProps> = ({ onConnect, onCancel }) 
     }
   };
 
+  // Get loading text based on stage
+  const getConnectingText = (wallet: AvailableWallet): string => {
+    switch(connectingStage) {
+      case 'initializing':
+        return 'Initializing...';
+      case 'connecting':
+        return 'Connecting...';
+      case 'authenticating':
+        return 'Waiting for backend...';
+      default:
+        return `Connecting to ${wallet.name}...`;
+    }
+  };
+
   // Filter out wallets that aren't installed, except for WalletConnect
   const installedWallets = wallets.filter(
     wallet => wallet.installed || wallet.providerType === WalletProviderType.WALLETCONNECT
@@ -82,6 +101,7 @@ const WalletSelector: React.FC<WalletSelectorProps> = ({ onConnect, onCancel }) 
           className="btn-close" 
           aria-label="Close" 
           onClick={onCancel}
+          disabled={connecting !== null}
         ></button>
       </div>
       
@@ -103,8 +123,8 @@ const WalletSelector: React.FC<WalletSelectorProps> = ({ onConnect, onCancel }) 
           {installedWallets.map((wallet) => (
             <div 
               key={wallet.providerType}
-              className={styles.walletCard}
-              onClick={() => handleConnectWallet(wallet)}
+              className={`${styles.walletCard} ${connecting !== null && connecting !== wallet.providerType ? styles.disabled : ''}`}
+              onClick={() => !connecting && handleConnectWallet(wallet)}
             >
               <div className={styles.walletCardInner}>
                 <div className={styles.walletLogoContainer}>
@@ -113,12 +133,13 @@ const WalletSelector: React.FC<WalletSelectorProps> = ({ onConnect, onCancel }) 
                     alt={`${wallet.name} logo`}
                     width={48}
                     height={48}
-                    priority={true}
+                    loading="eager"
                     unoptimized={true}
                   />
                   {connecting === wallet.providerType && (
                     <div className={styles.connectingOverlay}>
                       <Spinner animation="border" size="sm" />
+                      <span className={styles.connectingText}>{getConnectingText(wallet)}</span>
                     </div>
                   )}
                 </div>
