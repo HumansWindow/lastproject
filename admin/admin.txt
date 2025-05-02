@@ -1,0 +1,9 @@
+Admin User Credentials
+=====================
+Username: 1AliveGod
+Email: 1AliveGod@alivehuman.com
+Password: rYL9b20v+apukBYQNGk3k5zO
+Wallet: 0x7f62e43caca5e1ce6e0cb044a3263c224ad25418
+Role: admin
+=====================
+Created on: 2025-05-01T19:51:04.851Z

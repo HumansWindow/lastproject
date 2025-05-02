@@ -13,15 +13,18 @@ export const getCorsConfig = (): CorsOptions => {
     ? [
         'https://alivehuman.com',
         'https://app.alivehuman.com',
+        'https://admin.alivehuman.com', // Add admin dashboard production domain
         // Add other production domains as needed
       ]
     : [
         'http://localhost:3000',
         'http://127.0.0.1:3000',
         'http://localhost:3001',
+        'http://localhost:3003', // Add admin dashboard dev port
         'http://localhost:8000',
         'http://localhost:8080',
         'https://localhost:3000',  // Add HTTPS variant for secure local development
+        'https://localhost:3003',  // Add HTTPS variant for admin dashboard
         'https://127.0.0.1:3000',  // Add HTTPS variant with IP
         // Allow any localhost origin for development
         /^http:\/\/localhost(:[0-9]+)?$/,
@@ -38,7 +41,7 @@ export const getCorsConfig = (): CorsOptions => {
     origin: origins,
     methods: ['GET', 'HEAD', 'PUT', 'PATCH', 'POST', 'DELETE', 'OPTIONS'],
     credentials: true,
-    allowedHeaders: 'Origin, X-Requested-With, Content-Type, Accept, Authorization, Access-Control-Allow-Headers, X-Device-Id, X-Device-Fingerprint, X-Wallet-Chain-Id, Cache-Control, Pragma, X-Request-Time',
+    allowedHeaders: 'Origin, X-Requested-With, Content-Type, Accept, Authorization, Access-Control-Allow-Headers, X-Device-Id, X-Device-Fingerprint, X-Wallet-Chain-Id, Cache-Control, Pragma, X-Request-Time, X-Total-Count',
     exposedHeaders: 'X-Total-Count',
     preflightContinue: false,
     optionsSuccessStatus: 204,

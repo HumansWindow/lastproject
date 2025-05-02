@@ -8,6 +8,7 @@ import { AuthModule } from '../auth/auth.module';
 import { SharedModule } from '../shared/shared.module';
 import { WalletsModule } from '../wallets/wallets.module';
 import { BlockchainModule } from '../blockchain/blockchain.module';
+import { AdminModule } from '../admin/admin.module'; // Import the AdminModule
 import { MailModule } from '../mail/mail.module';
 import { ReferralModule } from '../referral/referral.module';
 import { NftModule } from '../nft/nft.module';
@@ -56,11 +57,12 @@ import { MemoryMonitorService } from '../shared/services/memory-monitor.service'
     SharedModule,
     WalletsModule,
     BlockchainModule,
+    AdminModule, // Add the AdminModule here
     MailModule,
     ReferralModule,
     NftModule,
-    DiaryModule, // Added our new DiaryModule
-    ProfileModule, // Added the new Profile module
+    DiaryModule,
+    ProfileModule,
   ],
   controllers: [BaseController],
   providers: [MemoryMonitorService],
