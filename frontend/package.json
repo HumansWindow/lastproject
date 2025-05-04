@@ -25,6 +25,7 @@
     "crypto-browserify": "^3.12.1",
     "date-fns": "^4.1.0",
     "ethers": "^5.8.0",
+    "gsap": "^3.13.0",
     "https-browserify": "^1.0.0",
     "i18next": "^22.4.14",
     "i18next-browser-languagedetector": "^8.0.4",
@@ -43,6 +44,7 @@
     "stream-browserify": "^3.0.0",
     "stream-http": "^3.2.0",
     "styled-jsx": "^5.1.6",
+    "three": "^0.162.0",
     "typescript": "^5.0.4",
     "web3modal": "^1.9.12"
   },
@@ -51,6 +53,7 @@
     "@types/pako": "^2.0.3",
     "@types/react": "^19.0.12",
     "@types/react-dom": "^19.0.4",
+    "@types/three": "^0.162.0",
     "autoprefixer": "^10.4.14",
     "eslint": "^8.38.0",
     "eslint-config-next": "^13.3.0",

@@ -1,0 +1,237 @@
+/* 
+ * Timeline Section Styles
+ * Styles for the Timeline section component in the Learn to Earn game
+ */
+
+/* Import the base section styles */
+@import './section-base.css';
+
+/* Timeline Styles */
+.timeline {
+    position: relative;
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 20px;
+}
+
+.timeline::after {
+    content: '';
+    position: absolute;
+    width: 6px;
+    background-color: #fff;
+    top: 0;
+    bottom: 0;
+    left: 50%;
+    margin-left: -3px;
+    border-radius: 3px;
+    box-shadow: 0 0 10px rgba(255, 255, 255, 0.5);
+}
+
+.timeline-item {
+    padding: 10px 40px;
+    position: relative;
+    width: 50%;
+    animation: fadeIn 0.5s ease-in-out forwards;
+    opacity: 0;
+}
+
+.timeline-item::after {
+    content: '';
+    position: absolute;
+    width: 25px;
+    height: 25px;
+    right: -17px;
+    background-color: white;
+    border: 4px solid #663399;
+    top: 15px;
+    border-radius: 50%;
+    z-index: 1;
+    transition: all 0.3s ease;
+}
+
+.timeline-item:hover::after {
+    background-color: #663399;
+    transform: scale(1.2);
+}
+
+.timeline-item.left {
+    left: 0;
+}
+
+.timeline-item.right {
+    left: 50%;
+}
+
+.timeline-item.right::after {
+    left: -8px;
+}
+
+.timeline-content {
+    padding: 20px;
+    background-color: rgba(0, 0, 0, 0.7);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 10px;
+    backdrop-filter: blur(10px);
+    position: relative;
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.timeline-content:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+}
+
+.timeline-img {
+    width: 100%;
+    height: 200px;
+    object-fit: cover;
+    border-radius: 8px;
+    margin-bottom: 15px;
+}
+
+/* Timeline animations */
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(50px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Fix any floating issues */
+.timeline-content::after {
+    content: '';
+    display: table;
+    clear: both;
+}
+
+/* Mobile Timeline Styles */
+@media screen and (max-width: 768px) {
+    .timeline::after {
+        left: 31px;
+    }
+    
+    .timeline-item {
+        width: 100%;
+        padding-left: 70px;
+        padding-right: 25px;
+    }
+    
+    .timeline-item.right {
+        left: 0;
+    }
+    
+    .timeline-item.left::after,
+    .timeline-item.right::after {
+        left: 15px;
+    }
+}
+
+/* RTL Timeline Adjustments */
+[dir="rtl"] .timeline::after {
+    left: auto;
+    right: 50%;
+    margin-left: 0;
+    margin-right: -2px;
+}
+
+[dir="rtl"] .timeline-item {
+    padding: 10px 50px 10px 40px;
+}
+
+[dir="rtl"] .timeline-item.left {
+    left: auto;
+    right: 0;
+}
+
+[dir="rtl"] .timeline-item.right {
+    left: auto;
+    right: 50%;
+}
+
+[dir="rtl"] .timeline-content {
+    padding: 20px;
+    text-align: right;
+}
+
+[dir="rtl"] .timeline-item::before {
+    left: auto;
+    right: -12px;
+}
+
+[dir="rtl"] .timeline-item.right::before {
+    right: auto;
+    left: -12px;
+}
+
+/* RTL Timeline Responsive Adjustments */
+@media screen and (max-width: 768px) {
+    [dir="rtl"] .timeline::after {
+        right: 40px;
+    }
+
+    [dir="rtl"] .timeline-item {
+        width: 100%;
+        padding-right: 70px;
+        padding-left: 25px;
+    }
+
+    [dir="rtl"] .timeline-item.right {
+        right: 0;
+    }
+
+    [dir="rtl"] .timeline-item::before {
+        right: 34px;
+    }
+
+    [dir="rtl"] .timeline-item.right::before {
+        right: 34px;
+        left: auto;
+    }
+
+    [dir="rtl"] .timeline-content {
+        padding: 15px;
+    }
+}
+
+/* Ensure correct text direction for all content */
+[dir="rtl"] .timeline-content * {
+    direction: rtl;
+    unicode-bidi: embed;
+}
+
+/* Timeline content styling */
+.timeline-content h3,
+.timeline-content p {
+    margin-bottom: 15px;
+}
+
+.timeline-content .ah-button {
+    display: inline-block;
+    margin-top: 10px;
+}
+
+/* Fix timeline line position in RTL mobile view */
+@media screen and (max-width: 768px) {
+    [dir="rtl"] .timeline::after {
+        right: 40px;
+        left: auto;
+    }
+    
+    [dir="rtl"] .timeline-item.left,
+    [dir="rtl"] .timeline-item.right {
+        right: 0;
+        width: 100%;
+        padding-right: 70px;
+        padding-left: 25px;
+    }
+    
+    [dir="rtl"] .timeline-item.left::before,
+    [dir="rtl"] .timeline-item.right::before {
+        right: 34px;
+        left: auto;
+    }
+}

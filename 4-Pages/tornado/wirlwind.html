@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Whirlwind Animation</title>
+    <style>
+        body { margin: 0; }
+        canvas { display: block; }
+    </style>
+</head>
+<body>
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://unpkg.com/three@0.155.0/build/three.module.js",
+                "three/addons/": "https://unpkg.com/three@0.155.0/examples/jsm/"
+            }
+        }
+    </script>
+
+    <script type="module">
+        import * as THREE from 'three';
+        import { FontLoader } from 'three/addons/loaders/FontLoader.js';
+        import { TextGeometry } from 'three/addons/geometries/TextGeometry.js';
+        import { initTornadoAnimation } from './wirlwind.js';
+
+        // Make THREE available globally for the animation script
+        window.THREE = THREE;
+        window.FontLoader = FontLoader;
+        window.TextGeometry = TextGeometry;
+
+        // Wait for both DOM and modules to be ready
+        Promise.all([
+            new Promise(resolve => {
+                if (document.readyState === 'loading') {
+                    document.addEventListener('DOMContentLoaded', resolve);
+                } else {
+                    resolve();
+                }
+            }),
+            new Promise(resolve => setTimeout(resolve, 500))
+        ]).then(() => {
+            console.log('All resources loaded, starting animation...');
+            initTornadoAnimation();
+        });
+    </script>
+</body>
+</html>

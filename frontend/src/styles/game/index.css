@@ -1,0 +1,18 @@
+/* 
+ * Game Components CSS Index
+ * This file imports all the CSS files for the Learn to Earn game components
+ */
+
+/* Base Section Styles */
+@import './section-base.css';
+
+/* Section Types */
+@import './section-text-image.css';
+@import './section-card-carousel.css';
+@import './section-timeline.css';
+@import './section-galaxy-background.css';
+
+/* Animation Library */
+@import './animations.css';
+
+/* Note: When using this file, you only need to import this single file to get all game component styles */

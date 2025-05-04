@@ -1,0 +1,289 @@
+/* 
+ * Section Base Styles
+ * Common styles for all Learn to Earn game section components
+ */
+
+/* CSS Variables */
+:root {
+    --vh: 100%;
+    --text-light: #f5f4f6;
+    --text-dark: #2d0909;
+    --font-vazir: 'Vazirmatn', Arial, sans-serif;
+    --ah-navbar-height: 76px;
+    --ah-text-light: #f5f4f6;
+    --ah-text-dark: #2d0909;
+}
+
+/* Base Section Styles */
+.ah-section {
+    min-height: 100vh;
+    max-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+    overflow: hidden;
+    width: 100%;
+    max-width: 100%;
+    padding-left: 15px;
+    padding-right: 15px;
+    background: transparent;
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    top: 0;
+    left: 0;
+    visibility: hidden;
+    opacity: 0;
+    transition: visibility 0.5s, opacity 0.5s;
+}
+
+/* Active section styles */
+.ah-section.active-section {
+    visibility: visible;
+    opacity: 1;
+    position: relative;
+    pointer-events: all;
+    z-index: 1;
+    animation: sectionFadeIn 0.8s ease-out forwards;
+}
+
+@keyframes sectionFadeIn {
+    0% {
+        opacity: 0;
+        transform: scale(0.98) translateY(10px);
+    }
+    100% {
+        opacity: 1;
+        transform: scale(1) translateY(0);
+    }
+}
+
+/* Section Content Container */
+.ah-section-content {
+    position: relative;
+    width: 100%;
+    height: calc(100vh - (var(--ah-navbar-height) + 84px));
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    margin-top: calc(var(--ah-navbar-height) + 2px);
+    margin-bottom: 42px;
+    padding: 0 15px;
+    scroll-behavior: smooth;
+    flex: 1;
+    scrollbar-width: none; /* Firefox */
+    -ms-overflow-style: none; /* IE and Edge */
+}
+
+/* Hide scrollbar but keep functionality */
+.ah-section-content::-webkit-scrollbar {
+    display: none;
+}
+
+/* Section content scroll styling */
+.ah-section-content::-webkit-scrollbar {
+    width: 6px;
+}
+
+.ah-section-content::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.ah-section-content::-webkit-scrollbar-thumb {
+    background-color: rgba(255, 255, 255, 0.2);
+    border-radius: 3px;
+}
+
+/* Content wrapper for proper spacing */
+.content-wrapper {
+    min-height: 100%;
+    padding: 20px 0;
+    max-width: 1200px;
+    margin: 0 auto;
+    width: 100%;
+    height: 100%;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+}
+
+/* Navigation Components */
+.ah-nav-button {
+    position: fixed;
+    left: 0;
+    width: 100%;
+    z-index: 999;
+    padding: 0.5rem;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 40px;
+    background: transparent;
+    position: relative;
+    z-index: 10;
+    padding: 20px;
+}
+
+.top-nav-button { 
+    top: calc(var(--ah-navbar-height) + 2px); 
+}
+
+.bottom-nav-button { 
+    bottom: 2px; 
+}
+
+/* Button Styles */
+.ah-button {
+    background: radial-gradient(closest-side, rgb(74, 70, 70), #000000);
+    color: white !important;
+    text-align: center;
+    text-decoration: none;
+    font-size: 16px;
+    margin: 4px 2px;
+    cursor: pointer;
+    border-radius: 12px;
+    transition: transform 0.2s ease;
+}
+
+.ah-button:hover {
+    background: radial-gradient(circle, black, rgb(74, 70, 70));
+    transform: scale(1.05);
+    color: white !important;
+    text-decoration: none;
+}
+
+/* Typography */
+.ah-section h1, 
+.ah-section h2, 
+.ah-section h3, 
+.ah-section h4, 
+.ah-section h5, 
+.ah-section h6, 
+.ah-section .card-title, 
+.ah-section [lang="fa"] {
+    font-family: var(--font-vazir);
+}
+
+.ah-section p {
+    font-size: 1.2rem;
+}
+
+/* Prevent text overflow in all text elements */
+.ah-section h1, 
+.ah-section h2, 
+.ah-section h3, 
+.ah-section h4, 
+.ah-section h5, 
+.ah-section h6, 
+.ah-section p, 
+.ah-section span {
+    overflow-wrap: break-word;
+    word-wrap: break-word;
+    hyphens: auto;
+    max-width: 100%;
+}
+
+/* Section transition animations */
+.section-exit {
+    animation: slideOut 1s ease-in-out forwards;
+    pointer-events: none;
+}
+
+.section-enter {
+    animation: slideIn 1s ease-in-out forwards;
+    pointer-events: none;
+}
+
+@keyframes slideOut {
+    0% {
+        transform: translateX(0);
+        opacity: 1;
+    }
+    100% {
+        transform: translateX(-100vw);
+        opacity: 0;
+    }
+}
+
+@keyframes slideIn {
+    0% {
+        transform: translateX(100vw);
+        opacity: 0;
+    }
+    100% {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+
+/* Typing Animation */
+.TypeStyle {
+    min-height: 60px;
+    display: flex;
+    align-items: center;
+    margin: 0;
+    padding: 0;
+    line-height: 1.2;
+    overflow: hidden; /* Prevents text overflow during animation */
+    position: relative; /* For absolute positioning of animated content if needed */
+}
+
+/* Media Queries */
+@media (max-width: 768px) {
+    .TypeStyle {
+        min-height: 45px; /* Smaller height for mobile */
+    }
+    
+    .ah-section {
+        height: auto;
+        min-height: 100vh;
+    }
+
+    .ah-section-content {
+        height: calc(100vh - (var(--ah-navbar-height) + 94px));
+        padding-bottom: 20px;
+    }
+
+    .ah-nav-button {
+        min-height: 35px;
+        padding: 0.25rem;
+    }
+}
+
+@media (max-width: 576px) {
+    .ah-nav-button {
+        min-height: 35px;
+        padding: 0.25rem;
+    }
+}
+
+/* RTL Support */
+[dir="rtl"] {
+    text-align: right;
+}
+
+/* Fix RTL punctuation marks */
+[dir="rtl"] *:not(code):not(pre) {
+    text-align: right;
+    unicode-bidi: plaintext;
+}
+
+[dir="rtl"] .TypeStyle,
+[dir="rtl"] p,
+[dir="rtl"] h1,
+[dir="rtl"] h2,
+[dir="rtl"] h3,
+[dir="rtl"] h4,
+[dir="rtl"] h5,
+[dir="rtl"] h6,
+[dir="rtl"] span,
+[dir="rtl"] div {
+    text-align: right;
+    unicode-bidi: plaintext;
+}
+
+/* Maintain LTR for specific elements even in RTL mode */
+[dir="rtl"] .keep-ltr {
+    direction: ltr;
+    unicode-bidi: isolate;
+}

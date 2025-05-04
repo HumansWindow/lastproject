@@ -1,0 +1,257 @@
+/* 
+ * Animations CSS
+ * Reusable animations for the Learn to Earn game components
+ */
+
+/* Fade in and out animation for text elements */
+.animated-text {
+    color: black;
+}
+
+/* 3D rotation animation for logo elements */
+.rotate-y {
+    animation: rotateY 5s linear infinite;
+    transform-style: preserve-3d;
+}
+
+@keyframes rotateY {
+    from { transform: rotateY(0deg); }
+    to { transform: rotateY(360deg); }
+}
+
+/* Individual character animation for text */
+.brand-char {
+    display: inline-block;
+    animation: rotateChar 3s ease-in-out infinite;
+    animation-delay: calc(var(--char-index) * 0.1s);
+    transform-origin: center;
+    opacity: 0;
+    animation-fill-mode: forwards;
+}
+
+@keyframes rotateChar {
+    0% {
+        opacity: 0;
+        transform: rotateY(0deg) scale(0.8);
+    }
+    20% {
+        opacity: 1;
+        transform: rotateY(360deg) scale(1.2);
+    }
+    40%, 100% {
+        opacity: 1;
+        transform: rotateY(0deg) scale(1);
+    }
+}
+
+/* Spinning animation - Reversed direction */
+.spin-reverse {
+    animation: spinReverse 10s linear infinite;
+    transform-origin: center;
+}
+
+@keyframes spinReverse {
+    from { transform: rotate(360deg) scale(0.95); }
+    50% { transform: rotate(180deg) scale(1); }
+    to { transform: rotate(0deg) scale(0.95); }
+}
+
+/* Circular reveal animation */
+.circle-reveal {
+    position: relative;
+    clip-path: circle(0% at center);
+    animation: circleReveal 5s 3;
+}
+
+@keyframes circleReveal {
+    0% {
+        clip-path: circle(0% at center);
+        opacity: 0;
+    }
+    15% {
+        clip-path: circle(100% at center);
+        opacity: 1;
+    }
+    60% {
+        clip-path: circle(100% at center);
+        opacity: 1;
+    }
+    75% {
+        clip-path: circle(0% at center);
+        opacity: 0;
+    }
+    100% {
+        clip-path: circle(0% at center);
+        opacity: 0;
+    }
+}
+
+/* Fade in animation for elements */
+.fade-in {
+    animation: fadeIn 0.5s ease-in-out forwards;
+    opacity: 0;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Pulse animation */
+.pulse {
+    animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+    0% {
+        transform: scale(1);
+    }
+    50% {
+        transform: scale(1.05);
+    }
+    100% {
+        transform: scale(1);
+    }
+}
+
+/* Slide transitions */
+.slide-left {
+    animation: slideLeft 0.5s ease-in-out;
+}
+
+.slide-right {
+    animation: slideRight 0.5s ease-in-out;
+}
+
+.slide-up {
+    animation: slideUp 0.5s ease-in-out;
+}
+
+.slide-down {
+    animation: slideDown 0.5s ease-in-out;
+}
+
+@keyframes slideLeft {
+    from {
+        transform: translateX(50px);
+        opacity: 0;
+    }
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+
+@keyframes slideRight {
+    from {
+        transform: translateX(-50px);
+        opacity: 0;
+    }
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+
+@keyframes slideUp {
+    from {
+        transform: translateY(50px);
+        opacity: 0;
+    }
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+@keyframes slideDown {
+    from {
+        transform: translateY(-50px);
+        opacity: 0;
+    }
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+/* Button pop animation */
+.button-pop {
+    animation: buttonPop 0.3s ease-out;
+}
+
+@keyframes buttonPop {
+    0% {
+        opacity: 0;
+        transform: scale(0.8);
+    }
+    50% {
+        transform: scale(1.1);
+    }
+    100% {
+        opacity: 1;
+        transform: scale(1);
+    }
+}
+
+/* Button pulse animation for attention */
+.button-pulse {
+    animation: buttonPulse 2s infinite;
+}
+
+@keyframes buttonPulse {
+    0% {
+        box-shadow: 0 0 0 0 rgba(102, 51, 153, 0.4);
+    }
+    70% {
+        box-shadow: 0 0 0 10px rgba(102, 51, 153, 0);
+    }
+    100% {
+        box-shadow: 0 0 0 0 rgba(102, 51, 153, 0);
+    }
+}
+
+/* Section fade in animation */
+.section-fade-in {
+    animation: sectionFadeIn 0.8s ease-out forwards;
+}
+
+@keyframes sectionFadeIn {
+    0% {
+        opacity: 0;
+        transform: scale(0.98) translateY(10px);
+    }
+    100% {
+        opacity: 1;
+        transform: scale(1) translateY(0);
+    }
+}
+
+/* Utility classes for animation delays */
+.delay-100 { animation-delay: 100ms; }
+.delay-200 { animation-delay: 200ms; }
+.delay-300 { animation-delay: 300ms; }
+.delay-400 { animation-delay: 400ms; }
+.delay-500 { animation-delay: 500ms; }
+
+/* Animation duration utility classes */
+.duration-300 { animation-duration: 300ms; }
+.duration-500 { animation-duration: 500ms; }
+.duration-700 { animation-duration: 700ms; }
+.duration-1000 { animation-duration: 1000ms; }
+
+/* Utility to pause animations when needed */
+.animation-paused {
+    animation-play-state: paused;
+}
+
+/* Utility to run animations only once */
+.animation-once {
+    animation-iteration-count: 1;
+}

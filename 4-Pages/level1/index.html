@@ -1,0 +1,874 @@
+<!DOCTYPE html>
+<!-- Added Content Security Policy -->
+
+<html lang="en" dir="ltr">
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, maximum-scale=1.0, user-scalable=no">
+    <meta http-equiv="X-Content-Type-Options" content="nosniff">
+    
+    <!-- Combined Content Security Policy -->
+    <meta http-equiv="Content-Security-Policy" content="
+    default-src 'self' 'unsafe-inline' 'unsafe-eval' http: https:;
+    connect-src 'self' * ws: wss:;
+    img-src 'self' data: https: http:;
+    font-src 'self' data: 
+        https://fonts.gstatic.com 
+        https://fonts.googleapis.com 
+        https://use.fontawesome.com 
+        https://cdnjs.cloudflare.com;
+    script-src 'self' 'unsafe-inline' 'unsafe-eval' 
+        https://cdn.jsdelivr.net 
+        https://translate.google.com 
+        https://translate.googleapis.com 
+        https://translate-pa.googleapis.com 
+        https://www.google.com 
+        https://cdnjs.cloudflare.com 
+        https://code.jquery.com 
+        https://stackpath.bootstrapcdn.com;
+    style-src 'self' 'unsafe-inline' 
+        https://fonts.googleapis.com 
+        https://cdnjs.cloudflare.com 
+        https://stackpath.bootstrapcdn.com 
+        https://www.gstatic.com 
+        https://use.fontawesome.com;">
+
+    <!-- Language and Translation -->
+    <meta http-equiv="Content-Language" content="en">
+    <meta name="google" content="notranslate">
+
+    <!-- SEO Meta Tags -->
+    <meta name="description" content="Alive Human - For the future of Human. Discover our responsive landing page with engaging content and visuals.">
+    <meta name="keywords" content="Alive Human, future, responsive landing page, engaging content, visuals">
+    <meta name="author" content="Your Name">
+    
+    <!-- Social Media Meta Tags -->
+    <meta property="og:title" content="Alive Human - For the future of Human">
+    <meta property="og:description" content="Discover our responsive landing page with engaging content and visuals.">
+    <meta property="og:image" content="Content/Logo.png">
+    <meta property="og:url" content="http://yourwebsite.com">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="Alive Human - For the future of Human">
+    <meta name="twitter:description" content="Discover our responsive landing page with engaging content and visuals.">
+    <meta name="twitter:image" content="Content/Logo.png">
+
+    <!-- Stylesheets -->
+    <link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@100;200;300;400;500;600;700;800;900&display=swap" 
+          rel="stylesheet" 
+          crossorigin="anonymous">
+    <link rel="stylesheet" 
+          href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css"
+          integrity="sha384-JcKb8q3iqJ61gNV9KGb8thSsNjpSL0n8PARn9HuZOnIxN0hoP+VmmDGMN5t9UJ0Z"
+          crossorigin="anonymous">
+    <link rel="stylesheet" href="src/styles/style.css">
+    <link rel="stylesheet" href="src/styles/test.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css">
+
+    <!-- Translation Script -->
+    <script>
+        function googleTranslateElementInit() {
+            if (typeof window.initTranslation === 'function') {
+                window.initTranslation();
+            }
+        }
+    </script>
+    <script src="src/js/translate.js"></script>
+    <script defer src="https://translate.google.com/translate_a/element.js?cb=googleTranslateElementInit"></script>
+
+    <!-- Translation Styles -->
+    <style>
+        .goog-te-banner-frame,
+        .skiptranslate {
+            display: none !important;
+        }
+        body {
+            top: 0 !important;
+        }
+    </style>
+
+    <link rel="icon" href="src/styles/favicon.ico" type="image/x-icon">
+</head>
+
+<body>
+    <nav class="navbar navbar-light bg-light fixed-top" dir="ltr">
+        <div class="container-fluid mobile-flex-column" dir="ltr">
+            <div class="nav-row brand-row" dir="ltr">
+                <a class="navbar-brand d-flex align-items-center" href="#" dir="ltr">
+                    <img id="AliveLogo" src="src/images/Logo.png" alt="Logo" class="img-fluid d-inline-block align-text-top" style="height: 40px; width: auto;">
+                    <div class="d-flex brand-container notranslate">
+                        <!-- Keep existing three-char divs -->
+                        <div class="three-char" data-char="A"></div>
+                        <div class="three-char" data-char="L"></div>
+                        <div class="three-char" data-char="I"></div>
+                        <div class="three-char" data-char="V"></div>
+                        <div class="three-char" data-char="E"></div>
+                        <div class="three-char" data-char=" "></div>
+                        <div class="three-char" data-char="H"></div>
+                        <div class="three-char" data-char="U"></div>
+                        <div class="three-char" data-char="M"></div>
+                        <div class="three-char" data-char="A"></div>
+                        <div class="three-char" data-char="N"></div>
+                    </div>
+                </a>
+            </div>
+            <div class="nav-row language-row" dir="ltr">
+                <div class="language-container" dir="ltr">
+                    <p id="language-choice" class="animated-text mb-0">Choose your language</p>
+                    <div id="google_translate_element" style="display:none;"></div>
+                    <select id="language-select" class="form-select">
+                        <option value="en" selected>English</option>
+                        <option value="fa">Persian</option>
+                        <option value="es">Spanish</option>
+                        <option value="fr">French</option>
+                        <option value="de">German</option>
+                        <option value="it">Italian</option>
+                        <option value="pt">Portuguese</option>
+                        <option value="af">Afrikaans</option>
+                        <option value="sq">Albanian</option>
+                        <option value="am">Amharic</option>
+                        <option value="ar">Arabic</option>
+                        <option value="hy">Armenian</option>
+                        <option value="az">Azerbaijani</option>
+                        <option value="eu">Basque</option>
+                        <option value="be">Belarusian</option>
+                        <option value="bn">Bengali</option>
+                        <option value="bs">Bosnian</option>
+                        <option value="bg">Bulgarian</option>
+                        <option value="ca">Catalan</option>
+                        <option value="ceb">Cebuano</option>
+                        <option value="ny">Chichewa</option>
+                        <option value="zh-CN">Chinese (Simplified)</option>
+                        <option value="zh-TW">Chinese (Traditional)</option>
+                        <option value="co">Corsican</option>
+                        <option value="hr">Croatian</option>
+                        <option value="cs">Czech</option>
+                        <option value="da">Danish</option>
+                        <option value="nl">Dutch</option>
+                        <option value="eo">Esperanto</option>
+                        <option value="et">Estonian</option>
+                        <option value="tl">Filipino</option>
+                        <option value="fi">Finnish</option>
+                        <option value="fy">Frisian</option>
+                        <option value="gl">Galician</option>
+                        <option value="ka">Georgian</option>
+                        <option value="el">Greek</option>
+                        <option value="gu">Gujarati</option>
+                        <option value="ht">Haitian Creole</option>
+                        <option value="ha">Hausa</option>
+                        <option value="haw">Hawaiian</option>
+                        <option value="iw">Hebrew</option>
+                        <option value="hi">Hindi</option>
+                        <option value="hmn">Hmong</option>
+                        <option value="hu">Hungarian</option>
+                        <option value="is">Icelandic</option>
+                        <option value="ig">Igbo</option>
+                        <option value="id">Indonesian</option>
+                        <option value="ga">Irish</option>
+                        <option value="ja">Japanese</option>
+                        <option value="jw">Javanese</option>
+                        <option value="kn">Kannada</option>
+                        <option value="kk">Kazakh</option>
+                        <option value="km">Khmer</option>
+                        <option value="rw">Kinyarwanda</option>
+                        <option value="ko">Korean</option>
+                        <option value="ku">Kurdish (Kurmanji)</option>
+                        <option value="ky">Kyrgyz</option>
+                        <option value="lo">Lao</option>
+                        <option value="la">Latin</option>
+                        <option value="lv">Latvian</option>
+                        <option value="lt">Lithuanian</option>
+                        <option value="lb">Luxembourgish</option>
+                        <option value="mk">Macedonian</option>
+                        <option value="mg">Malagasy</option>
+                        <option value="ms">Malay</option>
+                        <option value="ml">Malayalam</option>
+                        <option value="mt">Maltese</option>
+                        <option value="mi">Maori</option>
+                        <option value="mr">Marathi</option>
+                        <option value="mn">Mongolian</option>
+                        <option value="my">Myanmar (Burmese)</option>
+                        <option value="ne">Nepali</option>
+                        <option value="no">Norwegian</option>
+                        <option value="or">Odia (Oriya)</option>
+                        <option value="ps">Pashto</option>
+                        <option value="pl">Polish</option>
+                        <option value="pa">Punjabi</option>
+                        <option value="ro">Romanian</option>
+                        <option value="ru">Russian</option>
+                        <option value="sm">Samoan</option>
+                        <option value="gd">Scots Gaelic</option>
+                        <option value="sr">Serbian</option>
+                        <option value="st">Sesotho</option>
+                        <option value="sn">Shona</option>
+                        <option value="sd">Sindhi</option>
+                        <option value="si">Sinhala</option>
+                        <option value="sk">Slovak</option>
+                        <option value="sl">Slovenian</option>
+                        <option value="so">Somali</option>
+                        <option value="su">Sundanese</option>
+                        <option value="sw">Swahili</option>
+                        <option value="sv">Swedish</option>
+                        <option value="tg">Tajik</option>
+                        <option value="ta">Tamil</option>
+                        <option value="tt">Tatar</option>
+                        <option value="te">Telugu</option>
+                        <option value="th">Thai</option>
+                        <option value="tr">Turkish</option>
+                        <option value="tk">Turkmen</option>
+                        <option value="uk">Ukrainian</option>
+                        <option value="ur">Urdu</option>
+                        <option value="ug">Uyghur</option>
+                        <option value="uz">Uzbek</option>
+                        <option value="vi">Vietnamese</option>
+                        <option value="cy">Welsh</option>
+                        <option value="xh">Xhosa</option>
+                        <option value="yi">Yiddish</option>
+                        <option value="yo">Yoruba</option>
+                        <option value="zu">Zulu</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+    </nav>
+    
+
+    <!-- Sections -->
+    <div class="container-fluid p-0">
+        <!-- Section 0 -->
+        
+        <!-- Section 1 -->
+        <section id="section1" class="ah-section Galaxy">
+            <div class="ah-nav-button top-nav-button">
+                <span class="invisible">Previous</span>
+            </div>
+            <div class="ah-section-content">
+                <div class="content-wrapper">
+                    <div class="row flex-grow-1 align-items-center justify-content-center">
+                        <div class="col-md-6 left-content">
+                            <div class="ratio ratio-1x1">
+                                <svg id="Logoanimate" class="neon img-fluid w-100 h-100" xmlns="http://www.w3.org/2000/svg" version="1.1" viewBox="0 0 400 400" preserveAspectRatio="xMidYMid meet">
+                                    <defs>
+                                        <style>
+                                        .st0 {
+                                            display: none;
+                                        }
+                                        .st0, .st1 {
+                                            fill: none;
+                                            stroke: white;
+                                            stroke-miterlimit: 10;
+                                        }
+                                        </style>
+                                    </defs>
+                                    <path class="st1" d="M215.8,59.08c-2.12,1.37-23.11,39.76-24.02,42.13"/>
+                                    <path class="st1" d="M164.24,95.09c-1.21-.28,26.11,5.96,27.54,6.12"/>
+                                    <path class="st1" d="M222.87,16.71"/>
+                                    <path class="st1" d="M164.2,94.98c-.43,2.4,17.75,15.41,19.88,17.26"/>
+                                    <path class="st1" d="M184.21,112.24c2.68.19,22.99,9.54,25.67,9.73-2.53-4.71-17.18-18.53-18.11-20.77"/>
+                                    <path id="_x3C_Pathhari_x3E_" class="st1" d="M128.57,56.86c0,16.4.02,32.79.03,49.19,0,3.76-.21,17.4-.03,21.16,1.48,30.73,56.09,67.26,64.08,67.26"/>
+                                    <path id="_x3C_Pathhar_x3E_" class="st1" d="M119.71,61.21c0,16.4.02,32.79.03,49.19,0,3.76-.21,17.4-.03,21.16,1.48,30.73,64.96,73.3,72.95,73.3"/>
+                                    <path id="_x3C_Pathhari_x3E_1" data-name="_x3C_Pathhari_x3E_" class="st1" d="M256.21,56.69c0,16.4-.02,32.79-.03,49.19,0,3.76.21,17.4.03,21.16-1.48,30.73-56.09,67.26-64.08,67.26"/>
+                                    <path id="_x3C_Pathhar_x3E_1" data-name="_x3C_Pathhar_x3E_" class="st1" d="M265.08,61.03c0,16.4-.02,32.79-.03,49.19,0,3.76.21,17.4.03,21.16-1.48,30.73-64.96,73.3-72.95,73.3"/>
+                                    <path id="_x3C_Pathkolah_x3E_" class="st1" d="M164.24,95.09c3.8-8.62,11.28-14.9,18.51-20.86,1.9-1.57,3.8-3.14,5.71-4.71,1.78-1.46,3.55-2.93,5.46-4.22,6.41-4.34,14.19-6.55,21.89-6.22"/>
+                                    <path id="_x3C_Pathkolah_x3E_1" data-name="_x3C_Pathkolah_x3E_" class="st1" d="M209.88,121.97c5.5-9.73,8.18-16.16,9.96-25.1.49-2.43.92-4.84,1.39-7.32.43-2.28.86-4.56,1.08-6.87.74-7.77-2.57-16.91-6.51-23.61"/>
+                                    <path class="st0" d="M206.06,77.63"/>
+                                    <path id="_x3C_Pathpali_x3E_" class="st1" d="M128.31,354.84c0-16.4.02-32.79.03-49.19,0-3.76-.21-17.4-.03-21.16,1.48-30.73,56.09-67.26,64.08-67.26"/>
+                                    <path id="_x3C_Pathpal_x3E_" class="st1" d="M119.45,350.5c0-16.4.02-32.79.03-49.19,0-3.76-.21-17.4-.03-21.16,1.48-30.73,64.96-73.3,72.95-73.3"/>
+                                    <path id="_x3C_Pathpari_x3E_" class="st1" d="M255.95,355.01c0-16.4-.02-32.79-.03-49.19,0-3.76.21-17.4.03-21.16-1.48-30.73-56.09-67.26-64.08-67.26"/>
+                                    <path id="_x3C_Pathpar_x3E_" class="st1" d="M264.82,350.67c0-16.4-.02-32.79-.03-49.19,0-3.76.21-17.4.03-21.16-1.48-30.73-64.96-73.3-72.95-73.3"/>
+                                </svg>
+                            </div>
+                        </div>
+                        <div class="col-md-6 right-content">
+                            <div class="text-container text-center">
+                                <h1>Alive Human</h1>
+                                <h2 class="TypeStyle display-4" id="typing-text"> FOR the Future of HUMAN</h2>
+                                <p class="mt-3 text-wrap ">
+                                    This is a revolutionary game and social network about humans.</p>
+                                <p class="mt-3 text-wrap ">It's more than just a platform; it's a place to learn and earn, to play and work.
+                                    Here, the impossible becomes reality. You'll even learn to fly.
+
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="ah-nav-button bottom-nav-button">
+                <button class="btn ah-button navigate-btn" onclick="cameraFlyOver('#section2')" data-target="#section2">Next Section</button>
+            </div>
+        </section>
+
+        <!-- Section 2 -->
+        <section id="section2" class="ah-section Galaxy">
+            <div class="ah-nav-button top-nav-button">
+                <button class="btn ah-button navigate-btn" onclick="cameraFlyOver('#section1')" data-target="#section1">Previous Section</button>
+            </div>
+            <div class="ah-section-content">
+                <div class="content-wrapper">
+                    <div class="row flex-grow-1 align-items-center justify-content-center">
+                        <div class="col-md-6 left-content">
+                            <div class="darwish-container ratio ratio-1x1">
+                                <img src="src/SVG/cleaned_whirling_dervish_final.png" 
+                                     alt="Whirling Dervish Image" 
+                                     class="Darwish toWhite img-fluid w-100 h-100 object-fit-contain">                            </div>
+                        </div>
+                        <div class="col-md-6 right-content">
+                            <div class="text-container">
+                                <h2 class="display-5">Alive Human:</h2>
+                                <h2 class="TypeStyle display-5">The Game of Life and Learning</h2>
+                                <p class="mt-3">
+                                    This is not just a game—it transcends screens and devices. 
+                                    Your life itself becomes the game space, and every moment is part of a vast learning journey.
+                                </p>
+                                <p class="mt-3">
+                                    <strong>A Timeless Experience:</strong><br>
+                                    Inspired by ancient practices, it guides you to the innermost depths of what it means to be <span class="text-uppercase">human</span>.
+                                </p>
+                                <p class="mt-3">
+                                    <strong>Uncover Ancient Secrets:</strong><br>
+                                    Step into a world where the hidden wisdom of millennia awaits. Discover a legacy of truths and laws, 
+                                    whispered through the ages, to illuminate your path in the modern world.
+                                </p>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+            </div>
+            <div class="ah-nav-button bottom-nav-button">
+                <button class="btn ah-button navigate-btn" onclick="cameraFlyOver('#section3')" data-target="#section3">Next Section</button>
+            </div>
+        </section>
+
+        <!-- Section 3 -->
+        <section id="section3" class="ah-section Galaxy">
+            <div class="ah-nav-button top-nav-button">
+                <button class="btn ah-button navigate-btn" onclick="cameraFlyOver('#section2')" data-target="#section2">Previous Section</button>
+            </div>
+            <div class="ah-section-content">
+                <div class="content-wrapper">
+                    <div class="row flex-grow-1 align-items-center justify-content-center">
+                        <div class="col-md-6 left-content">
+                            <div class="ratio ratio-1x1">
+                                <img src="src/SVG/generate-an-image-vector-of-a-single-rose-in-red-and-white-and-p.png" 
+                                     alt="Rose Image" 
+                                     class="Flower img-fluid w-100 h-100 object-fit-contain">
+                            </div>
+                        </div>
+                        <div class="col-md-6 right-content">
+                            <div class="text-container text-center">
+                                <h1 class="display-5">A Journey of Self-Discovery</h1>
+                                <p class="lead">Embark on a transformative journey of:</p>
+                                <h2 class="TypeStyle display-5">Self-Discovery, Self-Realization, and Self-Actualization</h2>
+                                <p class="mt-4">
+                                    <strong>A Space for Growth:</strong><br>
+                                    Learn, grow, and unlock your true potential by blending the wisdom of the past with the boundless opportunities of the future.  
+                                    Step into the game where your life becomes the ultimate adventure. <strong>Alive Human</strong> awaits.
+                                </p>
+                            </div>
+                        </div>
+                        
+
+                    </div>
+                </div>
+            </div>
+            <div class="ah-nav-button bottom-nav-button">
+                <button class="btn ah-button navigate-btn" onclick="cameraFlyOver('#section4')" data-target="#section4">Next Section</button>
+            </div>
+        </section>
+
+        <!-- Section 4 -->
+        <section class="ah-section bg-light" id="section4">
+            <div class="ah-nav-button top-nav-button carousel-nav-buttons">
+                <button class="btn ah-button navigate-btn" onclick="cameraFlyOver('#section3')" data-target="#section3">Previous Section</button>
+            </div>
+
+            <div class="ah-section-content">
+                <div class="content-wrapper">
+                    <div class="cards-container">
+                        <button class="carousel-btn carousel-btn-prev" aria-label="Previous Card">&lt;</button>
+                        
+                        <!-- First card -->
+                        <div class="card-item">
+                            <div class="card border-0 shadow-sm">
+                                <div class="row g-4 align-items-center">
+                                    <div class="col-12 col-md-6">
+                                        <div class="ratio ratio-4x3">
+                                            <img src="src/images/AncientScience.webp" 
+                                                 class="img-fluid rounded w-100 h-100 object-fit-cover" 
+                                                 alt="Book Cover">
+                                        </div>
+                                    </div>
+                                    <div class="col-12 col-md-6">
+                                        <div class="card-body text-center text-md-start">
+                                            <h2 class="card-title TypeStyle mb-3">Ancient Knowledge</h2>
+                                            <p class="card-text fs-5">
+                                                Unlock the timeless wisdom passed down through generations—profound teachings that unveil the secrets of life, the universe, and the essence of being human.
+                                            </p>
+                                            <p class="card-text fs-5">
+                                                This knowledge serves as your guide, offering clarity, purpose, and a deeper connection with yourself and the world around you.
+                                            </p>
+                                            <p class="card-text fs-5">
+                                                Lay down your weapons and embrace a life jacket. Accept the rules to move forward, ascend to the skies, and uncover the truth.
+                                            </p>
+                                            <p class="card-text fs-5">
+                                                Discover your role on Earth, for this is the only way to access the ancient knowledge and unlock its boundless potential.
+                                            </p>
+                                            <div class="role-acceptance mt-4">
+                                                <input type="checkbox" id="roleAcceptance" class="form-check-input role-checkbox">
+                                                <label for="roleAcceptance" class="form-check-label role-label">
+                                                    I accept the rules and my role in this journey
+                                                </label>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Second card -->
+                        <div class="card-item">
+                            <div class="card border-0 shadow-sm">
+                                <div class="row g-4 align-items-center">
+                                    <div class="col-12 col-md-6">
+                                        <div class="ratio ratio-4x3">
+                                            <img src="src/images/OnTheWayToTheMoon.webp" 
+                                                 class="img-fluid rounded w-100 h-100 object-fit-cover" 
+                                                 alt="Book Cover 2">
+                                        </div>
+                                    </div>
+                                    <div class="col-12 col-md-6">
+                                        <div class="card-body text-center text-md-start">
+                                            <h2 class="card-title TypeStyle mb-3">On the Way to the Moon</h2>
+                                            <p class="card-text fs-5">
+                                                The Moon and the Sun are two celestial bodies that have been revered since ancient times. The Moon,
+                                                 often associated with mystery, magic, and the divine, has inspired countless myths and legends across cultures.
+                                                  The Sun, on the other hand, symbolizes vitality, strength, and the life-giving force that sustains all living beings. Together,
+                                                 they represent the balance of light and shadow, day and night, and the eternal cycles of nature.  
+                                             </p>
+                                                 <p class="card-text fs-5">       
+                                                    These two are not just the light of day and night. They are deeply connected to the third eye -
+                                                     the space between your eyebrows that you have the opportunity to use as long as you are alive. 
+                                                </p>
+                                            <p class="card-text fs-5">
+                                                After death, a person enters another stage under the moon, the first heaven—a stage that few can pass through. Only the wise and pure can reach the other side.
+                                            </p>
+                                        </div>
+                                    </div>    
+                                </div>
+                            </div>
+                        </div>
+                        <!-- third card-->
+                        <div class="card-item">
+                            <div class="card border-0 shadow-sm">
+                                <div class="row g-4 align-items-center">
+                                    <div class="col-12 col-md-6">
+                                        <div class="ratio ratio-4x3">
+                                            <img src="src/images/HumanSoul.webp" 
+                                                 class="img-fluid rounded w-100 h-100 object-fit-cover" 
+                                                 alt="Book Cover 2">
+                                        </div>
+                                    </div>
+                                    <div class="col-12 col-md-6">
+                                        <div class="card-body text-center text-md-start">
+                                            <h2 class="card-title TypeStyle mb-3">The Human Soul and the Human Body</h2>
+                                            <p class="card-text fs-5">
+                                                The human soul and the human body are two interconnected aspects of a person’s existence, each playing a unique role in the overall experience of life.
+                                                </p>
+                                                <p class="card-text fs-5">  
+                                                The body is the physical vessel, the material manifestation of a person that interacts with the world through the senses, actions, and experiences. It is temporary, subject to aging, decay, and death.
+                                            </p>
+                                            <p class="card-text fs-5">
+                                                On the other hand, the soul is often considered the immaterial, eternal essence of a person—representing consciousness, emotions, and individuality. It transcends the physical realm, believed to exist beyond death, and is often linked to deeper truths, purpose, and connection to the universe or a higher power.
+                                            </p>
+                                            <p class="card-text fs-5">
+                                                The relationship between the soul and the body is a subject of much philosophical, spiritual, and scientific inquiry. Many believe that the soul guides the body, influencing thoughts and actions, while the body provides the soul with the means to learn, grow, and interact with the physical world.
+                                            </p>
+                                            <p class="card-text fs-5">
+                                                Together, they form the complete human experience, where the body is the instrument and the soul is the essence that gives life meaning and direction.
+                                            </p>
+                                        </div>
+                                    </div>
+                                    
+                                </div>
+                            </div>
+                        </div>
+                        <!-- Fourth card -->
+                        <div class="card-item">
+                            <div class="card border-0 shadow-sm">
+                                <div class="row g-4 align-items-center">
+                                    <div class="col-12 col-md-6">
+                                        <div class="ratio ratio-4x3">
+                                            <img src="src/images/HumanBody.webp" 
+                                                 class="img-fluid rounded w-100 h-100 object-fit-cover" 
+                                                 alt="Book Cover 2">
+                                        </div>
+                                    </div>
+                                    <div class="col-12 col-md-6">
+                                        <div class="card-body text-center text-md-start">
+                                            <h2 class="card-title TypeStyle mb-3">The Human Body</h2>
+                                            <p class="card-text fs-5">
+                                                <strong>The Human Body</strong><br>
+                                                The human body is an incredibly complex system—a union of all beings in the universe and the universe itself. While its full understanding lies in the future, today we begin by exploring its divisions.
+                                            </p>
+                                            <p class="card-text fs-5">
+                                                <strong>First:</strong> <br>
+                                                The right and left sides of the body are of particular importance.
+                                            </p>
+                                            <p class="card-text fs-5">
+                                                <strong>Second:</strong> <br>>
+                                                Each part is intricately connected to human characteristics, feelings, emotions, and traits, forging a profound connection between the physical and metaphysical realms.
+                                            </p>
+                                        </div>
+                                    </div>
+                                    
+                                </div>
+                            </div>
+                        </div>
+                        <!-- Fifth card -->                        
+                         <div class="card-item">
+                            <div class="card border-0 shadow-sm">
+                                <div class="row g-4 align-items-center">
+                                    <div class="col-12 col-md-6">
+                                        <div class="ratio ratio-4x3">
+                                            <img src="src/images/HumanSoul2.webp" 
+                                                 class="img-fluid rounded w-100 h-100 object-fit-cover" 
+                                                 alt="Book Cover 2">
+                                        </div>
+                                    </div>
+                                    <div class="col-12 col-md-6">
+                                        <div class="card-body text-center text-md-start">
+                                            <h2 class="card-title TypeStyle mb-3">The Human Soul</h2>
+                                            <p class="card-text fs-5">
+                                                <strong>What is the Soul?</strong><br>
+                                                The soul is the most subtle element of existence.
+                                            </p>
+                                            <p class="card-text fs-5">
+                                                Before delving into the human soul, it’s essential to understand that everything in the world possesses a soul—even objects. The human soul, however, is the most complete form of all.
+                                            </p>
+                                            <p class="card-text fs-5">
+                                                <strong>The human soul comprises:</strong><br>
+                                                - <strong>Plant soul</strong><br>
+                                                - <strong>Animal soul</strong><br>
+                                                - <strong>Inanimate, stone, or planetary soul</strong><br>
+                                                - <strong>Human soul</strong>
+                                            </p>
+                                            <p class="card-text fs-5">
+                                                This completeness is not general. It is unique to those who have embarked on the path of self-knowledge and strive for perfection. For such individuals, eternal life becomes attainable as they reach a state of perfection.
+                                            </p>
+                                            <p class="card-text fs-5">
+                                                The concept of the "second body" is another profound topic that awaits your exploration in the future.
+                                            </p>
+                                        </div>
+                                    </div>
+                                    
+                                </div>
+                            </div>
+                        </div>
+                        <!-- Sixth card -->
+                        <div class="card-item">
+                            <div class="card border-0 shadow-sm">
+                                <div class="row g-4 align-items-center">
+                                    <div class="col-12 col-md-6">
+                                        <div class="ratio ratio-4x3">
+                                            <img src="src/images/HumanEmotions.webp" 
+                                                 class="img-fluid rounded w-100 h-100 object-fit-cover" 
+                                                 alt="Book Cover 2">
+                                        </div>
+                                    </div>
+                                    <div class="col-12 col-md-6">
+                                        <div class="card-body text-center text-md-start">
+                                            <h2 class="card-title TypeStyle mb-3">Human Emotions</h2>
+                                            <p class="card-text fs-5">
+                                                Human emotions are intricate and multifaceted, acting as a vital connection between our inner experiences and the world around us. They shape our thoughts, influence behaviors, and define relationships, ultimately guiding how we perceive and respond to life.
+                                            </p>
+                                            <p class="card-text fs-5">
+                                                <strong>Emotions can be broadly categorized into fundamental types:</strong>
+                                            </p>
+                                            <ul class="fs-5">
+                                                <li><strong>Joy:</strong> A feeling of happiness, satisfaction, and contentment.</li>
+                                                <li><strong>Sadness:</strong> A response to loss, disappointment, or emotional pain.</li>
+                                                <li><strong>Anger:</strong> A strong reaction to perceived wrongs, injustice, or frustration.</li>
+                                                <li><strong>Fear:</strong> An instinctive response to danger, uncertainty, or perceived threats.</li>
+                                                <li><strong>Disgust:</strong> A reaction to something unpleasant, offensive, or harmful.</li>
+                                                <li><strong>Surprise:</strong> A response to the unexpected, whether positive or negative.</li>
+                                            </ul>
+                                            <p class="card-text fs-5">
+                                                While these emotions are universal, their expression varies widely across cultures and individuals. They are deeply intertwined with both mental and physical states, influencing physiological responses such as heart rate, breathing patterns, and even immune function.
+                                            </p>
+                                            <p class="card-text fs-5">
+                                                <strong>By understanding and embracing our emotions, we cultivate self-awareness, enhance emotional intelligence, and foster personal growth.</strong>
+                                            </p>
+                                            <p class="card-text fs-5">
+                                                <strong>Comprehensive categories of human emotions:</strong>
+                                            </p>
+                                            <ul class="fs-5">
+                                                <li><strong>Primary Emotions:</strong> These are universal and biologically ingrained, such as happiness, contentment, sadness, anger, fear, disgust, and surprise.</li>
+                                                <li><strong>Social Emotions:</strong> Love (affection, compassion, romantic love), guilt (regret, remorse), pride (confidence, accomplishment), jealousy (envy, resentment), and embarrassment (awkwardness, self-consciousness).</li>
+                                                <li><strong>Complex Emotions:</strong> Hope (optimism, anticipation), relief (comfort, reassurance), gratitude (thankfulness, contentment), despair (hopelessness, resignation), compassion (empathy, kindness), curiosity (interest, fascination), and boredom (restlessness).</li>
+                                                <li><strong>Negative Emotions:</strong> Frustration (irritation, exasperation), resentment (bitterness, grudges), shame (humiliation, disgrace), anxiety (nervousness, unease), and loneliness (isolation, emptiness).</li>
+                                                <li><strong>Positive Emotions:</strong> Happiness (pleasure, bliss), excitement (enthusiasm, eagerness), peace (serenity, tranquility), love (attachment, care), and confidence (assurance, self-belief).</li>
+                                            </ul>
+                                        </div>
+                                    </div>
+                                    
+                                </div>
+                            </div>
+                        </div>
+                        <!-- Seventh card -->
+                        <div class="card-item">
+                            <div class="card border-0 shadow-sm">
+                                <div class="row g-4 align-items-center">
+                                    <div class="col-12 col-md-6">
+                                        <div class="ratio ratio-4x3">
+                                            <img src="src/images/HumanTraits1.webp" 
+                                                 class="img-fluid rounded w-100 h-100 object-fit-cover" 
+                                                 alt="Book Cover 2">
+                                        </div>
+                                    </div>
+                                    <div class="col-12 col-md-6">
+                                        <div class="card-body text-center text-md-start">
+                                            <h2 class="card-title TypeStyle mb-3">Human Traits</h2>
+                                            <p class="card-text fs-5"> 
+                                                <strong>These traits existed long before the creation of humanity, the Earth, and all the creatures that inhabit it.
+
+                                                </strong><br>
+                                                Human traits are the inherent characteristics that define individuals, shaping their personality, behavior, and interactions. These traits are influenced by genetics, environment, and personal experiences. They can be categorized broadly into physical, emotional, intellectual, social, and moral attributes.
+                                            </p>
+                                            <p><strong>Key Categories of Human Traits</strong></p>
+                                            <p><strong>1. Physical Traits:</strong></p>
+                                            <ul>
+                                                <li>The observable features of a person, such as height, skin tone, eye color, and build.</li>
+                                                <li>Examples include athleticism, physical strength, or distinctive features like dimples or freckles.</li>
+                                            </ul>
+                                            <p><strong>2. Emotional Traits:</strong></p>
+                                            <ul>
+                                                <li>Relate to how individuals process and express their feelings.</li>
+                                                <li><strong>Examples:</strong></li>
+                                                <ul>
+                                                    <li>Empathy: Ability to understand and share others’ feelings.</li>
+                                                    <li>Resilience: Ability to recover from challenges or setbacks.</li>
+                                                    <li>Sensitivity: Tendency to feel emotions deeply.</li>
+                                                </ul>
+                                            </ul>
+                                            <p><strong>3. Intellectual Traits:</strong></p>
+                                            <ul>
+                                                <li>Involve cognitive abilities and thought patterns.</li>
+                                                <li><strong>Examples:</strong></li>
+                                                <ul>
+                                                    <li>Curiosity: Desire to explore and learn.</li>
+                                                    <li>Creativity: Ability to generate new and innovative ideas.</li>
+                                                    <li>Analytical thinking: Logical approach to solving problems.</li>
+                                                </ul>
+                                            </ul>
+                                            <p><strong>4. Social Traits:</strong></p>
+                                            <ul>
+                                                <li>Define how individuals interact with others and form relationships.</li>
+                                                <li><strong>Examples:</strong></li>
+                                                <ul>
+                                                    <li>Charisma: Natural ability to attract and influence people.</li>
+                                                    <li>Kindness: Consideration and care for others.</li>
+                                                    <li>Leadership: Ability to inspire and guide others.</li>
+                                                </ul>
+                                            </ul>
+                                            <p><strong>5. Moral Traits:</strong></p>
+                                            <ul>
+                                                <li>Represent a person’s principles and values.</li>
+                                                <li><strong>Examples:</strong></li>
+                                                <ul>
+                                                    <li>Integrity: Adherence to ethical principles.</li>
+                                                    <li>Honesty: Being truthful and transparent.</li>
+                                                    <li>Compassion: Concern for the suffering of others.</li>
+                                                </ul>
+                                            </ul>
+                                            <p><strong>Positive Traits</strong></p>
+                                            <ul>
+                                                <li>Optimism: Seeing the brighter side of situations.</li>
+                                                <li>Patience: Ability to remain calm under stress.</li>
+                                                <li>Humility: Being modest about one’s achievements.</li>
+                                                <li>Gratitude: Appreciation for what one has.</li>
+                                            </ul>
+                                            <p><strong>Negative Traits</strong></p>
+                                            <ul>
+                                                <li>Arrogance: Overestimating one’s own abilities.</li>
+                                                <li>Impulsiveness: Acting without thinking of consequences.</li>
+                                                <li>Selfishness: Prioritizing oneself over others.</li>
+                                                <li>Envy: Resentment towards others’ success.</li>
+                                            </ul>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <!-- Eighth card -->
+                        <div class="card-item">
+                            <div class="card border-0 shadow-sm">
+                                <div class="row g-4 align-items-center">
+                                    <div class="col-12 col-md-6">
+                                        <div class="ratio ratio-4x3">
+                                            <img src="src/images/book2.jpeg" 
+                                                 class="img-fluid rounded w-100 h-100 object-fit-cover" 
+                                                 alt="Book Cover 2">
+                                        </div>
+                                    </div>
+                                    <div class="col-12 col-md-6">
+                                        <div class="card-body text-center text-md-start">
+                                            <h2 class="card-title TypeStyle mb-3">Summary and conclusion</h2>
+                                            <p class="card-text fs-5">
+                                                Over the next 72 hours, both in your sleep and waking moments,
+                                                 you will gain a profound understanding of this game.
+                                                  The White Wizard will guide you, channeling powerful waves of wisdom and insight.
+
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        
+                        <button class="carousel-btn carousel-btn-next" aria-label="Next Card">&gt;</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="ah-nav-button bottom-nav-button carousel-nav-buttons">
+                <button class="btn ah-button navigate-btn" onclick="cameraFlyOver('#section5')" data-target="#section5">Next Section</button>
+            </div>
+        </section>
+
+        <!-- Section 5 -->
+        <section class="ah-section bg-dark text-light" id="section5">
+            <div class="ah-nav-button top-nav-button">
+                <button class="btn ah-button navigate-btn" data-target="#section4">Previous Section</button>
+            </div>
+            
+            <div class="ah-section-content">
+                <div class="content-wrapper">
+                    <h2 class="TypeStyle text-center mb-4">Journey Through Life</h2>
+                    <p class="text-center mb-5">You have been given the opportunity to live as a human on Earth; your greatest investment is in learning. So, learn to live life to the fullest.</p>
+                    
+                    <div class="timeline">
+                        <!-- Timeline Item 1 -->
+                        <div class="timeline-item left">
+                            <div class="timeline-content">
+                                <img src="src/images/Book.jpeg" alt="Sleep and Wakefulness" class="timeline-img">
+                                <h3>Sleep and Wakefulness</h3>
+                                <p>Sleep is a bridge to the higher realms, connecting us to the soul, the subconscious, and the world beyond the living. Wakefulness grounds us in the physical world.</p>
+                                <a href="#" class="btn myButton" target="_blank" rel="noopener noreferrer">Learn More</a>
+                            </div>
+                        </div>
+
+                        <!-- Timeline Item 2 -->
+                        <div class="timeline-item right">
+                            <div class="timeline-content">
+                                <img src="src/images/Book.jpeg" alt="Sleep" class="timeline-img">
+                                <h3>Sleep</h3>
+                                <p>Before sleep and upon waking, these moments are when body and soul are most intertwined. Perfect times for right questions and answers.</p>
+                                <a href="#" class="btn myButton" target="_blank" rel="noopener noreferrer">Learn More</a>
+                            </div>
+                        </div>
+
+                        <!-- Timeline Item 3 -->
+                        <div class="timeline-item left">
+                            <div class="timeline-content">
+                                <img src="src/images/Book.jpeg" alt="Right Questions" class="timeline-img">
+                                <h3>Ask the Right Question</h3>
+                                <p>Enter the world of sleep with the right thoughts and questions. Discover what the right questions are.</p>
+                                <a href="#" class="btn myButton" target="_blank" rel="noopener noreferrer">Learn More</a>
+                            </div>
+                        </div>
+
+                        <!-- Timeline Item 4 -->
+                        <div class="timeline-item right">
+                            <div class="timeline-content">
+                                <img src="src/images/Book.jpeg" alt="Uniqueness" class="timeline-img">
+                                <h3>Everyone is Unique</h3>
+                                <p>Who are you? How did you become this? Begin a journey into the past to discover your true self.</p>
+                                <a href="#" class="btn myButton" target="_blank" rel="noopener noreferrer">Learn More</a>
+                            </div>
+                        </div>
+
+                        <!-- Timeline Item 5 -->
+                        <div class="timeline-item left">
+                            <div class="timeline-content">
+                                <img src="src/images/Book.jpeg" alt="Awakening" class="timeline-img">
+                                <h3>Awakening and Awareness</h3>
+                                <p>Make better decisions and choices while being awake and physically aware.</p>
+                                <a href="#" class="btn myButton" target="_blank" rel="noopener noreferrer">Learn More</a>
+                            </div>
+                        </div>
+
+                        <!-- Timeline Item 6 -->
+                        <div class="timeline-item right">
+                            <div class="timeline-content">
+                                <img src="src/images/Book.jpeg" alt="Consciousness" class="timeline-img">
+                                <h3>Conscious and Unconscious</h3>
+                                <p>When these unite, a deep connection forms between body and soul, creating a second body that reaches immortality.</p>
+                                <a href="#" class="btn myButton" target="_blank" rel="noopener noreferrer">Learn More</a>
+                            </div>
+                        </div>
+
+                        <!-- Timeline Item 7 -->
+                        <div class="timeline-item left">
+                            <div class="timeline-content">
+                                <img src="src/images/Book.jpeg" alt="Alive Human" class="timeline-img">
+                                <h3>Alive Human</h3>
+                                <p>Experience dying before death. Live after death. Become truly alive.</p>
+                                <a href="#" class="btn myButton" target="_blank" rel="noopener noreferrer">Learn More</a>
+                            </div>
+                        </div>
+
+                        <!-- Timeline Item 8 -->
+                        <div class="timeline-item right">
+                            <div class="timeline-content">
+                                <img src="src/images/Book.jpeg" alt="Benefits" class="timeline-img">
+                                <h3>What Will You Get?</h3>
+                                <p>Awakening and awareness, vigilance and the possibility of traveling to the future.</p>
+                                <a href="#" class="btn myButton" target="_blank" rel="noopener noreferrer">Learn More</a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="ah-nav-button bottom-nav-button">
+                <button class="btn ah-button navigate-btn" data-target="#section6">Next Section</button>
+            </div>
+        </section>
+
+
+    </div>
+
+    <!-- Update script loading order -->
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="src/js/deviceId.js"></script>
+    <script src="src/js/apiHandler.js"></script>
+    <script src="src/js/config.js"></script>
+    <script src="src/js/responseHandler.js"></script>
+    <script src="src/js/web13.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/web3@1.5.2/dist/web3.min.js"></script>
+    <script src="src/js/translate.js"></script>
+    <script src="src/js/script.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.11.5/gsap.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.11.5/TextPlugin.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.11.5/ScrollTrigger.min.js"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.bundle.min.js"></script>
+    <script src="src/js/banimataion.js"></script>
+    <script src="src/js/mint.js"></script>
+    <script src="src/js/monitor.js"></script>
+    <!-- Replace or add this script tag -->
+    <script type="module">
+        import sessionTracker from './src/js/session-tracker.js';
+        window.sessionTracker = sessionTracker; // Make it available globally if needed
+    </script>
+
+</body>
+
+</html>

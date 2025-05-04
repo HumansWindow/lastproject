@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <link rel="stylesheet" href="style.css">
+    <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body { margin: 0; }
+        canvas { display: block; }
+    </style>
+</head>
+<body>
+
+    <!-- Load Three.js first -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    
+    <!-- Load your script with correct path and type -->
+    <script type="text/javascript" src="wirlwind.js"></script>
+    
+    <!-- Initialize the animation -->
+    <script type="text/javascript">
+        window.onload = function() {
+            initTornadoAnimation();
+        };
+    </script>
+</body>
+</html>

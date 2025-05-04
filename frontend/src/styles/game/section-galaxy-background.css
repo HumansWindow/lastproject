@@ -1,0 +1,93 @@
+/* 
+ * Galaxy Background Section Styles
+ * Styles for Galaxy animation backgrounds in the Learn to Earn game
+ */
+
+/* Import the base section styles */
+@import './section-base.css';
+
+/* Galaxy section styles */
+.Galaxy {
+    min-height: 100vh;
+    height: 100vh;
+    position: relative;
+    overflow: hidden;
+    padding: 0;
+    margin: 0;
+    background: black;
+    color: white;
+}
+
+.Galaxy canvas {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw !important;
+    height: 100vh !important;
+    z-index: 0;
+    object-fit: cover;
+}
+
+/* Galaxy Transition Styles */
+.Galaxy {
+    transition: opacity 1.5s ease-in-out;
+    position: fixed !important;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+}
+
+.Galaxy:not(.active-section) {
+    opacity: 0;
+    pointer-events: none;
+}
+
+.Galaxy.active-section {
+    opacity: 1;
+    pointer-events: all;
+    z-index: 1;
+}
+
+/* Galaxy Canvas styles */
+canvas {
+    display: block;
+    width: 100vw !important;
+    height: 100vh;
+    margin: 0;
+    position: absolute;
+    top: 0;
+    left: 0;
+    z-index: -1; /* Ensure canvas stays behind other content */
+}
+
+/* Content positioning on top of galaxy background */
+.Galaxy .ah-section-content {
+    position: relative;
+    z-index: 1;
+}
+
+/* Navigation button adjustments for Galaxy sections */
+.Galaxy .ah-nav-button {
+    z-index: 2;
+    background: transparent;
+}
+
+/* Ensure content stays within bounds */
+.Galaxy .content-wrapper {
+    position: relative;
+    z-index: 1;
+    background: transparent;
+}
+
+/* Media Queries */
+@media (max-width: 768px) {
+    .Galaxy canvas {
+        /* No specific changes needed for mobile, canvas is responsive */
+    }
+    
+    .Galaxy .ah-section-content {
+        /* Adjust content padding for better mobile experience */
+        padding: 10px;
+    }
+}

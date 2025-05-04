@@ -21,9 +21,11 @@
     "resolveJsonModule": true,
     "moduleResolution": "node",
     // Only explicitly include the types we need
-    "types": ["node", "jest"],
+    "types": ["node", "jest", "express", "express-serve-static-core"],
     "typeRoots": [
-      "./node_modules/@types"
+      "./node_modules/@types",
+      "./src/@types",
+      "./src/__tests__"
     ],
     "paths": {
       "@/*": [
@@ -47,9 +49,11 @@
   "include": [
     "src/**/*.ts",
     "test/**/*.ts",
+    "src/__tests__/**/*.ts", 
     "jest-global.d.ts",
     "jest-types.d.ts",
-    "node-types.d.ts"
+    "node-types.d.ts",
+    "src/__tests__/jest-setup.ts"
   ],
   "exclude": [
     "node_modules",

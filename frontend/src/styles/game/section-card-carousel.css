@@ -1,0 +1,250 @@
+/* 
+ * Card Carousel Section Styles
+ * Styles for the Card Carousel section component in the Learn to Earn game
+ */
+
+/* Import the base section styles */
+@import './section-base.css';
+
+/* Card Carousel Styles */
+.cards-container {
+    position: relative;
+    width: 100%;
+    max-width: 1200px;
+    margin: 0 auto;
+    min-height: 500px;
+    overflow: hidden;
+}
+
+.card-item {
+    position: absolute;
+    width: 100%;
+    left: 0;
+    right: 0;
+    opacity: 0;
+    visibility: hidden;
+    transition: all 0.5s ease;
+    transform: translateX(100%);
+}
+
+.card-item.active {
+    position: relative;
+    opacity: 1;
+    visibility: visible;
+    transform: translateX(0);
+}
+
+.card-item.prev {
+    transform: translateX(-100%);
+}
+
+/* Remove the nested .card-item class from the bootstrap cards */
+.card {
+    height: 100%;
+    margin: 0 auto;
+    max-width: 1000px;
+}
+
+/* Navigation Buttons */
+.carousel-btn {
+    position: fixed;
+    top: 50%;
+    transform: translateY(-50%);
+    background: #663399;
+    color: white;
+    border: none;
+    border-radius: 50%;
+    width: 40px;
+    height: 40px;
+    min-width: 40px; /* Prevent width shrinking */
+    min-height: 40px; /* Prevent height shrinking */
+    display: flex; /* Center content */
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    z-index: 10;
+    padding: 0; /* Remove padding */
+    overflow: hidden; /* Prevent content overflow */
+    line-height: 1; /* Prevent line height issues */
+    /* Animation properties */
+    transition: all 0.3s ease;
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(-50%) scale(1);
+    /* Hover animation properties */
+    will-change: transform, background-color, opacity;
+}
+
+/* Enhanced hover effect */
+.carousel-btn:hover {
+    background: #402061;
+    transform: translateY(-50%) scale(1.1);
+    box-shadow: 0 0 15px rgba(102, 51, 153, 0.5);
+}
+
+/* Visibility animation when buttons become active */
+.carousel-nav-buttons.visible .carousel-btn {
+    opacity: 1;
+    visibility: visible;
+    animation: buttonPop 0.3s ease-out;
+}
+
+/* Add new pop-in animation */
+@keyframes buttonPop {
+    0% {
+        opacity: 0;
+        transform: translateY(-50%) scale(0.8);
+    }
+    50% {
+        transform: translateY(-50%) scale(1.1);
+    }
+    100% {
+        opacity: 1;
+        transform: translateY(-50%) scale(1);
+    }
+}
+
+/* Add pulse animation for disabled state */
+.carousel-btn.disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    pointer-events: none;
+    animation: buttonPulse 2s infinite;
+}
+
+@keyframes buttonPulse {
+    0% {
+        box-shadow: 0 0 0 0 rgba(102, 51, 153, 0.4);
+    }
+    70% {
+        box-shadow: 0 0 0 10px rgba(102, 51, 153, 0);
+    }
+    100% {
+        box-shadow: 0 0 0 0 rgba(102, 51, 153, 0);
+    }
+}
+
+.carousel-btn-prev {
+    left: 10px;
+}
+
+.carousel-btn-next {
+    right: 10px;
+}
+
+.carousel-nav-buttons {
+    opacity: 0;
+    visibility: hidden;
+    transition: all 0.3s ease;
+}
+
+.carousel-nav-buttons.visible {
+    opacity: 1;
+    visibility: visible;
+}
+
+/* Card content styling */
+.card-body {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    overflow-wrap: break-word;
+    word-wrap: break-word;
+    hyphens: auto;
+    padding: 1rem;
+}
+
+/* Ensure paragraphs and headings maintain proper spacing */
+.card-body p,
+.card-body h1,
+.card-body h2,
+.card-body h3 {
+    width: 100%;
+    max-width: 100%;
+    overflow-wrap: break-word;
+    word-wrap: break-word;
+    hyphens: auto;
+}
+
+/* Role acceptance checkbox styles */
+.role-acceptance {
+    margin: 20px 0;
+    padding: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: flex-start; /* Align items to the left */
+    gap: 8px; /* Gap between checkbox and label */
+}
+
+.role-checkbox {
+    width: 20px;
+    height: 20px;
+    cursor: pointer;
+    margin: 0;
+    order: -1; /* Force checkbox to appear before label */
+    flex-shrink: 0; /* Prevent checkbox from shrinking */
+    /* Add properties for dark purple background */
+    accent-color: #663399;
+    background-color: #663399;
+    border: 2px solid #663399;
+    border-radius: 3px;
+}
+
+.role-checkbox:checked {
+    background-color: #663399;
+    border-color: #663399;
+}
+
+.role-label {
+    font-size: 1rem;
+    color: #333;
+    cursor: pointer;
+    margin: 0;
+    padding-left: 4px; /* Small padding between checkbox and label */
+    line-height: 20px;
+    flex: 1; /* Allow label to take remaining space */
+}
+
+/* Center lists while maintaining proper alignment */
+.card-body ul,
+.card-body ol {
+    width: 100%;
+    padding-left: 20px;
+    padding-right: 20px;
+}
+
+/* Media queries */
+@media (max-width: 768px) {
+    .carousel-btn {
+        width: 30px;
+        height: 30px;
+    }
+    
+    .cards-container {
+        min-height: 400px;
+    }
+    
+    .card {
+        max-width: 95%;
+    }
+}
+
+/* RTL support for cards */
+[dir="rtl"] .card-body {
+    text-align: right;
+}
+
+[dir="rtl"] .role-acceptance {
+    flex-direction: row-reverse;
+}
+
+[dir="rtl"] .role-checkbox {
+    order: 1;
+}
+
+[dir="rtl"] .role-label {
+    padding-left: 0;
+    padding-right: 4px;
+}

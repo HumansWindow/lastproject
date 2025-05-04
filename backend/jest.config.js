@@ -16,7 +16,7 @@ module.exports = {
     '^@/(.*)$': '<rootDir>/src/$1',
     '^@blockchain/(.*)$': '<rootDir>/src/blockchain/$1'
   },
-  setupFilesAfterEnv: ['./jest-global.d.ts'],
+  setupFilesAfterEnv: ['./jest-global.d.ts', './test-setup.js', './src/__tests__/jest-setup.ts'],
   testRegex: '(/__tests__/.*|(\\.|/)(test|spec))\\.[jt]sx?$',
   moduleFileExtensions: ['ts', 'tsx', 'js', 'jsx', 'json', 'node'],
   rootDir: '.',

@@ -1,0 +1,270 @@
+/* 
+ * Text + Image Section Styles
+ * Styles for the Text + Image section component in the Learn to Earn game
+ */
+
+/* Import the base section styles */
+@import './section-base.css';
+
+/* Left/Right Content Layout */
+.left-content,
+.right-content {
+    position: relative;
+    width: 100%;
+    max-width: 100%;
+    padding: 1rem;
+    overflow: hidden;
+    transform: translateX(0);
+    opacity: 1;
+    transition: transform 0.8s ease-in-out,
+                opacity 0.8s ease-in-out;
+}
+
+/* Entry animations for left/right content */
+section:not(.active-section) .left-content {
+    transform: translateX(-100%);
+    opacity: 0;
+}
+
+section:not(.active-section) .right-content {
+    transform: translateX(100%);
+    opacity: 0;
+}
+
+section.active-section .left-content,
+section.active-section .right-content {
+    transform: translateX(0);
+    opacity: 1;
+}
+
+/* Split section transitions */
+.section-exit .left-content {
+    animation: slideLeftOut 1s ease-in-out forwards;
+}
+
+.section-exit .right-content {
+    animation: slideRightOut 1s ease-in-out forwards;
+}
+
+.section-enter .left-content {
+    animation: slideLeftIn 1s ease-in-out forwards;
+}
+
+.section-enter .right-content {
+    animation: slideRightIn 1s ease-in-out forwards;
+}
+
+@keyframes slideLeftOut {
+    0% {
+        transform: translateX(0);
+        opacity: 1;
+    }
+    100% {
+        transform: translateX(-100vw);
+        opacity: 0;
+    }
+}
+
+@keyframes slideRightOut {
+    0% {
+        transform: translateX(0);
+        opacity: 1;
+    }
+    100% {
+        transform: translateX(100vw);
+        opacity: 0;
+    }
+}
+
+@keyframes slideLeftIn {
+    0% {
+        transform: translateX(-100vw);
+        opacity: 0;
+    }
+    100% {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+
+@keyframes slideRightIn {
+    0% {
+        transform: translateX(100vw);
+        opacity: 0;
+    }
+    100% {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+
+/* Add initial states */
+.section-content .left-content,
+.section-content .right-content {
+    opacity: 0;
+    transform: translateX(-100vw);
+}
+
+.section-content .right-content {
+    transform: translateX(100vw);
+}
+
+/* Content container for text and images */
+.text-container {
+    width: 100%;
+    max-width: 600px;
+    margin: 0 auto;
+    padding: 0 15px;
+    overflow-wrap: break-word;
+    word-wrap: break-word;
+    hyphens: auto;
+    max-width: 100%;
+}
+
+/* Responsive image handling */
+.img-fluid {
+    max-width: 100%;
+    height: auto;
+    object-fit: contain;
+}
+
+.img-container {
+    position: relative;
+    width: 100%;
+    height: 0;
+    overflow: hidden;
+}
+
+/* Media Queries */
+@media (max-width: 768px) {
+    .left-content,
+    .right-content {
+        padding: 0.5rem;
+    }
+
+    .text-container {
+        padding: 0 10px;
+    }
+    
+    /* Apply single-column layout on mobile */
+    .ah-section .row {
+        flex-direction: column;
+    }
+    
+    /* Force images to appear after text on mobile regardless of original order */
+    .ah-section .row.image-right {
+        flex-direction: column;
+    }
+    
+    .ah-section .row.image-left {
+        flex-direction: column-reverse;
+    }
+}
+
+/* RTL text alignment overrides */
+[dir="rtl"] .text-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+}
+
+/* Override text alignment for RTL only */
+[dir="rtl"] .text-container * {
+    text-align: right;
+}
+
+/* Ensure paragraphs and headings maintain proper spacing */
+.text-container p,
+.text-container h1,
+.text-container h2,
+.text-container h3 {
+    width: 100%;
+    max-width: 100%;
+    overflow-wrap: break-word;
+    word-wrap: break-word;
+    hyphens: auto;
+}
+
+/* Image Animation Styles */
+/* Darwish spinning animation */
+.darwish-container {
+    position: relative;
+    width: 100%;
+    max-width: 500px;
+    margin: 0 auto;
+}
+
+.Darwish {
+    max-width: 100%;
+    height: auto;
+    transform-origin: center;
+    animation: darwishSpin 10s linear infinite;
+    will-change: transform;
+    object-fit: contain;
+}
+
+@keyframes darwishSpin {
+    from { transform: rotate(360deg) scale(0.95); }
+    50% { transform: rotate(180deg) scale(1); }
+    to { transform: rotate(0deg) scale(0.95); }
+}
+
+/* Flower reveal animation */
+.Flower {
+    position: relative;
+    max-width: 100%;
+    height: auto;
+    clip-path: circle(0% at center);
+    animation: flowerAnimation 5s 3;
+    object-fit: contain;
+    filter: brightness(0) invert(1) !important;
+}
+
+@keyframes flowerAnimation {
+    0% {
+        clip-path: circle(0% at center);
+        opacity: 0;
+    }
+    15% {
+        clip-path: circle(100% at center);
+        opacity: 1;
+    }
+    60% {
+        clip-path: circle(100% at center);
+        opacity: 1;
+    }
+    75% {
+        clip-path: circle(0% at center);
+        opacity: 0;
+    }
+    100% {
+        clip-path: circle(0% at center);
+        opacity: 0;
+    }
+}
+
+/* Filter image to white color */
+.toWhite {
+    filter: brightness(0) invert(1);
+}
+
+/* Filter image to white color with spinning */
+.Darwish.toWhite {
+    filter: brightness(0) invert(1) !important;
+    animation: darwishSpin 10s linear infinite;
+}
+
+/* Media Queries for Image Animations */
+@media (max-width: 768px) {
+    .darwish-container {
+        max-width: 300px;
+    }
+}
+
+@media (max-width: 576px) {
+    .darwish-container {
+        max-width: 200px;
+    }
+}

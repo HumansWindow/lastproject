@@ -4,6 +4,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { DebugLogger } from './shared/utils/debug-logger.util';
 import { DiaryModule } from './diary/diary.module';
 import { BatchModule } from './batch/batch.module';
+import { GameModule } from './game/game.module';
 // ...other imports
 
 @Module({
@@ -27,6 +28,7 @@ import { BatchModule } from './batch/batch.module';
     }),
     BatchModule,
     DiaryModule,
+    GameModule,
     // ...other imports
   ],
   providers: [
