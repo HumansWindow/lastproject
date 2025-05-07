@@ -3,7 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, In } from 'typeorm';
 import { RewardTransaction } from '../entities/reward-transaction.entity';
 import { GameModule } from '../entities/game-module.entity';
-import { UserQuizResponse } from '../entities/user-quiz-response.entity';
+import { UserQuizResponse } from '../entities/quiz/user-quiz-response.entity';
 import { 
   RewardTransactionDto,
   RewardHistoryDto,

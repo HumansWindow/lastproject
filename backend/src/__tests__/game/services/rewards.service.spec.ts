@@ -4,7 +4,7 @@ import { Repository } from 'typeorm';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { RewardTransaction } from '../../../game/entities/reward-transaction.entity';
 import { GameModule } from '../../../game/entities/game-module.entity';
-import { UserQuizResponse } from '../../../game/entities/user-quiz-response.entity';
+import { UserQuizResponse } from '../../../game/entities/quiz/user-quiz-response.entity';
 import { ConfigService } from '@nestjs/config';
 import { NotFoundException, BadRequestException } from '@nestjs/common';
 import { TransactionStatus } from '../../../game/dto/reward.dto';

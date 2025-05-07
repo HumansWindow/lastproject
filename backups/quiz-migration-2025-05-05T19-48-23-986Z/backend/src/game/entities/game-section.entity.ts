@@ -2,7 +2,7 @@ import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn, UpdateDateCol
 import { GameModule } from './game-module.entity';
 import { SectionContent } from './section-content.entity';
 import { SectionCheckpoint } from './section-checkpoint.entity';
-import { QuizQuestion } from './quiz/quiz-question.entity';
+import { QuizQuestion } from './quiz-question.entity';
 import { SectionUnlockSchedule } from './section-unlock-schedule.entity';
 import { UserProgress } from './user-progress.entity';
 

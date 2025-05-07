@@ -55,7 +55,7 @@ import { UserProgress } from './entities/user-progress.entity';
 import { SectionCheckpoint } from './entities/section-checkpoint.entity';
 import { MediaAssetEntity } from './entities/media-asset.entity';
 // Quiz entities (using compatibility layer)
-import { Quiz, QuizQuestion, QuizSession, UserQuizResponse } from './entities/quiz-compat';
+import { Quiz, QuizQuestion, QuizSession, UserQuizResponse, QuizResponse } from './entities/quiz-compat';
 import { ContentVersionEntity } from './entities/content-version.entity';
 import { ContentTemplateEntity } from './entities/content-template.entity';
 import { ContentApproval } from './entities/content-approval.entity';
@@ -83,6 +83,7 @@ import { SharedModule } from '../shared/shared.module';
       QuizQuestion,
       QuizSession,
       UserQuizResponse,
+      QuizResponse, // Kept for backward compatibility
       ContentVersionEntity,
       ContentTemplateEntity,
       ContentApproval,

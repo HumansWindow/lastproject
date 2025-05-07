@@ -1,0 +1,164 @@
+{
+  "timestamp": "2025-05-05T19:47:14.326Z",
+  "duplicateFiles": {
+    "entities": {
+      "legacy": [],
+      "modern": [
+        "/home/alivegod/Desktop/4-Ordibehesht/LastProjectendpoint/LastProject/backend/src/game/entities/quiz/quiz.entity.ts",
+        "/home/alivegod/Desktop/4-Ordibehesht/LastProjectendpoint/LastProject/backend/src/game/entities/quiz/quiz-question.entity.ts",
+        "/home/alivegod/Desktop/4-Ordibehesht/LastProjectendpoint/LastProject/backend/src/game/entities/quiz/quiz-session.entity.ts",
+        "/home/alivegod/Desktop/4-Ordibehesht/LastProjectendpoint/LastProject/backend/src/game/entities/quiz/user-quiz-response.entity.ts"
+      ]
+    },
+    "services": {
+      "legacy": [
+        "/home/alivegod/Desktop/4-Ordibehesht/LastProjectendpoint/LastProject/backend/src/game/services/quiz.service.ts"
+      ],
+      "modern": [
+        "/home/alivegod/Desktop/4-Ordibehesht/LastProjectendpoint/LastProject/backend/src/game/services/quiz/quiz.service.ts"
+      ]
+    },
+    "repositories": {
+      "legacy": [
+        "/home/alivegod/Desktop/4-Ordibehesht/LastProjectendpoint/LastProject/backend/src/game/repositories/quiz.repository.ts"
+      ],
+      "modern": [
+        "/home/alivegod/Desktop/4-Ordibehesht/LastProjectendpoint/LastProject/backend/src/game/repositories/quiz/quiz.repository.ts",
+        "/home/alivegod/Desktop/4-Ordibehesht/LastProjectendpoint/LastProject/backend/src/game/repositories/quiz/quiz-question.repository.ts",
+        "/home/alivegod/Desktop/4-Ordibehesht/LastProjectendpoint/LastProject/backend/src/game/repositories/quiz/quiz-session.repository.ts",
+        "/home/alivegod/Desktop/4-Ordibehesht/LastProjectendpoint/LastProject/backend/src/game/repositories/quiz/user-quiz-response.repository.ts"
+      ]
+    },
+    "dto": {
+      "legacy": [
+        "/home/alivegod/Desktop/4-Ordibehesht/LastProjectendpoint/LastProject/backend/src/game/dto/quiz.dto.ts"
+      ],
+      "modern": [
+        "/home/alivegod/Desktop/4-Ordibehesht/LastProjectendpoint/LastProject/backend/src/game/dto/quiz/quiz.dto.ts",
+        "/home/alivegod/Desktop/4-Ordibehesht/LastProjectendpoint/LastProject/backend/src/game/dto/quiz/quiz-question.dto.ts",
+        "/home/alivegod/Desktop/4-Ordibehesht/LastProjectendpoint/LastProject/backend/src/game/dto/quiz/quiz-session.dto.ts"
+      ]
+    }
+  },
+  "importReferences": {
+    "entities": {
+      "legacy": [],
+      "modern": [
+        {
+          "file": "/home/alivegod/Desktop/4-Ordibehesht/LastProjectendpoint/LastProject/backend/src/game/entities/quiz/quiz-question.entity.ts",
+          "patterns": [
+            "from './quiz.entity'"
+          ]
+        },
+        {
+          "file": "/home/alivegod/Desktop/4-Ordibehesht/LastProjectendpoint/LastProject/backend/src/game/entities/quiz/quiz-session.entity.ts",
+          "patterns": [
+            "from './quiz.entity'"
+          ]
+        },
+        {
+          "file": "/home/alivegod/Desktop/4-Ordibehesht/LastProjectendpoint/LastProject/backend/src/game/entities/game-section.entity.ts",
+          "patterns": [
+            "from './quiz-question.entity'"
+          ]
+        },
+        {
+          "file": "/home/alivegod/Desktop/4-Ordibehesht/LastProjectendpoint/LastProject/backend/src/game/entities/quiz/quiz.entity.ts",
+          "patterns": [
+            "from './quiz-question.entity'"
+          ]
+        },
+        {
+          "file": "/home/alivegod/Desktop/4-Ordibehesht/LastProjectendpoint/LastProject/backend/src/game/entities/quiz/user-quiz-response.entity.ts",
+          "patterns": [
+            "from './quiz-question.entity'"
+          ]
+        },
+        {
+          "file": "/home/alivegod/Desktop/4-Ordibehesht/LastProjectendpoint/LastProject/backend/src/game/entities/quiz/user-quiz-response.entity.ts",
+          "patterns": [
+            "from './quiz-session.entity'"
+          ]
+        },
+        {
+          "file": "/home/alivegod/Desktop/4-Ordibehesht/LastProjectendpoint/LastProject/backend/src/game/entities/quiz/quiz-session.entity.ts",
+          "patterns": [
+            "from './user-quiz-response.entity'"
+          ]
+        }
+      ]
+    },
+    "services": {
+      "legacy": [],
+      "modern": []
+    },
+    "repositories": {
+      "legacy": [],
+      "modern": []
+    },
+    "dto": {
+      "legacy": [],
+      "modern": []
+    }
+  },
+  "migrationPlan": [
+    {
+      "file": "/home/alivegod/Desktop/4-Ordibehesht/LastProjectendpoint/LastProject/backend/src/game/entities/quiz/quiz-question.entity.ts",
+      "action": "Update import statements to use modern file structure",
+      "importUpdates": [
+        {
+          "from": "modern",
+          "to": "entities/modern/modern"
+        }
+      ]
+    },
+    {
+      "file": "/home/alivegod/Desktop/4-Ordibehesht/LastProjectendpoint/LastProject/backend/src/game/entities/quiz/quiz-session.entity.ts",
+      "action": "Update import statements to use modern file structure",
+      "importUpdates": [
+        {
+          "from": "modern",
+          "to": "entities/modern/modern"
+        },
+        {
+          "from": "modern",
+          "to": "entities/modern/modern"
+        }
+      ]
+    },
+    {
+      "file": "/home/alivegod/Desktop/4-Ordibehesht/LastProjectendpoint/LastProject/backend/src/game/entities/game-section.entity.ts",
+      "action": "Update import statements to use modern file structure",
+      "importUpdates": [
+        {
+          "from": "modern",
+          "to": "entities/modern/modern"
+        }
+      ]
+    },
+    {
+      "file": "/home/alivegod/Desktop/4-Ordibehesht/LastProjectendpoint/LastProject/backend/src/game/entities/quiz/quiz.entity.ts",
+      "action": "Update import statements to use modern file structure",
+      "importUpdates": [
+        {
+          "from": "modern",
+          "to": "entities/modern/modern"
+        }
+      ]
+    },
+    {
+      "file": "/home/alivegod/Desktop/4-Ordibehesht/LastProjectendpoint/LastProject/backend/src/game/entities/quiz/user-quiz-response.entity.ts",
+      "action": "Update import statements to use modern file structure",
+      "importUpdates": [
+        {
+          "from": "modern",
+          "to": "entities/modern/modern"
+        },
+        {
+          "from": "modern",
+          "to": "entities/modern/modern"
+        }
+      ]
+    }
+  ]
+}

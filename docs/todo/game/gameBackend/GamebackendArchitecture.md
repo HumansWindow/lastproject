@@ -30,7 +30,8 @@ backend/
         │   ├── game-modules.service.ts       # Module business logic
         │   ├── game-sections.service.ts      # Section business logic
         │   ├── user-progress.service.ts      # Progress tracking logic
-        │   ├── quiz.service.ts               # Quiz logic
+        │   ├── quiz/
+        │   │   └── quiz.service.ts           # Quiz business logic
         │   ├── media.service.ts              # Media handling
         │   ├── media-processing.service.ts   # Advanced media processing
         │   ├── rewards.service.ts            # Reward processing
@@ -43,7 +44,10 @@ backend/
         │   ├── module.dto.ts                 # Module DTOs
         │   ├── section.dto.ts                # Section DTOs
         │   ├── progress.dto.ts               # Progress DTOs
-        │   ├── quiz.dto.ts                   # Quiz DTOs
+        │   ├── quiz/                         # Quiz DTOs
+        │   │   ├── quiz.dto.ts               # Quiz data structures
+        │   │   ├── quiz-question.dto.ts      # Quiz question data structures
+        │   │   └── quiz-session.dto.ts       # Quiz session data structures
         │   ├── reward.dto.ts                 # Reward DTOs
         │   ├── unlock.dto.ts                 # Module unlock DTOs
         │   ├── notification.dto.ts           # Game notification DTOs
@@ -60,8 +64,11 @@ backend/
         │   ├── media-asset.entity.ts         # Media entity
         │   ├── user-progress.entity.ts       # Progress entity
         │   ├── section-checkpoint.entity.ts  # Checkpoint entity
-        │   ├── quiz-question.entity.ts       # Question entity
-        │   ├── user-quiz-response.entity.ts  # Response entity
+        │   ├── quiz/                         # Quiz entities
+        │   │   ├── quiz.entity.ts            # Quiz configuration entity
+        │   │   ├── quiz-question.entity.ts   # Quiz question entity
+        │   │   ├── quiz-session.entity.ts    # Quiz session entity
+        │   │   └── user-quiz-response.entity.ts # User response entity
         │   ├── reward-transaction.entity.ts  # Reward entity
         │   ├── module-unlock-schedule.entity.ts  # Module unlock entity
         │   ├── section-unlock-schedule.entity.ts # Section unlock entity
@@ -76,6 +83,8 @@ backend/
         │   ├── section-config.interface.ts   # Section configuration
         │   ├── content-types.interface.ts    # Content type definitions
         │   ├── progress-status.interface.ts  # Progress status types
+        │   ├── quiz/                         # Quiz interfaces
+        │   │   └── quiz-types.interface.ts   # Quiz type definitions and enums
         │   ├── unlock-status.interface.ts    # Module unlock status types
         │   ├── notification-types.interface.ts # Notification type definitions
         │   ├── media-processing.interface.ts # Media processing options
@@ -93,6 +102,11 @@ backend/
             ├── section-content.repository.ts # Content data access
             ├── user-progress.repository.ts   # Progress data access
             ├── module-unlock.repository.ts   # Module unlock data access
+            ├── quiz/                         # Quiz repositories
+            │   ├── quiz.repository.ts        # Quiz data access
+            │   ├── quiz-question.repository.ts # Question data access
+            │   ├── quiz-session.repository.ts # Session data access
+            │   └── user-quiz-response.repository.ts # Response data access
             ├── game-notification.repository.ts # Game notification data access
             ├── media-asset.repository.ts     # Media asset data access
             ├── content-version.repository.ts # Content version history access
@@ -414,20 +428,6 @@ The content management implementation includes a dedicated `SectionContentServic
      // Calculate content viewing statistics
    }
    ```
-
-5. **Version Control**: Track all changes to content with user attribution
-   ```typescript
-   async updateSectionContent(
-     contentId: string,
-     updateDto: UpdateSectionContentDto,
-     user: UserEntity,
-     changeDescription?: string,
-   ): Promise<SectionContentDto> {
-     // Create a version record for the current content before updating
-     await this.contentVersionRepository.createVersion(
-       contentId,
-       originalContent,
-       user.username,
        changeDescription || 'Content updated',
      );
      
@@ -961,3 +961,432 @@ backend/
 ```
 
 This architecture provides a comprehensive system for content management with proper review processes, quality control, and team collaboration capabilities.
+
+## Quiz System Architecture
+
+The quiz system provides a comprehensive framework for creating, managing, and evaluating interactive quizzes within the learning experience. The system supports various question types, scoring mechanisms, and detailed analytics.
+
+### Quiz Entities
+
+The quiz system is structured around four main entities:
+
+1. **Quiz Entity** (`quiz.entity.ts`): Defines the overall quiz configuration
+   ```typescript
+   @Entity('quizzes')
+   export class Quiz {
+     @PrimaryGeneratedColumn('uuid')
+     id: string;
+   
+     @Column({ type: 'varchar', length: 255 })
+     title: string;
+   
+     @Column({ type: 'text', nullable: true })
+     description: string;
+   
+     // Module and section relationships
+     @Column({ nullable: true })
+     moduleId: string;
+   
+     @ManyToOne(() => GameModule, { nullable: true })
+     @JoinColumn({ name: 'moduleId' })
+     module: GameModule;
+   
+     @Column({ nullable: true })
+     sectionId: string;
+   
+     @ManyToOne(() => GameSection, { nullable: true })
+     @JoinColumn({ name: 'sectionId' })
+     section: GameSection;
+   
+     // Configuration fields
+     @Column({ type: 'int', default: 0 })
+     passingScore: number;
+   
+     @Column({ type: 'int', default: 0 })
+     totalPoints: number;
+   
+     @Column({ type: 'int', default: 60 })
+     timeLimit: number; // Time limit in seconds
+   
+     @Column({ type: 'enum', enum: QuizDifficultyEnum, default: QuizDifficultyEnum.MEDIUM })
+     difficulty: QuizDifficultyEnum;
+   
+     @Column({ type: 'jsonb', nullable: true })
+     resultThresholds: {
+       excellent: number;
+       good: number;
+       pass: number;
+     };
+   
+     // Quiz behavior settings
+     @Column({ type: 'boolean', default: true })
+     showCorrectAnswers: boolean;
+   
+     @Column({ type: 'boolean', default: false })
+     randomizeQuestions: boolean;
+   
+     @Column({ type: 'boolean', default: true })
+     isActive: boolean;
+   
+     @Column({ type: 'int', default: 1 })
+     maxAttempts: number;
+   
+     // Relationships
+     @OneToMany(() => QuizQuestion, question => question.quiz)
+     questions: QuizQuestion[];
+   
+     // Timestamps
+     @CreateDateColumn()
+     createdAt: Date;
+   
+     @UpdateDateColumn()
+     updatedAt: Date;
+   
+     @Column({ nullable: true })
+     createdBy: string;
+   }
+   ```
+
+2. **Quiz Question Entity** (`quiz-question.entity.ts`): Defines individual quiz questions
+   ```typescript
+   @Entity('quiz_questions')
+   export class QuizQuestion {
+     @PrimaryGeneratedColumn('uuid')
+     id: string;
+   
+     @Column({ type: 'uuid' })
+     quizId: string;
+   
+     @ManyToOne(() => Quiz, quiz => quiz.questions, { onDelete: 'CASCADE' })
+     @JoinColumn({ name: 'quizId' })
+     quiz: Quiz;
+   
+     @Column({ type: 'varchar', length: 500 })
+     text: string;
+   
+     @Column({ type: 'enum', enum: QuestionTypeEnum, default: QuestionTypeEnum.SINGLE_CHOICE })
+     type: QuestionTypeEnum;
+   
+     @Column({ type: 'int', default: 1 })
+     points: number;
+   
+     @Column({ type: 'jsonb', nullable: true })
+     options: any[]; // Stores options for multiple choice, match pairs, etc.
+   
+     @Column({ type: 'jsonb', nullable: true })
+     correctAnswer: any; // Format depends on question type
+   
+     @Column({ type: 'text', nullable: true })
+     explanation: string;
+   
+     @Column({ type: 'varchar', nullable: true })
+     imageUrl: string;
+   
+     @Column({ type: 'int' })
+     orderIndex: number;
+   
+     @Column({ type: 'jsonb', nullable: true })
+     feedback: {
+       correctFeedback?: string;
+       incorrectFeedback?: string;
+       partialFeedback?: string;
+     };
+   
+     @Column({ type: 'int', nullable: true })
+     timeLimit: number; // Individual time limit in seconds
+   
+     @Column({ type: 'boolean', default: true })
+     isActive: boolean;
+     
+     @Column({ type: 'jsonb', nullable: true })
+     metadata: Record<string, any>; // For extended question type data
+     
+     // Timestamps
+     @CreateDateColumn()
+     createdAt: Date;
+   
+     @UpdateDateColumn()
+     updatedAt: Date;
+   }
+   ```
+
+3. **Quiz Session Entity** (`quiz-session.entity.ts`): Tracks user quiz attempts
+   ```typescript
+   @Entity('quiz_sessions')
+   export class QuizSession {
+     @PrimaryGeneratedColumn('uuid')
+     id: string;
+   
+     @Column({ type: 'uuid' })
+     quizId: string;
+   
+     @ManyToOne(() => Quiz, { onDelete: 'CASCADE' })
+     @JoinColumn({ name: 'quizId' })
+     quiz: Quiz;
+   
+     @Column({ type: 'uuid' })
+     userId: string;
+   
+     @Column({ type: 'enum', enum: QuizSessionStatus, default: QuizSessionStatus.STARTED })
+     status: QuizSessionStatus;
+   
+     @Column({ type: 'timestamp' })
+     startTime: Date;
+   
+     @Column({ type: 'timestamp', nullable: true })
+     endTime: Date;
+   
+     @Column({ type: 'int', default: 0 })
+     score: number;
+   
+     @Column({ type: 'float', default: 0 })
+     percentageScore: number;
+   
+     @Column({ type: 'enum', enum: QuizAttemptResultStatus, nullable: true })
+     resultStatus: QuizAttemptResultStatus;
+   
+     @Column({ type: 'int', default: 1 })
+     attemptNumber: number;
+   
+     @Column({ type: 'int', default: 0 })
+     questionsAnswered: number;
+   
+     @Column({ type: 'int', default: 0 })
+     questionsCorrect: number;
+   
+     @Column({ type: 'int', default: 0 })
+     totalTimeSpent: number; // In seconds
+   
+     @Column({ type: 'jsonb', nullable: true })
+     questionOrder: string[]; // For randomized quizzes
+   
+     @Column({ type: 'boolean', default: false })
+     isPassed: boolean;
+   
+     @Column({ type: 'text', nullable: true })
+     feedback: string; // General feedback for the entire attempt
+   
+     @OneToMany(() => UserQuizResponse, response => response.quizSession)
+     responses: UserQuizResponse[];
+   
+     // Timestamps
+     @CreateDateColumn()
+     createdAt: Date;
+   
+     @UpdateDateColumn()
+     updatedAt: Date;
+   }
+   ```
+
+4. **User Quiz Response Entity** (`user-quiz-response.entity.ts`): Records individual question responses
+   ```typescript
+   @Entity('user_quiz_responses')
+   export class UserQuizResponse {
+     @PrimaryGeneratedColumn('uuid')
+     id: string;
+   
+     @Column({ type: 'uuid' })
+     quizSessionId: string;
+   
+     @ManyToOne(() => QuizSession, session => session.responses, { onDelete: 'CASCADE' })
+     @JoinColumn({ name: 'quizSessionId' })
+     quizSession: QuizSession;
+   
+     @Column({ type: 'uuid' })
+     questionId: string;
+   
+     @ManyToOne(() => QuizQuestion, { onDelete: 'CASCADE' })
+     @JoinColumn({ name: 'questionId' })
+     question: QuizQuestion;
+   
+     @Column({ type: 'jsonb' })
+     userAnswer: any; // User's response data
+   
+     @Column({ type: 'boolean' })
+     isCorrect: boolean;
+   
+     @Column({ type: 'int', default: 0 })
+     earnedPoints: number;
+   
+     @Column({ type: 'float', default: 0 })
+     completionPercentage: number; // For partially correct answers
+   
+     @Column({ type: 'int', default: 0 })
+     timeSpent: number; // Time spent on this question in seconds
+   
+     @Column({ type: 'timestamp' })
+     answeredAt: Date;
+   
+     @Column({ type: 'text', nullable: true })
+     feedback: string; // Specific feedback for this response
+   
+     // Timestamps
+     @CreateDateColumn()
+     createdAt: Date;
+   
+     @UpdateDateColumn()
+     updatedAt: Date;
+   }
+   ```
+
+### Question Types
+
+The quiz system supports multiple question types as defined in the `QuestionTypeEnum`:
+
+```typescript
+export enum QuestionTypeEnum {
+  MULTIPLE_CHOICE = 'multiple_choice',
+  SINGLE_CHOICE = 'single_choice',
+  TRUE_FALSE = 'true_false',
+  SHORT_ANSWER = 'short_answer',
+  MATCH_PAIRS = 'match_pairs',
+  FILL_IN_BLANKS = 'fill_in_blanks',
+  SEQUENCE = 'sequence',
+  INTERACTIVE = 'interactive'
+}
+```
+
+Each question type has specific structures for options, correct answers, and scoring logic.
+
+### Quiz Difficulty Levels
+
+Quizzes are categorized by difficulty level:
+
+```typescript
+export enum QuizDifficultyEnum {
+  EASY = 'easy',
+  MEDIUM = 'medium',
+  HARD = 'hard',
+  EXPERT = 'expert'
+}
+```
+
+### Quiz Session Status
+
+Quiz sessions track progress through different states:
+
+```typescript
+export enum QuizSessionStatus {
+  STARTED = 'started',
+  IN_PROGRESS = 'in_progress',
+  COMPLETED = 'completed',
+  ABANDONED = 'abandoned',
+  EXPIRED = 'expired'
+}
+```
+
+### Quiz Result Evaluation
+
+Results are categorized based on configured thresholds:
+
+```typescript
+export enum QuizAttemptResultStatus {
+  EXCELLENT = 'excellent',
+  GOOD = 'good',
+  PASS = 'pass',
+  FAIL = 'fail'
+}
+```
+
+### Quiz Service Implementation
+
+The QuizService provides comprehensive quiz management capabilities:
+
+```typescript
+export class QuizService {
+  // Quiz creation and management
+  async createQuiz(createDto: CreateQuizDto): Promise<QuizDto>
+  async updateQuiz(quizId: string, updateDto: UpdateQuizDto): Promise<QuizDto>
+  async getQuiz(quizId: string): Promise<QuizDto>
+  async listQuizzesByModule(moduleId: string): Promise<QuizListDto>
+  async listQuizzesBySection(sectionId: string): Promise<QuizListDto>
+  
+  // Question management
+  async addQuestion(quizId: string, questionDto: CreateQuizQuestionDto): Promise<QuizQuestionDto>
+  async updateQuestion(questionId: string, updateDto: UpdateQuizQuestionDto): Promise<QuizQuestionDto>
+  async deleteQuestion(questionId: string): Promise<void>
+  
+  // Quiz session management
+  async startQuizSession(userId: string, quizId: string): Promise<QuizSessionDto>
+  async submitQuizAnswer(sessionId: string, answerDto: SubmitAnswerDto): Promise<AnswerResponseDto>
+  async completeQuizSession(sessionId: string): Promise<QuizResultDto>
+  
+  // Analytics and reporting
+  async getUserQuizHistory(userId: string, filters?: QuizHistoryFilterDto): Promise<QuizHistoryDto>
+  async getQuizStatistics(quizId: string): Promise<QuizStatisticsDto>
+  async getQuestionStatistics(questionId: string): Promise<QuestionStatisticsDto>
+}
+```
+
+### Quiz Repositories
+
+The quiz system includes specialized repositories:
+
+```typescript
+// Quiz Repository
+export class QuizRepository {
+  async findByModule(moduleId: string): Promise<Quiz[]>
+  async findBySection(sectionId: string): Promise<Quiz[]>
+  async findWithQuestions(quizId: string): Promise<Quiz>
+  async countAttempts(userId: string, quizId: string): Promise<number>
+}
+
+// Quiz Question Repository
+export class QuizQuestionRepository {
+  async findByQuiz(quizId: string): Promise<QuizQuestion[]>
+  async bulkCreate(quizId: string, questions: CreateQuizQuestionDto[]): Promise<QuizQuestion[]>
+  async getQuestionStatistics(questionId: string): Promise<QuestionStatisticsDto>
+}
+
+// Quiz Session Repository
+export class QuizSessionRepository {
+  async createSession(userId: string, quizId: string, attemptNumber: number): Promise<QuizSession>
+  async findActiveSessions(userId: string): Promise<QuizSession[]>
+  async markAsCompleted(sessionId: string, score: number, isPassed: boolean): Promise<QuizSession>
+}
+
+// User Quiz Response Repository
+export class UserQuizResponseRepository {
+  async saveResponse(responseData: CreateResponseDto): Promise<UserQuizResponse>
+  async getSessionResponses(sessionId: string): Promise<UserQuizResponse[]>
+  async getResponsesForQuestion(questionId: string): Promise<UserQuizResponse[]>
+}
+```
+
+### Integration with Learning Modules
+
+The quiz system integrates with game modules and sections:
+
+1. **Module Integration**:
+   - Quizzes can be associated with specific modules
+   - Module completion may require passing associated quizzes
+
+2. **Section Integration**:
+   - Quizzes can be linked to specific sections
+   - Section checkpoints track quiz completion
+
+3. **Progress Integration**:
+   - Quiz completion contributes to overall user progress
+   - Quiz performance affects user rewards and achievements
+   - Performance analytics feed into learning effectiveness metrics
+
+### Quiz Analytics System
+
+The quiz system provides comprehensive analytics:
+
+1. **User-Level Analytics**:
+   - Quiz completion rates
+   - Performance trends over time
+   - Strength and weakness identification
+
+2. **Question-Level Analytics**:
+   - Difficulty assessment based on user performance
+   - Time spent per question type
+   - Common incorrect answers
+
+3. **Educational Effectiveness**:
+   - Content area mastery indicators
+   - Learning outcome achievement metrics
+   - Intervention recommendation for struggling areas
+
+This quiz system architecture enables rich interactive assessment experiences within the learning platform, supporting diverse question types and providing detailed analytics to enhance the educational experience.

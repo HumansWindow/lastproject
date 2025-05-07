@@ -481,4 +481,151 @@ export class MediaService {
       }
     };
   }
+
+  /**
+   * Get optimized media URL based on client capabilities
+   * @param asset Media asset
+   * @param clientInfo Client browser information
+   * @returns Optimized media URL
+   */
+  async getOptimizedMediaUrl(asset: any, clientInfo?: { supportsWebp: boolean; supportsAvif: boolean }): Promise<string> {
+    if (!asset) {
+      throw new NotFoundException('Media asset not found');
+    }
+
+    // For images, provide format optimization
+    if (asset.mediaType === MediaType.IMAGE) {
+      // Check client capabilities and return appropriate format
+      if (clientInfo?.supportsWebp && asset.metadata?.formats?.webp) {
+        return asset.metadata.formats.webp;
+      } else if (clientInfo?.supportsAvif && asset.metadata?.formats?.avif) {
+        return asset.metadata.formats.avif;
+      }
+    }
+    
+    // Return original path as fallback
+    return asset.filePath;
+  }
+
+  /**
+   * Get responsive image URLs for different screen sizes
+   * @param asset Media asset
+   * @returns Object containing URLs for different screen sizes
+   */
+  async getResponsiveImageUrls(asset: any): Promise<Record<string, string>> {
+    if (!asset || asset.mediaType !== MediaType.IMAGE) {
+      throw new BadRequestException('Invalid or non-image asset');
+    }
+
+    // Return responsive image URLs if available
+    return {
+      original: asset.filePath,
+      small: asset.metadata?.responsive?.small ?? asset.filePath,
+      medium: asset.metadata?.responsive?.medium ?? asset.filePath,
+      large: asset.metadata?.responsive?.large ?? asset.filePath
+    };
+  }
+
+  /**
+   * Get video streaming options for a video asset
+   * @param asset Media asset
+   * @returns Object containing streaming options
+   */
+  async getVideoStreamingOptions(asset: any): Promise<Record<string, any>> {
+    if (!asset || asset.mediaType !== MediaType.VIDEO) {
+      throw new BadRequestException('Invalid or non-video asset');
+    }
+
+    // Return video streaming options
+    return {
+      mp4: asset.metadata?.qualities ?? {}, // Qualities like 360p, 720p
+      hls: asset.metadata?.formats?.hls,
+      dash: asset.metadata?.formats?.dash,
+      poster: asset.metadata?.poster,
+      duration: asset.metadata?.duration
+    };
+  }
+
+  /**
+   * Get detailed metadata for a media asset
+   * @param asset Media asset
+   * @returns Object containing detailed metadata
+   */
+  async getMediaMetadata(asset: any): Promise<Record<string, any>> {
+    if (!asset) {
+      throw new NotFoundException('Media asset not found');
+    }
+
+    // Return detailed metadata based on asset type
+    const metadata: Record<string, any> = {
+      id: asset.id,
+      filename: asset.filename,
+      type: asset.mediaType,
+      mimeType: asset.mimeType,
+      fileSize: asset.fileSize,
+      createdAt: asset.createdAt,
+      updatedAt: asset.updatedAt,
+      createdBy: asset.createdBy
+    };
+
+    // Add media-type specific metadata
+    if (asset.mediaType === MediaType.IMAGE) {
+      metadata.width = asset.width;
+      metadata.height = asset.height;
+      metadata.aspectRatio = asset.width && asset.height ? asset.width / asset.height : null;
+    } else if (asset.mediaType === MediaType.VIDEO) {
+      metadata.duration = asset.duration;
+      metadata.resolution = asset.resolution;
+    } else if (asset.mediaType === MediaType.AUDIO) {
+      metadata.duration = asset.duration;
+      metadata.bitrate = asset.bitrate;
+    } else if (asset.mediaType === MediaType.DOCUMENT) {
+      metadata.pages = asset.pages;
+    }
+
+    return metadata;
+  }
+
+  /**
+   * Process media references in content
+   * @param content Content with media references
+   * @returns Content with resolved media URLs
+   */
+  async processMediaReferences(content: any): Promise<any> {
+    if (!content) {
+      return content;
+    }
+
+    // If content is an array, process each item
+    if (Array.isArray(content)) {
+      return Promise.all(content.map(item => this.processMediaReferences(item)));
+    }
+
+    // If content is an object, process each property
+    if (typeof content === 'object') {
+      const result = { ...content };
+
+      // Process mediaId references
+      if (content.mediaId) {
+        try {
+          const asset = await this.findById(content.mediaId);
+          result.url = asset.filePath;
+        } catch (error) {
+          console.error(`Failed to resolve media reference for ID ${content.mediaId}: ${error.message}`);
+        }
+      }
+
+      // Process nested objects recursively
+      for (const key of Object.keys(result)) {
+        if (typeof result[key] === 'object' && result[key] !== null) {
+          result[key] = await this.processMediaReferences(result[key]);
+        }
+      }
+
+      return result;
+    }
+
+    // Return primitive values unchanged
+    return content;
+  }
 }
