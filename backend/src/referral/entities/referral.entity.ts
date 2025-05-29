@@ -4,14 +4,14 @@ import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn } from 'typeor
 export class Referral {
   @PrimaryGeneratedColumn('uuid')
   id: string;
-
-  @Column()
+  
+  @Column({ name: 'referrer_id' })
   referrerId: string;
-
-  @Column()
+  
+  @Column({ name: 'referred_id' })
   referredId: string;
 
-  @CreateDateColumn()
+  @Column({ name: 'created_at' }) 
   createdAt: Date;
 }
 
@@ -29,6 +29,6 @@ export class ReferralUse {
   @Column({ default: false })
   rewardClaimed: boolean;
 
-  @CreateDateColumn()
+  @CreateDateColumn({ name: "created_at" })
   createdAt: Date;
 }

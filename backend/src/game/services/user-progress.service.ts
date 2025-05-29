@@ -5,7 +5,7 @@ import { UserProgress } from '../entities/user-progress.entity';
 import { GameModule } from '../entities/game-module.entity';
 import { GameSection } from '../entities/game-section.entity';
 import { SectionCheckpoint } from '../entities/section-checkpoint.entity';
-import { ProgressStatus } from '../interfaces/progress-status.interface';
+import { ProgressStatus, ModuleProgressStatus, CompatibleProgressStatus } from '../interfaces/progress-status.interface';
 import {
   UserProgressDto,
   UserModuleProgressDto,

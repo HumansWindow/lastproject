@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { realtimeService, NftTransferEvent } from '../services/realtime';
+import { realtimeService, NftTransferEvent } from "../services/realtime/index";
 import Image from 'next/image';
-import WebSocketStatus from './WebSocketStatus'; // Import WebSocketStatus component
+import WebSocketStatus from "./WebSocketStatus"; // Import WebSocketStatus component
 
 interface Props {
   walletAddress: string;

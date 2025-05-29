@@ -2,7 +2,7 @@ import { Controller, Get, Post, Param, Delete, UseGuards, Req, Logger } from '@n
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { UserDevicesService } from '../services/user-devices.service';
-import { RequestWithUser } from '../../auth/interfaces/request-with-user.interface';
+import { RequestWithUser } from '../../shared/interfaces/request-with-user.interface';
 
 @ApiTags('user-devices')
 @Controller('user/devices')

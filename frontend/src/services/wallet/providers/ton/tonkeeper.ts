@@ -10,7 +10,7 @@ import {
   WalletInfo,
   WalletProvider,
   WalletProviderType
-} from '../../core/wallet-base';
+} from "../../core/walletBase";
 
 // Define the TonConnect interface for TypeScript
 declare global {

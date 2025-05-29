@@ -1,8 +1,14 @@
 import React, { useState } from 'react';
 import { useRouter } from 'next/router';
-import walletService, { WalletProviderType } from '../../services/wallet';
-import DebugWrapper from '../../components/debug/DebugWrapper';
-import { useAuthDebug } from '../../hooks/useAuthDebug';
+import walletService from "../../services/wallet/walletService";
+import { WalletProviderType } from "../../services/wallet/core/walletBase";
+import DebugWrapper from "../../components/debug/DebugWrapper";
+import { useAuthDebug } from "../../hooks/useAuthDebug";
+
+// Define the static methods that walletService.constructor should have
+interface WalletServiceConstructor {
+  connectAndAuthenticate: () => Promise<{accessToken?: string}>;
+}
 
 const WalletConnectPage = () => {
   const [isLoading, setIsLoading] = useState(false);
@@ -17,33 +23,18 @@ const WalletConnectPage = () => {
       setIsLoading(true);
       setError(null);
       
-      // 1. Connect to wallet
-      const connectResult = await walletService.connect(WalletProviderType.METAMASK);
-      if (!connectResult || !connectResult.success) {
-        throw new Error('Failed to connect to wallet');
+      // Use the static connectAndAuthenticate method with proper typing
+      // Convert constructor to unknown first to avoid type compatibility issues
+      const authResponse = await ((walletService.constructor as unknown) as WalletServiceConstructor).connectAndAuthenticate();
+      
+      if (!authResponse || !authResponse.accessToken) {
+        throw new Error('Failed to authenticate wallet');
       }
       
-      const walletInfo = connectResult.walletInfo;
-      if (!walletInfo) {
-        throw new Error('No wallet info returned');
-      }
+      // Handle successful authentication
+      console.log('Authentication successful');
       
-      // 2. Request challenge
-      const challengeResult = await walletService.getChallenge(walletInfo.address);
-      const challenge = challengeResult.nonce || challengeResult.message || '';
-      
-      // 3. Sign the challenge with the wallet
-      const signResult = await walletService.signMessage(challenge, walletInfo);
-      const signature = typeof signResult === 'string' ? signResult : 
-                       (signResult.signature || '');
-      
-      // 4. Authenticate with backend
-      const authResult = await walletService.authenticate(walletInfo, signature, challenge);
-      
-      // 5. Handle successful authentication
-      console.log('Authentication successful:', authResult);
-      
-      // 6. Redirect to dashboard or home page
+      // Redirect to dashboard or home page
       router.push('/dashboard');
       
     } catch (err) {

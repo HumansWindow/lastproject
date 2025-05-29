@@ -1,7 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 
 // In a real implementation, we'd import from the actual galaxy animation directory
-// import { useGalaxyAnimation } from '../../../animations/galaxy';
+// import { useGalaxyAnimation } from "../../../animations/galaxy";
 
 // Mock implementation for the Galaxy animation hook
 interface GalaxyAnimation {
@@ -54,6 +54,46 @@ const useGameSections = (options: UseGameSectionsOptions): UseGameSectionsReturn
   // const { flyOver } = useGalaxyAnimation();
   const { flyOver } = mockGalaxyAnimation();
   
+  // Check if a section is a Galaxy section
+  const isGalaxySection = useCallback((sectionId: string): boolean => {
+    return galaxySections.has(sectionId);
+  }, [galaxySections]);
+  
+  // Navigate between sections, using Galaxy transitions when appropriate
+  const navigateToSection = useCallback((fromSectionId: string, toSectionId: string) => {
+    // Update active section state
+    setActiveSection(toSectionId);
+    
+    // If both sections are Galaxy sections, use flyOver transition
+    if (isGalaxySection(fromSectionId) && isGalaxySection(toSectionId)) {
+      flyOver(fromSectionId, toSectionId);
+    } else {
+      // Otherwise, do a standard section transition
+      const fromSection = document.getElementById(fromSectionId);
+      const toSection = document.getElementById(toSectionId);
+      
+      if (fromSection) {
+        fromSection.classList.remove('active-section');
+        fromSection.classList.add('section-exit');
+        
+        setTimeout(() => {
+          fromSection.classList.remove('section-exit');
+          fromSection.style.display = 'none';
+        }, 500);
+      }
+      
+      if (toSection) {
+        toSection.style.display = 'flex';
+        toSection.classList.add('section-enter');
+        
+        setTimeout(() => {
+          toSection.classList.remove('section-enter');
+          toSection.classList.add('active-section');
+        }, 50);
+      }
+    }
+  }, [flyOver, isGalaxySection, setActiveSection]);
+  
   // Find all sections with Galaxy backgrounds when the component mounts
   useEffect(() => {
     if (!useGalaxyBackground) return;
@@ -86,47 +126,7 @@ const useGameSections = (options: UseGameSectionsOptions): UseGameSectionsReturn
     return () => {
       document.removeEventListener('sectionChange', handleSectionChange as EventListener);
     };
-  }, [galaxySections]); // Depend on galaxySections to reconnect when they change
-  
-  // Check if a section is a Galaxy section
-  const isGalaxySection = (sectionId: string): boolean => {
-    return galaxySections.has(sectionId);
-  };
-  
-  // Navigate between sections, using Galaxy transitions when appropriate
-  const navigateToSection = (fromSectionId: string, toSectionId: string) => {
-    // Update active section state
-    setActiveSection(toSectionId);
-    
-    // If both sections are Galaxy sections, use flyOver transition
-    if (isGalaxySection(fromSectionId) && isGalaxySection(toSectionId)) {
-      flyOver(fromSectionId, toSectionId);
-    } else {
-      // Otherwise, do a standard section transition
-      const fromSection = document.getElementById(fromSectionId);
-      const toSection = document.getElementById(toSectionId);
-      
-      if (fromSection) {
-        fromSection.classList.remove('active-section');
-        fromSection.classList.add('section-exit');
-        
-        setTimeout(() => {
-          fromSection.classList.remove('section-exit');
-          fromSection.style.display = 'none';
-        }, 500);
-      }
-      
-      if (toSection) {
-        toSection.style.display = 'flex';
-        toSection.classList.add('section-enter');
-        
-        setTimeout(() => {
-          toSection.classList.remove('section-enter');
-          toSection.classList.add('active-section');
-        }, 50);
-      }
-    }
-  };
+  }, [navigateToSection]); // Only depend on navigateToSection
   
   return {
     activeSection,

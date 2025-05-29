@@ -53,12 +53,40 @@ export class UserDevicesService {
   /**
    * Find all devices for a user
    */
+  
+  /**
+   * Find by user ID
+   * @param userId The user ID to search for
+   * @returns Matching records for the user
+   * @deprecated Use findByUserId instead with property name (not DB column)
+   */
+  
+  /**
+   * Find by user ID
+   * @param userId The user ID to search for
+   * @returns Matching records for the user
+   * @deprecated Use findByUserId instead with property name (not DB column)
+   */
   async findByUserId(userId: string): Promise<UserDevice[]> {
     return this.userDeviceRepository.find({ where: { userId } });
   }
 
   /**
    * Find devices by device ID
+   */
+  
+  /**
+   * Find devices by device ID
+   * @param deviceId The device ID to search for
+   * @returns An array of matching devices
+   * @deprecated Use findByDeviceId instead with property name (not DB column)
+   */
+  
+  /**
+   * Find devices by device ID
+   * @param deviceId The device ID to search for
+   * @returns An array of matching devices
+   * @deprecated Use findByDeviceId instead with property name (not DB column)
    */
   async findByDeviceId(deviceId: string): Promise<UserDevice[]> {
     try {
@@ -77,6 +105,22 @@ export class UserDevicesService {
 
   /**
    * Find a device by user ID and device ID
+   */
+  
+  /**
+   * Find by user ID and device ID
+   * @param userId The user ID to search for
+   * @param deviceId The device ID to search for
+   * @returns The matching record if found, null otherwise
+   * @deprecated Use findByUserIdAndDeviceId with property names (not DB columns)
+   */
+  
+  /**
+   * Find by user ID and device ID
+   * @param userId The user ID to search for
+   * @param deviceId The device ID to search for
+   * @returns The matching record if found, null otherwise
+   * @deprecated Use findByUserIdAndDeviceId with property names (not DB columns)
    */
   async findByUserIdAndDeviceId(userId: string, deviceId: string): Promise<UserDevice | null> {
     try {
@@ -639,6 +683,99 @@ export class UserDevicesService {
     } catch (error) {
       this.logger.error(`Error adding wallet to device: ${error.message}`);
       return false;
+    }
+  }
+
+  /**
+   * Find or create a device record for a user
+   */
+  async findOrCreateDevice(data: {
+    userId: string;
+    deviceId: string;
+    ipAddress?: string;
+    userAgent?: string;
+    deviceInfo?: any;
+  }): Promise<UserDevice> {
+    try {
+      this.logger.log(`Looking up or creating device - UserId: ${data.userId}, DeviceId: ${data.deviceId.substring(0, 8)}...`);
+      
+      // Check for existing devices with this ID
+      const devices = await this.findByDeviceId(data.deviceId);
+      
+      // Check if any device belongs to this user
+      const userDevice = devices.find(device => device.userId === data.userId);
+      
+      if (userDevice) {
+        // Update last seen time and visit count for existing device
+        userDevice.lastSeen = new Date();
+        if (userDevice.lastSeenAt) {
+          userDevice.lastSeenAt = new Date();
+        }
+        userDevice.visitCount += 1;
+        
+        // Update IP address if provided
+        if (data.ipAddress) {
+          userDevice.lastIpAddress = data.ipAddress;
+        }
+        
+        // Update device info if provided
+        if (data.deviceInfo) {
+          if (data.deviceInfo.deviceType) userDevice.deviceType = data.deviceInfo.deviceType;
+          if (data.deviceInfo.platform) userDevice.platform = data.deviceInfo.platform;
+          if (data.deviceInfo.os) userDevice.os = data.deviceInfo.os;
+          if (data.deviceInfo.osVersion) userDevice.osVersion = data.deviceInfo.osVersion;
+          if (data.deviceInfo.browser) userDevice.browser = data.deviceInfo.browser;
+          if (data.deviceInfo.browserVersion) userDevice.browserVersion = data.deviceInfo.browserVersion;
+        }
+        
+        await this.userDeviceRepository.save(userDevice);
+        this.logger.log(`Updated existing device for user ${data.userId}`);
+        return userDevice;
+      }
+      
+      // No existing device found for this user, create a new one
+      const deviceData: Partial<UserDevice> = {
+        userId: data.userId,
+        deviceId: data.deviceId,
+        deviceType: data.deviceInfo?.deviceType || 'unknown',
+        name: data.deviceInfo?.deviceName || data.deviceInfo?.name || 'Unknown device',
+        platform: data.deviceInfo?.platform || 'unknown',
+        os: data.deviceInfo?.os || 'unknown',
+        osVersion: data.deviceInfo?.osVersion || 'unknown',
+        browser: data.deviceInfo?.browser || 'unknown',
+        browserVersion: data.deviceInfo?.browserVersion || 'unknown',
+        lastIpAddress: data.ipAddress || null,
+        isActive: true,
+        visitCount: 1,
+        firstSeen: new Date(),
+        lastSeen: new Date(),
+      };
+      
+      const newDevice = this.userDeviceRepository.create(deviceData);
+      
+      // Add wallet address to device if provided
+      if (data.deviceInfo?.walletAddress) {
+        try {
+          await newDevice.addWalletAddress(data.deviceInfo.walletAddress);
+        } catch (error) {
+          this.logger.error(`Error setting wallet address: ${error.message}`);
+        }
+      }
+      
+      const savedDevice = await this.userDeviceRepository.save(newDevice);
+      this.logger.log(`Created new device for user ${data.userId}`);
+      return savedDevice;
+      
+    } catch (error) {
+      this.logger.error(`Error finding or creating device: ${error.message}`);
+      
+      // Return a temporary device object if an error occurs
+      // This allows authentication to continue even if device registration fails
+      const tempDevice = new UserDevice();
+      tempDevice.userId = data.userId;
+      tempDevice.deviceId = data.deviceId;
+      tempDevice.isActive = true;
+      return tempDevice;
     }
   }
 

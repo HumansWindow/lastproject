@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import {
   Box,
   Typography,
@@ -22,14 +22,17 @@ import WarningIcon from '@mui/icons-material/Warning';
 import ErrorIcon from '@mui/icons-material/Error';
 import DeleteIcon from '@mui/icons-material/Delete';
 import DoneAllIcon from '@mui/icons-material/DoneAll';
-import { gameNotificationService, GameNotification } from '../../services/game/game-notification.service';
+import { gameNotificationService, GameNotification } from "../../services/game/gameNotification.service";
 import { useRouter } from 'next/router';
 import { useSnackbar } from 'notistack';
 import { formatDistanceToNow } from 'date-fns';
 
 interface GameNotificationPanelProps {
-  anchorEl: HTMLElement | null;
+  anchorEl?: HTMLElement | null;
   onClose: () => void;
+  notifications?: GameNotification[];
+  onMarkAllAsRead: () => Promise<boolean>;
+  onMarkAsRead: (id: string) => Promise<boolean>;
 }
 
 const StyledPopover = styled(Popover)(({ theme }) => ({
@@ -83,24 +86,7 @@ export const GameNotificationPanel: React.FC<GameNotificationPanelProps> = ({
   const isOpen = Boolean(anchorEl);
   const id = isOpen ? 'game-notification-popover' : undefined;
   
-  // Fetch notifications when panel opens
-  useEffect(() => {
-    if (isOpen) {
-      fetchNotifications();
-    }
-  }, [isOpen, page]);
-  
-  // Listen for new notifications
-  useEffect(() => {
-    const unsubscribe = gameNotificationService.onNotification(notification => {
-      setNotifications(prevNotifications => [notification, ...prevNotifications]);
-      setTotal(prevTotal => prevTotal + 1);
-    });
-    
-    return unsubscribe;
-  }, []);
-  
-  const fetchNotifications = async () => {
+  const fetchNotifications = useCallback(async () => {
     setLoading(true);
     try {
       const result = await gameNotificationService.getNotifications(page, 10);
@@ -112,7 +98,24 @@ export const GameNotificationPanel: React.FC<GameNotificationPanelProps> = ({
     } finally {
       setLoading(false);
     }
-  };
+  }, [page, enqueueSnackbar]);
+  
+  // Fetch notifications when panel opens
+  useEffect(() => {
+    if (isOpen) {
+      fetchNotifications();
+    }
+  }, [isOpen, fetchNotifications]);
+  
+  // Listen for new notifications
+  useEffect(() => {
+    const unsubscribe = gameNotificationService.onNotification(notification => {
+      setNotifications(prevNotifications => [notification, ...prevNotifications]);
+      setTotal(prevTotal => prevTotal + 1);
+    });
+    
+    return unsubscribe;
+  }, []);
   
   const handleLoadMore = () => {
     setPage(prevPage => prevPage + 1);
@@ -252,7 +255,7 @@ export const GameNotificationPanel: React.FC<GameNotificationPanelProps> = ({
                 <NotificationItem 
                   isRead={notification.isRead}
                   onClick={() => handleNotificationClick(notification)}
-                  button
+                  sx={{ cursor: 'pointer' }}
                   alignItems="flex-start"
                 >
                   <ListItemIcon sx={{ mt: 1 }}>

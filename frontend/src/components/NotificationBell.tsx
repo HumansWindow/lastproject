@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from 'react';
-import { BellIcon } from './icons/BellIcon'; 
+import { BellIcon } from "../icons/Bell"; 
 import { Dropdown } from 'react-bootstrap';
-import { notificationService, AppNotification } from '../services/notifications/notification-service';
-import { useObservable } from '../hooks/useObservable';
+import { notificationService, AppNotification } from "../services/notifications/notificationService";
+import { useObservable } from "../hooks/useObservable";
 
 /**
  * Notification bell component with dropdown for displaying real-time notifications

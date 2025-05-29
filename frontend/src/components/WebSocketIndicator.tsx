@@ -1,5 +1,5 @@
 import React from 'react';
-import WebSocketStatus from './WebSocketStatus';
+import WebSocketStatus from "./WebSocketStatus";
 
 const WebSocketIndicator: React.FC = () => {
   // Add connected status (you might want to get the actual status from your application state)

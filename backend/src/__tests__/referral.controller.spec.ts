@@ -3,7 +3,8 @@ import { ReferralController } from '../referral/referral.controller';
 import { ReferralService } from '../referral/referral.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { BadRequestException } from '@nestjs/common';
-import { RequestWithUser, TestRequestWithUser } from '../auth/interfaces/request-with-user.interface';
+import { RequestWithUser } from '../shared/interfaces/request-with-user.interface';
+import { TestRequestWithUser } from './utils/test-request.interface';
 import { ReferralCode } from '../referral/entities/referral-code.entity';
 
 describe('ReferralController', () => {
@@ -70,9 +71,9 @@ describe('ReferralController', () => {
 
   describe('getReferralStats', () => {
     it('should return referral stats', async () => {
-      // Fix: Use a RequestWithUser object with required isAdmin property
-      const reqWithUser: RequestWithUser = { user: mockUser } as RequestWithUser;
-      const result = await controller.getReferralStats(reqWithUser);
+      // Use TestRequestWithUser for tests to avoid needing all Express Request properties
+      const reqWithUser: TestRequestWithUser = { user: mockUser };
+      const result = await controller.getReferralStats(reqWithUser as unknown as RequestWithUser);
       expect(result).toEqual(mockReferralStats);
       expect(service.getReferralStats).toHaveBeenCalledWith(mockUser.id);
     });
@@ -80,9 +81,9 @@ describe('ReferralController', () => {
 
   describe('generateReferralCode', () => {
     it('should generate a referral code', async () => {
-      // Fix: Use a RequestWithUser object with required isAdmin property
-      const reqWithUser: RequestWithUser = { user: mockUser } as RequestWithUser;
-      const result = await controller.generateReferralCode(reqWithUser);
+      // Use TestRequestWithUser for tests to avoid needing all Express Request properties
+      const reqWithUser: TestRequestWithUser = { user: mockUser };
+      const result = await controller.generateReferralCode(reqWithUser as unknown as RequestWithUser);
       expect(result).toEqual(mockReferral);
       expect(service.generateReferralCode).toHaveBeenCalledWith(mockUser.id);
     });
@@ -91,9 +92,9 @@ describe('ReferralController', () => {
   describe('toggleReferralCode', () => {
     it('should toggle referral code activation status', async () => {
       const isActive = false;
-      // Fix: Use a RequestWithUser object with required isAdmin property
-      const reqWithUser: RequestWithUser = { user: mockUser } as RequestWithUser;
-      const result = await controller.toggleReferralCode(reqWithUser, { isActive });
+      // Use TestRequestWithUser for tests to avoid needing all Express Request properties
+      const reqWithUser: TestRequestWithUser = { user: mockUser };
+      const result = await controller.toggleReferralCode(reqWithUser as unknown as RequestWithUser, { isActive });
       expect(result).toEqual({ ...mockReferral, isActive });
       expect(service.toggleReferralCode).toHaveBeenCalledWith(mockUser.id, isActive);
     });
@@ -102,9 +103,9 @@ describe('ReferralController', () => {
   describe('claimReferralReward', () => {
     it('should claim a referral reward', async () => {
       const referralUseId = 'test-referral-use-id';
-      // Fix: Use a RequestWithUser object with required isAdmin property
-      const reqWithUser: RequestWithUser = { user: mockUser } as RequestWithUser;
-      const result = await controller.claimReferralReward(reqWithUser, referralUseId);
+      // Use TestRequestWithUser for tests to avoid needing all Express Request properties
+      const reqWithUser: TestRequestWithUser = { user: mockUser };
+      const result = await controller.claimReferralReward(reqWithUser as unknown as RequestWithUser, referralUseId);
       expect(result).toEqual({ message: 'Reward claimed successfully' });
       expect(service.claimReferralReward).toHaveBeenCalledWith(mockUser.id, referralUseId);
     });

@@ -1,375 +1,415 @@
-import React, { useEffect, useRef, useState, useCallback } from 'react';
-import { useWallet } from '../contexts/wallet';
-import { useAuth } from '../contexts/auth';
-import { WalletProviderType } from '../services/wallet';
-import { WalletSelectorModal } from './wallet-selector';
-import styles from '../styles/components/WalletConnectButton.module.css';
+// filepath: /home/alivegod/Desktop/4-Ordibehesht/LastProjectendpoint/LastProject/frontend/src/components/WalletConnectButton.tsx
+import React, { useState, useEffect, useRef } from 'react';
+import { Button, Snackbar, Alert } from '@mui/material';
+import { useWallet } from '../contexts/WalletProvider';
+import { useAuth } from '../contexts/AuthProvider';
+import { WalletProviderType, BlockchainType } from '../services/wallet/core/walletBase';
+import { WalletSelectorModal } from './wallet-selector/WalletSelectorModal';
+import { walletAuthService } from '../services/api/modules/auth';
+import walletService from '../services/wallet/walletService';
+import { DEFAULT_BLOCKCHAIN_NETWORK, normalizeBlockchainType } from '../config/blockchain/constants';
 
-interface WalletConnectButtonProps {
-  className?: string;
-  providerType?: WalletProviderType;
-  autoAuthenticate?: boolean;
+// TypeScript declarations for custom window properties
+declare global {
+  interface Window {
+    walletAuthDebug?: {
+      enabled: boolean;
+      info: (message: string, data?: any) => void;
+      error: (message: string, error?: any) => void;
+      warn: (message: string, data?: any) => void;
+    };
+  }
 }
 
-// Global authentication lock to prevent multiple simultaneous auth requests across component instances
-const globalAuthLock = {
-  inProgress: false,
-  lockTime: 0,
-  setLock: (state: boolean) => {
-    globalAuthLock.inProgress = state;
-    globalAuthLock.lockTime = state ? Date.now() : 0;
-  },
-  isLocked: () => {
-    // Auto-release lock after 10 seconds to prevent permanent deadlocks
-    if (globalAuthLock.inProgress && (Date.now() - globalAuthLock.lockTime > 10000)) {
-      globalAuthLock.inProgress = false;
-      return false;
-    }
-    return globalAuthLock.inProgress;
-  }
-};
+interface WalletConnectButtonProps {
+  variant?: 'contained' | 'outlined' | 'text';
+  size?: 'small' | 'medium' | 'large';
+  fullWidth?: boolean;
+  color?: 'primary' | 'secondary' | 'success' | 'error' | 'info' | 'warning';
+  className?: string;
+  onConnected?: (address: string) => void;
+  onError?: (error: string) => void;
+  onAuthenticated?: () => void;
+  redirectAfterAuth?: boolean;
+  redirectUrl?: string;
+}
 
-export const WalletConnectButton: React.FC<WalletConnectButtonProps> = ({ 
+// Update WalletConnectionResult type to match the expected structure
+interface WalletConnectionResult {
+  success?: boolean;
+  walletInfo?: {
+    providerType?: string;
+    blockchain?: string;
+    address?: string;
+  };
+  provider?: {
+    getProvider?: () => any;
+    checkNetworkCompatibility?: () => Promise<{ compatible: boolean; needsSwitch?: boolean; targetChainId?: number }>;
+    switchNetwork?: (chainId: number) => Promise<boolean>;
+  };
+  error?: string;
+}
+
+export const WalletConnectButton: React.FC<WalletConnectButtonProps> = ({
+  variant = 'contained',
+  size = 'medium',
+  fullWidth = false,
+  color = 'primary',
   className = '',
-  providerType = WalletProviderType.METAMASK,
-  autoAuthenticate = true
+  onConnected,
+  onError,
+  onAuthenticated,
+  redirectAfterAuth = false,
+  redirectUrl = '/profile'
 }) => {
-  const { isConnected, isConnecting, walletInfo, connect, disconnect, error } = useWallet();
-  const { authenticateWithWallet, isAuthenticated, isLoading: isAuthLoading, isAuthenticating, authStage } = useAuth();
-  const authInProgressRef = useRef<boolean>(false); // Use ref to track actual auth state across renders
-  const hasAttemptedAuth = useRef<boolean>(false);
-  const authTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const authAttemptCountRef = useRef<number>(0);
-  const [authError, setAuthError] = useState<string | null>(null);
-  const [showWalletModal, setShowWalletModal] = useState<boolean>(false);
-  const [showDropdown, setShowDropdown] = useState<boolean>(false);
-  const dropdownRef = useRef<HTMLDivElement>(null);
+  const { isConnected, isConnecting, connect, disconnect, walletInfo, error: walletError } = useWallet();
+  const { isAuthenticated, isAuthenticating, authenticateWithWallet, error: authError, authStage } = useAuth();
+  const [isLoading, setIsLoading] = useState(false);
+  const [buttonText, setButtonText] = useState('Connect Wallet');
+  const [lastConnectionAttempt, setLastConnectionAttempt] = useState<number | null>(null);
+  const [isModalOpen, setModalOpen] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [showError, setShowError] = useState(false);
+  const authInProgressRef = useRef(false);
   
-  const displayAddress = walletInfo?.address 
-    ? `${walletInfo.address.substring(0, 6)}...${walletInfo.address.substring(walletInfo.address.length - 4)}`
-    : '';
+  // Update button text based on state
+  useEffect(() => {
+    if (isLoading || isConnecting || isAuthenticating) {
+      if (isConnecting) setButtonText('Connecting...');
+      else if (isAuthenticating) setButtonText(`Authenticating (${authStage || 'processing'})...`);
+      else setButtonText('Processing...');
+    } else if (isAuthenticated && isConnected) {
+      const address = walletInfo?.address || '';
+      setButtonText(`Connected: ${address.slice(0, 6)}...${address.slice(-4)}`);
+    } else if (isConnected) {
+      setButtonText('Authenticate');
+    } else {
+      setButtonText('Connect Wallet');
+    }
+  }, [isLoading, isConnecting, isAuthenticating, isConnected, isAuthenticated, walletInfo, authStage]);
 
-  // Get current auth stage for display
-  const getAuthStageText = () => {
-    switch (authStage) {
-      case 'challenge':
-        return 'Getting challenge...';
-      case 'signing':
-        return 'Waiting for signature...';
-      case 'fingerprint':
-        return 'Generating security key...';
-      case 'backend-authentication':
-        return 'Authenticating with backend...';
-      case 'storing-tokens':
-        return 'Storing credentials...';
-      case 'fetching-profile':
-        return 'Loading profile...';
+  // Handle wallet errors
+  useEffect(() => {
+    if (walletError) {
+      setErrorMessage(walletError);
+      setShowError(true);
+      if (onError) onError(walletError);
+    }
+  }, [walletError, onError]);
+
+  // Handle auth errors
+  useEffect(() => {
+    if (authError) {
+      setErrorMessage(authError);
+      setShowError(true);
+      if (onError) onError(authError);
+      // Reset auth in progress flag when there's an error
+      authInProgressRef.current = false;
+    }
+  }, [authError, onError]);
+
+  // Reset loading state when authentication process completes
+  useEffect(() => {
+    if (!isAuthenticating && authInProgressRef.current) {
+      authInProgressRef.current = false;
+      setIsLoading(false);
+    }
+  }, [isAuthenticating]);
+
+  const handleCloseError = () => {
+    setShowError(false);
+  };
+
+  const handleModalClose = () => {
+    setModalOpen(false);
+  };
+
+  // Consolidate duplicate declarations of getBlockchainName
+  const getBlockchainName = (blockchain: BlockchainType): string => {
+    switch (blockchain) {
+      case BlockchainType.ETHEREUM:
+        return 'ethereum';
+      case BlockchainType.BINANCE:
+        return 'binance';
+      case BlockchainType.SOLANA:
+        return 'solana';
+      case BlockchainType.POLYGON:
+        return DEFAULT_BLOCKCHAIN_NETWORK;
+      case BlockchainType.TON:
+        return 'ton';
       default:
-        return 'Authenticating...';
+        return DEFAULT_BLOCKCHAIN_NETWORK; // Default to polygon for unknown types
     }
-  };
-  
-  // Close dropdown when clicking outside
-  useEffect(() => {
-    function handleClickOutside(event: MouseEvent) {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
-        setShowDropdown(false);
-      }
-    }
-    
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
-  }, []);
-  
-  // Handle showing the wallet selector modal instead of directly connecting
-  const handleShowWalletSelector = (event: React.MouseEvent<HTMLButtonElement>) => {
-    event.preventDefault();
-    // Reset authentication tracking when opening modal
-    hasAttemptedAuth.current = false;
-    authAttemptCountRef.current = 0;
-    authInProgressRef.current = false;
-    globalAuthLock.setLock(false); // Release global lock when reconnecting
-    setAuthError(null);
-    setShowWalletModal(true);
-  };
-  
-  // Handle wallet connection from selector
-  const handleWalletConnect = (result: any) => {
-    if (result && result.success && result.walletInfo) {
-      // Wallet was successfully connected via selector
-      setShowWalletModal(false);
-      // The wallet context should update automatically via events
-      console.log("Wallet connected successfully from selector:", result.walletInfo.address);
-    } else if (result && result.error) {
-      setAuthError(result.error);
-    }
-  };
-  
-  // Disconnect wallet
-  const handleDisconnect = (event: React.MouseEvent<HTMLButtonElement>) => {
-    event.preventDefault();
-    // Clear any pending authentication timeout
-    if (authTimeoutRef.current) {
-      clearTimeout(authTimeoutRef.current);
-      authTimeoutRef.current = null;
-    }
-    hasAttemptedAuth.current = false;
-    authInProgressRef.current = false;
-    globalAuthLock.setLock(false); // Release global lock when disconnecting
-    setAuthError(null);
-    disconnect();
-    setShowDropdown(false); // Close dropdown after disconnecting
   };
 
-  // Toggle dropdown menu
-  const toggleDropdown = (event: React.MouseEvent<HTMLButtonElement>) => {
-    event.preventDefault();
-    setShowDropdown(prev => !prev);
-  };
-  
-  // Memoize authentication function to prevent dependency changes
-  const performAuthentication = useCallback(async () => {
-    // Strict guard against parallel authentication attempts, checking both local and global locks
-    if (
-      !autoAuthenticate ||
-      !isConnected ||
-      isAuthenticated ||
-      isAuthLoading ||
-      isAuthenticating ||
-      hasAttemptedAuth.current ||
-      authInProgressRef.current || // Use ref to check actual in-progress state
-      globalAuthLock.isLocked() || // Check global lock
-      !walletInfo?.address
-    ) {
-      console.log("Authentication skipped - already in progress or not needed");
-      return;
-    }
-    
-    // Set in-progress flag immediately to prevent parallel calls
-    authInProgressRef.current = true;
-    globalAuthLock.setLock(true); // Set global lock
-    
+  // Remove duplicate declarations of getAuthDiagnostics
+  // Ensure only one definition exists
+  const getAuthDiagnostics = async (walletAddress: string, blockchain: string) => {
     try {
-      // Increment attempt counter for debugging
-      authAttemptCountRef.current += 1;
-      // Mark that we're starting authentication to prevent duplicate attempts
-      hasAttemptedAuth.current = true;
-      setAuthError(null);
-      
-      console.log("Starting wallet authentication with address:", walletInfo.address);
-      
-      // Add delay to ensure wallet UI is ready and to prevent rapid sequential requests
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      // Call the authenticateWithWallet function with a proper email parameter (optional)
-      // We need to catch and handle the error here to prevent bubbling up
-      try {
-        const result = await authenticateWithWallet();
-        if (result) {
-          console.log("Wallet authentication completed successfully");
-        } else {
-          console.warn("Authentication returned false but without throwing an error");
-          // Don't throw error here, as we want to treat this as a warning not an error
-        }
-      } catch (authErr) {
-        // Only set error message if the error is meaningful and not just "Authentication failed with no specific error"
-        const errMsg = authErr instanceof Error ? authErr.message : 'Unknown authentication error';
-        if (errMsg.includes('no specific error')) {
-          console.warn("Got 'no specific error' message - this may be a validation issue");
-          // Don't set error since this is likely just the accessToken/refreshToken validation issue
-        } else {
-          throw authErr; // Re-throw if it's a real error
-        }
-      }
-    } catch (err) {
-      console.error("Authentication failed:", err);
-      // Extract and set error message
-      const errorMessage = err instanceof Error ? err.message : 'Unknown authentication error';
-      setAuthError(errorMessage);
-      
-      // Reset auth attempt flag after a delay to allow for retries if it was a temporary error
-      authTimeoutRef.current = setTimeout(() => {
-        hasAttemptedAuth.current = false;
-        authInProgressRef.current = false; // Clear in-progress flag
-        globalAuthLock.setLock(false); // Release global lock
-        // Only retry up to 3 times to prevent infinite loops
-        if (authAttemptCountRef.current < 3) {
-          hasAttemptedAuth.current = false;
-        }
-      }, 5000);
-    } finally {
-      // Only release locks after timeout or success
-      if (!authTimeoutRef.current) {
-        authInProgressRef.current = false;
-        globalAuthLock.setLock(false); // Release global lock
-      }
-    }
-  }, [autoAuthenticate, isConnected, isAuthenticated, isAuthLoading, authenticateWithWallet, walletInfo?.address, isAuthenticating]);
-  
-  // Auto authenticate when wallet is connected
-  useEffect(() => {
-    // Only run this effect when the wallet first connects and authentication hasn't been attempted
-    if (isConnected && !hasAttemptedAuth.current && !isAuthenticating && !isAuthenticated && !authInProgressRef.current && !globalAuthLock.isLocked()) {
-      // Use a timeout to ensure this doesn't happen during initial rendering cycles and strict mode
-      const timeoutId = setTimeout(() => {
-        if (!globalAuthLock.isLocked()) { // Check lock again right before starting
-          performAuthentication();
-        }
-      }, 1000); // Increased delay to avoid race conditions
-      
-      return () => clearTimeout(timeoutId);
-    }
-    
-    // Cleanup function to clear any timeouts
-    return () => {
-      if (authTimeoutRef.current) {
-        clearTimeout(authTimeoutRef.current);
-      }
-    };
-  }, [isConnected, isAuthenticated, performAuthentication, isAuthenticating]);
+      const healthCheck = await walletAuthService.checkHealth();
+      console.log('Backend health check:', healthCheck);
 
-  // Effect to clear error when user becomes authenticated
-  useEffect(() => {
-    if (isAuthenticated && authError) {
-      setAuthError(null);
+      const localAuth = {
+        hasAccessToken: !!localStorage.getItem('accessToken'),
+        hasRefreshToken: !!localStorage.getItem('refreshToken'),
+        hasDeviceFingerprint: !!localStorage.getItem('deviceFingerprint'),
+        lastWalletType: localStorage.getItem('lastConnectedWalletType') ?? 'none',
+      };
+
+      const challenge = await walletAuthService.requestChallenge(walletAddress, blockchain);
+      return {
+        walletAddress,
+        blockchain,
+        isEndpointAvailable: !!healthCheck?.status,
+        challengeResult: { success: true, challenge },
+        localStorageState: localAuth,
+        timestamp: new Date().toISOString(),
+      };
+    } catch (error) {
+      return { error, walletAddress, blockchain, timestamp: new Date().toISOString() };
     }
-  }, [isAuthenticated, authError]);
-  
-  // Manually trigger authentication if needed
-  const handleRetryAuth = (event: React.MouseEvent<HTMLButtonElement>) => {
-    event.preventDefault();
-    // Reset authentication flags to allow a retry
-    hasAttemptedAuth.current = false;
-    authInProgressRef.current = false;
-    globalAuthLock.setLock(false); // Release global lock when manually retrying
-    setAuthError(null);
-    performAuthentication();
   };
+
+  // Refactor handleWalletSelect to reduce cognitive complexity
+  const handleWalletSelect = (result: WalletConnectionResult): void => {
+    (async () => {
+      try {
+        if (authInProgressRef.current) {
+          console.log('Wallet selection processing already in progress, ignoring duplicate');
+          return;
+        }
+
+        authInProgressRef.current = true;
+
+        if (result.success && result.walletInfo) {
+          // Add delay for context synchronization
+          if (result.walletInfo?.providerType?.toLowerCase().includes('trust')) {
+            console.log('Trust Wallet detected - waiting for context synchronization...');
+            await new Promise(resolve => setTimeout(resolve, 2000));
+          }
+
+          await processWalletConnection(result);
+        } else if (result.error) {
+          handleWalletError(result.error);
+        }
+      } catch (error) {
+        handleAuthenticationError(error);
+      } finally {
+        setIsLoading(false);
+        authInProgressRef.current = false;
+      }
+    })();
+  };
+
+  const processWalletConnection = async (result: WalletConnectionResult) => {
+    const isTrustWallet = result.walletInfo?.providerType === WalletProviderType.TRUST;
+    const blockchainType = isTrustWallet
+      ? await processTrustWallet(result)
+      : (result.walletInfo?.blockchain as BlockchainType || BlockchainType.POLYGON);
+
+    const blockchainName = getBlockchainName(blockchainType);
+    console.log(`🔗 Wallet connected successfully: ${result.walletInfo?.address ?? 'unknown'} (${blockchainName})`);
+
+    localStorage.setItem('lastConnectedBlockchain', blockchainName);
+    localStorage.setItem('lastConnectedWalletAddress', result.walletInfo?.address ?? '');
+    localStorage.setItem('lastConnectedWalletType', result.walletInfo?.providerType ?? '');
+
+    if (isTrustWallet) {
+      await syncWalletInfo(result.walletInfo);
+    }
+
+    const success = await authenticateWithWallet(blockchainName);
+    if (success) {
+      console.log('✅ Authentication successful!');
+      onAuthenticated?.();
+      if (redirectAfterAuth && redirectUrl) {
+        console.log(`🔄 Redirecting to: ${redirectUrl}`);
+        window.location.href = redirectUrl;
+      }
+    } else {
+      // Enhance warning with more context
+      console.warn('❌ Authentication failed. Blockchain:', blockchainName, 'Wallet Address:', result.walletInfo?.address ?? 'unknown');
+      setErrorMessage('Authentication failed. Please check the console for details and try again.');
+      setShowError(true);
+    }
+  };
+
+  const handleWalletError = (error: string) => {
+    console.error('❌ Wallet connection error:', error);
+    setErrorMessage(error);
+    setShowError(true);
+    onError?.(error);
+  };
+
+  const handleAuthenticationError = (error: unknown) => {
+    console.error('❌ Wallet authentication failed:', error);
+    setErrorMessage('Authentication failed. Please try again.');
+    setShowError(true);
+    onError?.(error instanceof Error ? error.message : 'Unknown error');
+  };
+
+  // Track if authentication is in progress to prevent duplicate requests
+  const authInProcessRef = useRef(false);
   
-  // New wallet button UI with dropdown for connected wallets
+  // Fix type mismatches by providing default values or type assertions
+  // Refactor handleWalletSelect to reduce cognitive complexity
+  const processTrustWallet = async (result: WalletConnectionResult) => {
+    if (!result.walletInfo) {
+      throw new Error('Wallet info is missing');
+    }
+
+    const blockchainType = BlockchainType.POLYGON;
+    console.log('Trust Wallet detected - ensuring Polygon blockchain type');
+    result.walletInfo.blockchain = blockchainType;
+
+    try {
+      const trustProvider = result.provider?.getProvider?.();
+      if (trustProvider && typeof trustProvider.checkNetworkCompatibility === 'function') {
+        console.log('Running Trust Wallet network compatibility check...');
+        const networkStatus = await trustProvider.checkNetworkCompatibility();
+
+        if (!networkStatus.compatible && networkStatus.needsSwitch && typeof trustProvider.switchNetwork === 'function') {
+          console.log('Attempting to switch to Polygon network automatically...');
+          const switched = await trustProvider.switchNetwork(networkStatus.targetChainId);
+          if (!switched) {
+            throw new Error('Failed to switch to Polygon network. Manual switch required.');
+          }
+          console.log('Successfully switched to Polygon network');
+        }
+      }
+    } catch (networkError) {
+      console.error('Error checking Trust Wallet network compatibility:', networkError);
+      throw networkError;
+    }
+
+    return blockchainType;
+  };
+
+  // Fix type mismatches and strict mode issues
+  const syncWalletInfo = async (walletInfo: WalletConnectionResult['walletInfo']) => {
+    if (!walletInfo || !walletInfo.address) {
+      throw new Error('Wallet address is required for synchronization');
+    }
+
+    const safeWalletInfo = {
+      address: walletInfo.address,
+      blockchain: BlockchainType.POLYGON,
+      chainId: 137, // Polygon chain ID
+      providerType: WalletProviderType.TRUST,
+    };
+
+    console.log('Manually syncing wallet info for', safeWalletInfo.address);
+    await walletService.syncWalletInfo(safeWalletInfo);
+    console.log('Trust Wallet info manually synced to wallet context');
+  };
+
+  const handleClick = async () => {
+    try {
+      setIsLoading(true);
+      
+      // If already authenticated, disconnect
+      if (isAuthenticated && isConnected) {
+        await disconnect();
+        return;
+      }
+      
+      // If connected but not authenticated, authenticate
+      if (isConnected && walletInfo) {
+        if (authInProgressRef.current) {
+          console.log('Authentication already in progress, skipping duplicate attempt');
+          return;
+        }
+        
+        try {
+          const blockchainName = getBlockchainName(walletInfo.blockchain);
+          console.log(`🔐 Attempting to authenticate with already connected wallet: ${walletInfo.address} (${blockchainName})`);
+          authInProgressRef.current = true;
+          
+          // Pass blockchain name as first parameter to authenticateWithWallet
+          const success = await authenticateWithWallet(normalizeBlockchainType(blockchainName));
+          
+          if (success) {
+            console.log('✅ Authentication successful!');
+            onAuthenticated?.();
+            if (redirectAfterAuth && redirectUrl) {
+              window.location.href = redirectUrl;
+            }
+          } else {
+            console.warn('❌ Authentication failed without error');
+            // Get detailed diagnostics
+            const diagnostics = await getAuthDiagnostics(walletInfo.address, blockchainName);
+            console.error('Authentication diagnostics:', diagnostics);
+            
+            setErrorMessage('Authentication failed. Please check console for details and try again.');
+            setShowError(true);
+          }
+        } catch (authErr) {
+          console.error('❌ Auth error:', authErr);
+          setErrorMessage(authErr instanceof Error ? authErr.message : 'Authentication failed');
+          setShowError(true);
+        } finally {
+          authInProgressRef.current = false;
+        }
+        return;
+      }
+      
+      // Prevent rapid repeated clicks (debounce)
+      const now = Date.now();
+      if (lastConnectionAttempt && now - lastConnectionAttempt < 3000) {
+        console.log('Connection attempt throttled, please wait');
+        return;
+      }
+      
+      setLastConnectionAttempt(now);
+      
+      // Open wallet selector modal instead of connecting directly
+      setModalOpen(true);
+    } catch (error) {
+      console.error('❌ Wallet operation failed:', error);
+      const message = error instanceof Error ? error.message : 'Connection failed';
+      setErrorMessage(message);
+      setShowError(true);
+      onError?.(message);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Choose button color based on connection state
+  const buttonColor = isAuthenticated ? 'success' : color;
+
   return (
-    <div className={styles['wallet-connect-container']}>
-      {!isConnected ? (
-        <button 
-          className={`${styles['wallet-connect-button']} ${className}`} 
-          onClick={handleShowWalletSelector}
-          disabled={isConnecting || isAuthLoading || isAuthenticating || globalAuthLock.isLocked()}
-        >
-          {isConnecting ? 'Connecting...' : 'Connect Wallet'}
-        </button>
-      ) : (
-        <div className={styles['wallet-connected-dropdown']} ref={dropdownRef}>
-          <button 
-            className={`${styles['wallet-address-button']} ${className} ${showDropdown ? styles.active : ''}`}
-            onClick={toggleDropdown}
-            disabled={isAuthenticating} // Disable button while authenticating
-          >
-            <span className={styles['wallet-address']}>{displayAddress}</span>
-            {isAuthenticated && <span className={styles['auth-indicator']}>✓</span>}
-            {isAuthenticating && <span className={styles['auth-indicator-spinner']}></span>}
-            <span className={styles['dropdown-arrow']}>{showDropdown ? '▲' : '▼'}</span>
-          </button>
-          
-          {showDropdown && (
-            <div className={styles['wallet-dropdown-menu']}>
-              <div className={styles['wallet-info']}>
-                <div className={styles['wallet-type']}>
-                  {walletInfo?.blockchain} via {getProviderName(walletInfo?.providerType || WalletProviderType.METAMASK)}
-                </div>
-                <div className={styles['wallet-address-full']}>{walletInfo?.address}</div>
-                {isAuthenticated && <div className={styles['auth-status-full']}>Authenticated ✓</div>}
-                {isAuthenticating && (
-                  <div className={styles['auth-status-full']}>
-                    <span className={styles['auth-spinner']}></span>
-                    {getAuthStageText()}
-                  </div>
-                )}
-              </div>
-              
-              <div className={styles['wallet-actions']}>
-                <button 
-                  className={styles['wallet-action-button']}
-                  onClick={handleShowWalletSelector}
-                  disabled={isAuthenticating}
-                >
-                  Switch Wallet
-                </button>
-                
-                {!isAuthenticated && !isAuthenticating && authError && (
-                  <button 
-                    className={styles['wallet-action-button']}
-                    onClick={handleRetryAuth}
-                    disabled={isAuthenticating || isAuthLoading}
-                  >
-                    Retry Authentication
-                  </button>
-                )}
-                
-                <button 
-                  className={`${styles['wallet-action-button']} ${styles.disconnect}`}
-                  onClick={handleDisconnect}
-                  disabled={isAuthenticating} // Disable disconnect while authenticating
-                >
-                  Disconnect
-                </button>
-              </div>
-            </div>
-          )}
-          
-          {/* Show authentication status if not in dropdown */}
-          {!showDropdown && !isAuthenticated && (
-            <React.Fragment>
-              {isAuthenticating ? (
-                <span className={`${styles['auth-status']} ${styles.pending}`}>
-                  <span className={styles['auth-spinner']}></span>
-                  {getAuthStageText()}
-                </span>
-              ) : authError ? (
-                <div className={styles['auth-error-indicator']}>
-                  <span className={`${styles['auth-status']} ${styles.error}`}>!</span>
-                  <button 
-                    onClick={handleRetryAuth} 
-                    className={styles['retry-auth-button']}
-                    disabled={isAuthenticating || isAuthLoading || authInProgressRef.current || globalAuthLock.isLocked()}
-                  >
-                    Retry
-                  </button>
-                </div>
-              ) : null}
-            </React.Fragment>
-          )}
-        </div>
-      )}
+    <>
+      <Button
+        variant={variant}
+        size={size}
+        fullWidth={fullWidth}
+        color={buttonColor}
+        className={className}
+        onClick={handleClick}
+        disabled={isLoading || isConnecting || isAuthenticating}
+      >
+        {buttonText}
+      </Button>
       
-      {/* Error messages */}
-      {error && <p className={styles['wallet-error']}>{error}</p>}
-      {authError && <p className={styles['auth-error']}>{authError}</p>}
-      
-      {/* Add the wallet selector modal */}
       <WalletSelectorModal
-        show={showWalletModal}
-        onHide={() => setShowWalletModal(false)}
-        onConnect={handleWalletConnect}
+        open={isModalOpen}
+        onClose={handleModalClose}
+        onSelect={handleWalletSelect}
       />
-    </div>
+      
+      <Snackbar 
+        open={showError} 
+        autoHideDuration={6000} 
+        onClose={handleCloseError}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert onClose={handleCloseError} severity="error" sx={{ width: '100%' }}>
+          {errorMessage ?? "An error occurred during wallet operation"}
+        </Alert>
+      </Snackbar>
+    </>
   );
 };
 
-// Helper function to get provider display name
-function getProviderName(providerType: WalletProviderType): string {
-  const providerNames: Record<string, string> = {
-    [WalletProviderType.METAMASK]: 'MetaMask',
-    [WalletProviderType.COINBASE]: 'Coinbase',
-    [WalletProviderType.WALLETCONNECT]: 'WalletConnect',
-    [WalletProviderType.TRUST]: 'Trust Wallet',
-    [WalletProviderType.PHANTOM]: 'Phantom',
-    [WalletProviderType.BINANCE]: 'Binance Wallet',
-    [WalletProviderType.TONKEEPER]: 'TONKeeper',
-    [WalletProviderType.TONWALLET]: 'TON Wallet',
-    [WalletProviderType.SOLFLARE]: 'Solflare'
-  };
-  
-  return providerNames[providerType] || 'Wallet';
-}
+export default WalletConnectButton;

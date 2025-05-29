@@ -23,6 +23,8 @@ export class StakingPosition {
 
   @Column({ name: 'user_id' })
   @Index()
+  @Column({ name: 'user_id' })
+
   userId: string;
 
   @ManyToOne(() => User, { onDelete: 'CASCADE' })
@@ -31,6 +33,8 @@ export class StakingPosition {
 
   @Column({ name: 'wallet_address', length: 42 })
   @Index()
+  @Column({ name: 'wallet_address' })
+
   walletAddress: string;
 
   @Column({ name: 'position_id', type: 'int' })

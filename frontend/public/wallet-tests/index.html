@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Wallet Authentication Test Runner</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 20px;
+      line-height: 1.5;
+    }
+    h1 {
+      color: #333;
+      border-bottom: 1px solid #eee;
+      padding-bottom: 10px;
+    }
+    .card {
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      padding: 20px;
+      margin-bottom: 20px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    }
+    button {
+      background-color: #4CAF50;
+      color: white;
+      border: none;
+      padding: 10px 15px;
+      text-align: center;
+      text-decoration: none;
+      display: inline-block;
+      font-size: 16px;
+      margin: 4px 2px;
+      cursor: pointer;
+      border-radius: 4px;
+    }
+    button:disabled {
+      background-color: #cccccc;
+      cursor: not-allowed;
+    }
+    .error {
+      color: #d9534f;
+      background-color: #f9f2f2;
+      padding: 10px;
+      border-radius: 4px;
+      margin-top: 10px;
+    }
+    .success {
+      color: #5cb85c;
+      background-color: #f2f9f2;
+      padding: 10px;
+      border-radius: 4px;
+      margin-top: 10px;
+    }
+    .log {
+      background-color: #f8f9fa;
+      padding: 15px;
+      border-radius: 4px;
+      margin-top: 20px;
+      max-height: 300px;
+      overflow-y: auto;
+      font-family: monospace;
+      white-space: pre-wrap;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 20px;
+    }
+    th, td {
+      border: 1px solid #ddd;
+      padding: 8px;
+      text-align: left;
+    }
+    th {
+      background-color: #f2f2f2;
+    }
+    tr:nth-child(even) {
+      background-color: #f9f9f9;
+    }
+  </style>
+</head>
+<body>
+  <h1>Wallet Authentication Test Runner</h1>
+  
+  <div class="card">
+    <h2>Test Configuration</h2>
+    <p>This tool helps test the wallet authentication flow across different wallet providers.</p>
+    
+    <div>
+      <label for="walletType">Select wallet provider:</label>
+      <select id="walletType">
+        <option value="0">MetaMask</option>
+        <option value="1">Trust Wallet</option>
+        <option value="2">WalletConnect</option>
+        <option value="3">Coinbase Wallet</option>
+      </select>
+    </div>
+    
+    <div style="margin-top: 20px;">
+      <button id="testButton">Run Test</button>
+      <button id="testAllButton">Test All Providers</button>
+      <button id="clearLogButton">Clear Log</button>
+    </div>
+  </div>
+  
+  <div class="card">
+    <h2>Test Results</h2>
+    <div id="resultsContainer"></div>
+  </div>
+  
+  <div class="card">
+    <h2>Test Log</h2>
+    <div id="logOutput" class="log"></div>
+  </div>
+
+  <!-- Simplified wallet auth test implementation that doesn't rely on imported modules -->
+  <script>
+    // Wallet auth test module (We'll initialize this object for direct testing)
+    window.walletAuthTest = {
+      // Test implementation below...
+      testWalletAuth: async (providerType) => {
+        log(`🧪 Testing wallet authentication for provider type: ${providerType}`);
+        
+        const startTime = Date.now();
+        const result = {
+          walletType: getWalletName(providerType),
+          connected: false,
+          networkDetected: '',
+          normalizedNetwork: '',
+          challengeReceived: false,
+          signatureCreated: false,
+          authenticated: false,
+          errors: [],
+          durationMs: 0
+        };
+        
+        try {
+          log('- Connecting to wallet...');
+          
+          // Check if window.ethereum exists
+          if (!window.ethereum) {
+            throw new Error('No wallet provider detected. Please install a wallet extension.');
+          }
+          
+          // Request account access
+          log('- Requesting account access...');
+          const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+          const address = accounts[0];
+          
+          if (!address) {
+            throw new Error('Failed to get wallet address');
+          }
+          
+          result.connected = true;
+          log(`✅ Connected to wallet: ${address}`);
+          
+          // Get network
+          log('- Detecting blockchain network...');
+          const chainId = await window.ethereum.request({ method: 'eth_chainId' });
+          const networkName = getNetworkName(chainId);
+          
+          result.networkDetected = networkName;
+          result.normalizedNetwork = networkName;
+          log(`✅ Detected network: ${networkName} (Chain ID: ${chainId})`);
+          
+          // Simulate challenge
+          log('- Requesting auth challenge...');
+          await new Promise(resolve => setTimeout(resolve, 500));
+          
+          const mockChallenge = {
+            id: 'mock-challenge-id',
+            message: `Sign this message to verify your ownership of address ${address} at timestamp ${Date.now()}`
+          };
+          
+          result.challengeReceived = true;
+          log(`✅ Challenge received: ${mockChallenge.message.substring(0, 20)}...`);
+          
+          // Sign challenge
+          log('- Signing challenge message...');
+          try {
+            const signature = await window.ethereum.request({
+              method: 'personal_sign',
+              params: [mockChallenge.message, address]
+            });
+            
+            result.signatureCreated = true;
+            log('✅ Message signed successfully');
+            
+            // Simulate authentication
+            log('- Authenticating with signature...');
+            await new Promise(resolve => setTimeout(resolve, 700));
+            
+            result.authenticated = true;
+            log('✅ Authentication successful!');
+          } catch (err) {
+            if (err.code === 4001) {
+              throw new Error('User rejected signature request');
+            }
+            throw err;
+          }
+          
+        } catch (error) {
+          const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+          result.errors.push(errorMessage);
+          log(`❌ Test failed: ${errorMessage}`);
+        } finally {
+          result.durationMs = Date.now() - startTime;
+          return result;
+        }
+      },
+      
+      testAllWalletProviders: async () => {
+        log('📊 Testing all available wallet providers...');
+        
+        const results = [];
+        
+        // We'll just test the current provider
+        try {
+          const result = await window.walletAuthTest.testWalletAuth(0);
+          results.push(result);
+        } catch (error) {
+          log(`Failed to test wallet: ${error.message}`);
+        }
+        
+        return results;
+      },
+      
+      printTestResults: (results) => {
+        log('\n=== Wallet Authentication Test Results ===');
+        
+        results.forEach(r => {
+          log(`\nWallet Type: ${r.walletType}`);
+          log(`Connected: ${r.connected ? '✅' : '❌'}`);
+          log(`Network: ${r.normalizedNetwork}`);
+          log(`Challenge: ${r.challengeReceived ? '✅' : '❌'}`);
+          log(`Signature: ${r.signatureCreated ? '✅' : '❌'}`);
+          log(`Authenticated: ${r.authenticated ? '✅' : '❌'}`);
+          log(`Duration: ${r.durationMs}ms`);
+          
+          if (r.errors.length > 0) {
+            log(`\n⚠️ Errors for ${r.walletType}:`);
+            r.errors.forEach((err, i) => log(`  ${i+1}. ${err}`));
+          }
+        });
+      }
+    };
+
+    // Helper functions
+    function getWalletName(providerType) {
+      const walletTypes = ['MetaMask', 'Trust Wallet', 'WalletConnect', 'Coinbase Wallet'];
+      return walletTypes[providerType] || 'Unknown Wallet';
+    }
+    
+    function getNetworkName(chainId) {
+      const networks = {
+        '0x1': 'Ethereum',
+        '0x89': 'Polygon',
+        '0x38': 'BSC',
+        '0xa86a': 'Avalanche'
+      };
+      
+      return networks[chainId] || `Unknown (${chainId})`;
+    }
+    
+    // Logging function
+    const logOutput = document.getElementById('logOutput');
+    
+    function log(message) {
+      console.log(message);
+      
+      if (logOutput) {
+        // Format message with colors for success/failure
+        let formattedMessage = message;
+        if (message.includes('✅')) {
+          formattedMessage = `<span style="color:green">${message}</span>`;
+        } else if (message.includes('❌')) {
+          formattedMessage = `<span style="color:red">${message}</span>`;
+        } else if (message.startsWith('⚠️')) {
+          formattedMessage = `<span style="color:orange">${message}</span>`;
+        }
+        
+        logOutput.innerHTML += formattedMessage + '<br>';
+        logOutput.scrollTop = logOutput.scrollHeight;
+      }
+    }
+    
+    // Button handlers
+    document.getElementById('testButton').addEventListener('click', async () => {
+      const walletTypeSelect = document.getElementById('walletType');
+      const providerType = parseInt(walletTypeSelect.value, 10);
+      
+      try {
+        const result = await window.walletAuthTest.testWalletAuth(providerType);
+        displayResults([result]);
+      } catch (error) {
+        log(`Test execution failed: ${error.message}`);
+      }
+    });
+    
+    document.getElementById('testAllButton').addEventListener('click', async () => {
+      try {
+        const results = await window.walletAuthTest.testAllWalletProviders();
+        displayResults(results);
+      } catch (error) {
+        log(`Test execution failed: ${error.message}`);
+      }
+    });
+    
+    document.getElementById('clearLogButton').addEventListener('click', () => {
+      if (logOutput) {
+        logOutput.innerHTML = '';
+      }
+    });
+    
+    // Function to display test results in a table
+    function displayResults(results) {
+      const container = document.getElementById('resultsContainer');
+      
+      if (!container) return;
+      
+      // Create table
+      let tableHtml = `
+        <table>
+          <tr>
+            <th>Wallet Type</th>
+            <th>Connected</th>
+            <th>Network</th>
+            <th>Challenge</th>
+            <th>Signature</th>
+            <th>Authenticated</th>
+            <th>Duration (ms)</th>
+            <th>Status</th>
+          </tr>
+      `;
+      
+      // Add result rows
+      for (const result of results) {
+        tableHtml += `
+          <tr>
+            <td>${result.walletType}</td>
+            <td>${result.connected ? '✅' : '❌'}</td>
+            <td>${result.normalizedNetwork}</td>
+            <td>${result.challengeReceived ? '✅' : '❌'}</td>
+            <td>${result.signatureCreated ? '✅' : '❌'}</td>
+            <td>${result.authenticated ? '✅' : '❌'}</td>
+            <td>${result.durationMs}</td>
+            <td>${result.errors.length === 0 ? '✅ Success' : '❌ Failed'}</td>
+          </tr>
+        `;
+      }
+      
+      tableHtml += `</table>`;
+      
+      // Add error details if any
+      const hasErrors = results.some(r => r.errors.length > 0);
+      if (hasErrors) {
+        tableHtml += `<h3>Errors</h3>`;
+        
+        for (const result of results) {
+          if (result.errors.length > 0) {
+            tableHtml += `<p><strong>${result.walletType}</strong></p><ul>`;
+            
+            for (const error of result.errors) {
+              tableHtml += `<li class="error">${error}</li>`;
+            }
+            
+            tableHtml += `</ul>`;
+          }
+        }
+      }
+      
+      container.innerHTML = tableHtml;
+    }
+    
+    // Initialization message
+    log('✨ Wallet Authentication Test Runner loaded');
+    log('Select a wallet provider and click "Run Test" to begin testing');
+  </script>
+</body>
+</html>

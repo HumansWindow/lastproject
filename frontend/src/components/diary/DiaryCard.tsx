@@ -1,5 +1,5 @@
 import React from 'react';
-import { ExtendedDiary, DiaryLocationLabels, FeelingOptions } from "../../types/diary-extended";
+import { ExtendedDiary, DiaryLocationLabels, FeelingOptions } from "../../types/diaryExtended";
 import Link from 'next/link';
 import { formatDistanceToNow } from 'date-fns';
 

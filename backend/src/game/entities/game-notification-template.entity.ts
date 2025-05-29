@@ -18,11 +18,9 @@ export class GameNotificationTemplate {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Column()
-  title: string;
+  @Column({ name: 'title' })title: string;
 
-  @Column()
-  message: string;
+  @Column({ name: 'message' })message: string;
 
   @Column({ nullable: true })
   imageUrl?: string;
@@ -30,8 +28,7 @@ export class GameNotificationTemplate {
   @Column({ nullable: true })
   actionUrl?: string;
 
-  @Column({ default: 'info' })
-  type: 'info' | 'success' | 'warning' | 'error';
+  @Column({ default: 'info' , name: 'type' })type: 'info' | 'success' | 'warning' | 'error';
 
   @Column({
     type: 'varchar',
@@ -40,6 +37,8 @@ export class GameNotificationTemplate {
   notificationType: NotificationType;
 
   @Column({ default: true })
+  @Column({ name: 'is_active' })
+
   isActive: boolean;
 
   @Column({ nullable: true })
@@ -55,10 +54,10 @@ export class GameNotificationTemplate {
   @Column('json', { nullable: true })
   metadata?: Record<string, any>;
 
-  @CreateDateColumn()
+  @CreateDateColumn({ name: "created_at" })
   createdAt: Date;
 
-  @UpdateDateColumn()
+  @UpdateDateColumn({ name: "updated_at" })
   updatedAt: Date;
 
   @OneToMany(() => ModuleNotificationSchedule, schedule => schedule.notificationTemplate)

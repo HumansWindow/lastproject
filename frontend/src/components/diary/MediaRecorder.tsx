@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { encrypt } from '../../utils/encryption';
+import { encrypt } from "../../utils/encryption";
 
 interface MediaRecorderProps {
   onMediaCaptured: (blob: Blob, type: 'audio' | 'video', encryptedData?: ArrayBuffer) => void;

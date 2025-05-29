@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { Diary, DiaryLocation } from '../../types/diary';
-import { DiaryLocationLabels, FeelingOptions, DiaryLocationEnum, ExtendedDiary } from "../../types/diary-extended";
-import { diaryService } from '../../services/api/modules/diary';
-import RichTextEditor from './RichTextEditor';
-import MediaRecorderComponent from './MediaRecorder';
-import { storeEncryptedMedia } from '../../utils/encryption';
+import { Diary, DiaryLocation } from "../../types/diary";
+import { DiaryLocationLabels, FeelingOptions, DiaryLocationEnum, ExtendedDiary } from "../../types/diaryExtended";
+import { diaryService } from "../../services/api/modules/diary";
+import RichTextEditor from "./RichTextEditor";
+import MediaRecorderComponent from "./MediaRecorder";
+import { storeEncryptedMedia } from "../../utils/encryption";
 import { useRouter } from 'next/router';
 
 interface DiaryFormProps {
@@ -35,7 +35,7 @@ const DiaryForm: React.FC<DiaryFormProps> = ({
     },
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
-    userId: '',
+    // Remove userId as it's not in the ExtendedDiary interface
     hasMedia: false,
     isStoredLocally: true,
   };

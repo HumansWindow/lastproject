@@ -1,0 +1,126 @@
+    table_name     |      column_name       |          data_type          |               column_default               | is_nullable 
+-------------------+------------------------+-----------------------------+--------------------------------------------+-------------
+ refresh_tokens    | id                     | uuid                        | uuid_generate_v4()                         | NO
+ refresh_tokens    | token                  | character varying           |                                            | NO
+ refresh_tokens    | expiresAt              | timestamp with time zone    |                                            | NO
+ refresh_tokens    | userId                 | uuid                        |                                            | NO
+ refresh_tokens    | createdAt              | timestamp with time zone    | now()                                      | YES
+ refresh_tokens    | expires_at             | timestamp with time zone    |                                            | NO
+ refresh_tokens    | user_id                | uuid                        |                                            | NO
+ refresh_tokens    | created_at             | timestamp without time zone | CURRENT_TIMESTAMP                          | YES
+ user_devices      | id                     | uuid                        | uuid_generate_v4()                         | NO
+ user_devices      | userId                 | uuid                        |                                            | NO
+ user_devices      | deviceId               | character varying           |                                            | NO
+ user_devices      | deviceType             | character varying           | 'unknown'::character varying               | YES
+ user_devices      | name                   | character varying           |                                            | YES
+ user_devices      | platform               | character varying           |                                            | YES
+ user_devices      | osName                 | character varying           |                                            | YES
+ user_devices      | osVersion              | character varying           |                                            | YES
+ user_devices      | browser                | character varying           |                                            | YES
+ user_devices      | browserVersion         | character varying           |                                            | YES
+ user_devices      | isActive               | boolean                     | true                                       | YES
+ user_devices      | lastUsedAt             | timestamp with time zone    |                                            | YES
+ user_devices      | createdAt              | timestamp with time zone    | now()                                      | YES
+ user_devices      | updatedAt              | timestamp with time zone    | now()                                      | YES
+ user_devices      | walletAddresses        | text                        |                                            | YES
+ user_devices      | user_agent             | text                        |                                            | YES
+ user_devices      | os                     | text                        |                                            | YES
+ user_devices      | os_version             | text                        |                                            | YES
+ user_devices      | browser_version        | text                        |                                            | YES
+ user_devices      | brand                  | text                        |                                            | YES
+ user_devices      | model                  | text                        |                                            | YES
+ user_devices      | device_id              | text                        |                                            | YES
+ user_devices      | device_type            | text                        |                                            | YES
+ user_devices      | lastIpAddress          | text                        |                                            | YES
+ user_devices      | visitCount             | integer                     | 0                                          | YES
+ user_devices      | lastSeenAt             | timestamp with time zone    |                                            | YES
+ user_devices      | firstSeen              | timestamp with time zone    |                                            | YES
+ user_devices      | lastSeen               | timestamp with time zone    |                                            | YES
+ user_devices      | is_active              | boolean                     | true                                       | YES
+ user_devices      | isApproved             | boolean                     | true                                       | YES
+ user_devices      | wallet_addresses       | text                        |                                            | YES
+ user_devices      | last_ip_address        | text                        |                                            | YES
+ user_devices      | visit_count            | integer                     | 0                                          | YES
+ user_devices      | last_seen_at           | timestamp with time zone    |                                            | YES
+ user_devices      | first_seen             | timestamp with time zone    |                                            | YES
+ user_devices      | last_seen              | timestamp with time zone    |                                            | YES
+ user_devices      | is_approved            | boolean                     | true                                       | YES
+ user_devices      | user_id                | uuid                        |                                            | YES
+ user_devices      | created_at             | timestamp without time zone | CURRENT_TIMESTAMP                          | YES
+ user_devices      | updated_at             | timestamp without time zone | CURRENT_TIMESTAMP                          | YES
+ user_sessions     | id                     | uuid                        | uuid_generate_v4()                         | NO
+ user_sessions     | userId                 | uuid                        |                                            | YES
+ user_sessions     | deviceId               | character varying           |                                            | YES
+ user_sessions     | walletId               | uuid                        |                                            | YES
+ user_sessions     | token                  | character varying           |                                            | YES
+ user_sessions     | ipAddress              | character varying           |                                            | YES
+ user_sessions     | userAgent              | text                        |                                            | YES
+ user_sessions     | expiresAt              | timestamp with time zone    |                                            | YES
+ user_sessions     | isActive               | boolean                     | true                                       | YES
+ user_sessions     | endedAt                | timestamp with time zone    |                                            | YES
+ user_sessions     | createdAt              | timestamp with time zone    | now()                                      | YES
+ user_sessions     | user_agent             | text                        |                                            | YES
+ user_sessions     | device_id              | text                        |                                            | YES
+ user_sessions     | ip_address             | text                        |                                            | YES
+ user_sessions     | expires_at             | timestamp with time zone    |                                            | YES
+ user_sessions     | isactive               | boolean                     | true                                       | YES
+ user_sessions     | is_active              | boolean                     | true                                       | YES
+ user_sessions     | endedat                | timestamp with time zone    |                                            | YES
+ user_sessions     | duration               | integer                     |                                            | YES
+ user_sessions     | user_id                | uuid                        |                                            | YES
+ user_sessions     | created_at             | timestamp without time zone | CURRENT_TIMESTAMP                          | YES
+ users             | id                     | uuid                        | uuid_generate_v4()                         | NO
+ users             | username               | character varying           |                                            | YES
+ users             | email                  | character varying           |                                            | YES
+ users             | password               | character varying           |                                            | YES
+ users             | first_name             | character varying           |                                            | YES
+ users             | last_name              | character varying           |                                            | YES
+ users             | avatar_url             | character varying           |                                            | YES
+ users             | isActive               | boolean                     | true                                       | YES
+ users             | isVerified             | boolean                     | false                                      | YES
+ users             | isAdmin                | boolean                     | false                                      | YES
+ users             | role                   | character varying           | 'user'::character varying                  | YES
+ users             | walletAddress          | character varying           |                                            | YES
+ users             | referralCode           | character varying           |                                            | YES
+ users             | referredById           | uuid                        |                                            | YES
+ users             | referralTier           | integer                     | 0                                          | YES
+ users             | createdAt              | timestamp with time zone    | now()                                      | YES
+ users             | updatedAt              | timestamp with time zone    | now()                                      | YES
+ users             | userId                 | uuid                        | uuid_generate_v4()                         | YES
+ users             | referrer_id            | uuid                        |                                            | YES
+ users             | user_id                | uuid                        |                                            | YES
+ users             | verification_token     | character varying           |                                            | YES
+ users             | reset_password_token   | character varying           |                                            | YES
+ users             | reset_password_expires | timestamp without time zone |                                            | YES
+ users             | last_login_at          | timestamp without time zone |                                            | YES
+ users             | last_login_ip          | character varying           |                                            | YES
+ users             | created_at             | timestamp with time zone    | CURRENT_TIMESTAMP                          | YES
+ users             | updated_at             | timestamp with time zone    | CURRENT_TIMESTAMP                          | YES
+ users             | last_mint_date         | timestamp with time zone    |                                            | YES
+ users             | token_expiry_date      | timestamp with time zone    |                                            | YES
+ users             | minted_amount          | numeric                     | 0                                          | YES
+ users             | has_expired_tokens     | boolean                     | false                                      | YES
+ wallet_challenges | id                     | uuid                        | uuid_generate_v4()                         | NO
+ wallet_challenges | wallet_address         | character varying           |                                            | NO
+ wallet_challenges | challenge_text         | text                        |                                            | NO
+ wallet_challenges | created_at             | timestamp with time zone    | CURRENT_TIMESTAMP                          | YES
+ wallet_challenges | expires_at             | timestamp with time zone    | (CURRENT_TIMESTAMP + '00:10:00'::interval) | YES
+ wallet_challenges | is_used                | boolean                     | false                                      | YES
+ wallet_challenges | challenge              | text                        |                                            | YES
+ wallet_nonces     | id                     | uuid                        | uuid_generate_v4()                         | NO
+ wallet_nonces     | wallet_address         | character varying           |                                            | NO
+ wallet_nonces     | nonce                  | character varying           |                                            | NO
+ wallet_nonces     | updated_at             | timestamp with time zone    | CURRENT_TIMESTAMP                          | YES
+ wallet_nonces     | expires_at             | timestamp with time zone    | (now() + '00:15:00'::interval)             | YES
+ wallets           | id                     | uuid                        | uuid_generate_v4()                         | NO
+ wallets           | address                | character varying           |                                            | NO
+ wallets           | privateKey             | character varying           |                                            | YES
+ wallets           | chain                  | character varying           | 'ETH'::character varying                   | YES
+ wallets           | user_id                | uuid                        |                                            | NO
+ wallets           | isActive               | boolean                     | true                                       | YES
+ wallets           | createdAt              | timestamp with time zone    | now()                                      | YES
+ wallets           | updatedAt              | timestamp with time zone    | now()                                      | YES
+ wallets           | created_at             | timestamp with time zone    | CURRENT_TIMESTAMP                          | YES
+ wallets           | updated_at             | timestamp with time zone    | CURRENT_TIMESTAMP                          | YES
+(122 rows)
+

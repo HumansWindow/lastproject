@@ -1,7 +1,7 @@
 import React from 'react';
 import { NextPage } from 'next';
-import Layout from '../../components/layout/Layout';
-import DiaryForm from '../../components/diary/DiaryForm';
+import Layout from "../../components/layout/Layout";
+import DiaryForm from "../../components/diary/DiaryForm";
 import { useRouter } from 'next/router';
 import { useEffect, useState } from 'react';
 import Link from 'next/link';

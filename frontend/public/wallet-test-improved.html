@@ -1,0 +1,894 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Wallet Authentication Tester (Improved)</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 20px;
+      line-height: 1.5;
+    }
+    h1 {
+      color: #333;
+      border-bottom: 1px solid #eee;
+      padding-bottom: 10px;
+    }
+    .card {
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      padding: 20px;
+      margin-bottom: 20px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    }
+    button {
+      background-color: #4CAF50;
+      color: white;
+      border: none;
+      padding: 10px 15px;
+      text-align: center;
+      text-decoration: none;
+      display: inline-block;
+      font-size: 16px;
+      margin: 4px 2px;
+      cursor: pointer;
+      border-radius: 4px;
+    }
+    button:disabled {
+      background-color: #cccccc;
+      cursor: not-allowed;
+    }
+    .error {
+      color: #d9534f;
+      background-color: #f9f2f2;
+      padding: 10px;
+      border-radius: 4px;
+      margin-top: 10px;
+    }
+    .success {
+      color: #5cb85c;
+      background-color: #f2f9f2;
+      padding: 10px;
+      border-radius: 4px;
+      margin-top: 10px;
+    }
+    .log {
+      background-color: #f8f9fa;
+      padding: 15px;
+      border-radius: 4px;
+      margin-top: 20px;
+      max-height: 300px;
+      overflow-y: auto;
+      font-family: monospace;
+      white-space: pre-wrap;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 20px;
+    }
+    th, td {
+      border: 1px solid #ddd;
+      padding: 8px;
+      text-align: left;
+    }
+    th {
+      background-color: #f2f2f2;
+    }
+    tr:nth-child(even) {
+      background-color: #f9f9f9;
+    }
+    .wallet-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 16px;
+      margin-top: 20px;
+    }
+    .wallet-card {
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      padding: 16px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+    .wallet-card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    }
+    .wallet-card img {
+      width: 48px;
+      height: 48px;
+      margin-bottom: 8px;
+    }
+    .wallet-card.disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+    .tabs {
+      display: flex;
+      margin-bottom: 10px;
+      border-bottom: 1px solid #ddd;
+    }
+    .tab {
+      padding: 10px 20px;
+      cursor: pointer;
+      border: 1px solid transparent;
+      border-bottom: none;
+      border-radius: 4px 4px 0 0;
+      margin-right: 5px;
+    }
+    .tab.active {
+      border-color: #ddd;
+      background-color: #fff;
+      margin-bottom: -1px;
+    }
+    .tab-content {
+      display: none;
+    }
+    .tab-content.active {
+      display: block;
+    }
+  </style>
+  <!-- Include the Trust Wallet compatibility script -->
+  <script src="wallet-utils/trust-wallet-fix.js"></script>
+</head>
+<body>
+  <h1>Wallet Authentication Tester (Improved)</h1>
+  
+  <div class="card">
+    <h2>Test Configuration</h2>
+    <p>This tool helps test the wallet authentication flow across different wallet providers.</p>
+
+    <div class="tabs">
+      <div class="tab active" data-tab="selection">Selection</div>
+      <div class="tab" data-tab="diagnostic">Diagnostics</div>
+      <div class="tab" data-tab="fixes">Fixes</div>
+    </div>
+    
+    <div id="selection-tab" class="tab-content active">
+      <div class="wallet-grid" id="walletGrid">
+        <!-- Wallet cards will be inserted here -->
+      </div>
+    </div>
+    
+    <div id="diagnostic-tab" class="tab-content">
+      <h3>Wallet Provider Diagnostics</h3>
+      <button id="runDiagnostics">Run Diagnostics</button>
+      <button id="checkCompatibility">Check Network Compatibility</button>
+      <div id="diagnosticOutput" class="log"></div>
+    </div>
+    
+    <div id="fixes-tab" class="tab-content">
+      <h3>Fix Wallet Detection Issues</h3>
+      <p>Use these options to fix common wallet detection issues:</p>
+      <button id="applyTrustFix">Fix Trust Wallet Detection</button>
+      <button id="forcePolygonNetwork">Force Polygon Network</button>
+      <button id="clearWalletData">Clear Wallet Data</button>
+      <div id="fixOutput" class="log"></div>
+    </div>
+  </div>
+  
+  <div class="card">
+    <h2>Test Results</h2>
+    <div id="resultsContainer"></div>
+    <div id="walletInfo"></div>
+  </div>
+  
+  <div class="card">
+    <h2>Test Log</h2>
+    <div id="logOutput" class="log"></div>
+  </div>
+
+  <!-- Self-contained wallet test implementation -->
+  <script>
+    // Wallet types and detection methods
+    const walletProviders = {
+      metamask: {
+        name: 'MetaMask',
+        icon: 'https://upload.wikimedia.org/wikipedia/commons/3/36/MetaMask_Fox.svg',
+        detect: () => window.ethereum && window.ethereum.isMetaMask && !window.ethereum.isTrust,
+        connect: async () => {
+          if (!window.ethereum || !window.ethereum.isMetaMask || window.ethereum.isTrust) {
+            throw new Error('MetaMask not detected. Please install MetaMask extension.');
+          }
+          return await window.ethereum.request({ method: 'eth_requestAccounts' });
+        }
+      },
+      trustwallet: {
+        name: 'Trust Wallet',
+        icon: 'https://trustwallet.com/assets/images/favicon.png',
+        detect: () => {
+          // Use our improved Trust Wallet detection
+          return window.TrustWalletFix.detect().detected;
+        },
+        connect: async () => {
+          // Make sure our fixes are applied
+          window.TrustWalletFix.apply();
+          
+          if (!window.TrustWalletFix.detect().detected) {
+            throw new Error('Trust Wallet not detected. Please install Trust Wallet or open in Trust Browser.');
+          }
+          
+          try {
+            return await window.ethereum.request({ method: 'eth_requestAccounts' });
+          } catch (err) {
+            log(`Trust Wallet connection error: ${err.message}, trying alternative method`);
+            
+            // Alternative connection method for Trust Wallet
+            if (window.trustwallet && window.trustwallet.ethereum) {
+              return await window.trustwallet.ethereum.request({ method: 'eth_requestAccounts' });
+            }
+            throw err;
+          }
+        }
+      },
+      phantom: {
+        name: 'Phantom',
+        icon: 'https://phantom.app/img/logo.png',
+        detect: () => window.phantom && window.phantom.solana,
+        connect: async () => {
+          if (!window.phantom || !window.phantom.solana) {
+            throw new Error('Phantom wallet not detected. Please install Phantom wallet extension.');
+          }
+          return await window.phantom.solana.connect();
+        }
+      },
+      coinbase: {
+        name: 'Coinbase Wallet',
+        icon: 'https://www.coinbase.com/assets/press/coinbase-mark-16539be9ef3bcac159d0c722a7743daffd398822dcbd3a679c3ec9eb4391cd57.png',
+        detect: () => window.ethereum && window.ethereum.isCoinbaseWallet,
+        connect: async () => {
+          if (!window.ethereum || !window.ethereum.isCoinbaseWallet) {
+            throw new Error('Coinbase Wallet not detected. Please install Coinbase Wallet extension.');
+          }
+          return await window.ethereum.request({ method: 'eth_requestAccounts' });
+        }
+      }
+    };
+
+    // Mock wallet auth service
+    const walletAuthService = {
+      async requestChallenge(walletAddress, walletType) {
+        log(`Mock: Requesting challenge for ${walletAddress} using ${walletType}`);
+        // Simulate API call delay
+        await new Promise(resolve => setTimeout(resolve, 500));
+        
+        return {
+          id: 'mock-challenge-id',
+          message: `Sign this message to verify ownership of ${walletAddress} at timestamp ${Date.now()}`
+        };
+      },
+      
+      async authenticate(request) {
+        log('Mock: Authenticating with signature');
+        // Simulate API call delay
+        await new Promise(resolve => setTimeout(resolve, 700));
+        
+        return {
+          accessToken: 'mock-access-token',
+          refreshToken: 'mock-refresh-token',
+          user: { id: 'mock-user-id', address: request.address },
+          success: true
+        };
+      }
+    };
+
+    // Main test function
+    async function testWalletAuth(walletType) {
+      log(`🧪 Testing wallet authentication for ${walletProviders[walletType].name}`);
+      
+      const startTime = Date.now();
+      const result = {
+        walletType: walletProviders[walletType].name,
+        detected: false,
+        connected: false,
+        address: '',
+        chainId: '',
+        challengeReceived: false,
+        signatureCreated: false,
+        authenticated: false,
+        errors: [],
+        durationMs: 0
+      };
+      
+      try {
+        // Step 1: Detect wallet provider
+        log('- Detecting wallet provider...');
+        const isDetected = walletProviders[walletType].detect();
+        result.detected = isDetected;
+        
+        if (!isDetected) {
+          throw new Error(`${walletProviders[walletType].name} not detected. Please install the wallet extension.`);
+        }
+        
+        log(`✅ ${walletProviders[walletType].name} detected`);
+        
+        // Step 2: Connect to wallet
+        log('- Connecting to wallet...');
+        const connectionResult = await walletProviders[walletType].connect();
+        
+        // Handle different wallet response formats
+        let address;
+        if (walletType === 'phantom') {
+          address = connectionResult.publicKey.toString();
+        } else {
+          // Ethereum-based wallets
+          address = Array.isArray(connectionResult) ? connectionResult[0] : connectionResult;
+        }
+        
+        if (!address) {
+          throw new Error('Failed to get wallet address');
+        }
+        
+        result.connected = true;
+        result.address = address;
+        log(`✅ Connected to wallet: ${address}`);
+        
+        // Step 3: Get chain ID (for EVM wallets)
+        if (walletType !== 'phantom') {
+          try {
+            const chainId = await window.ethereum.request({ method: 'eth_chainId' });
+            result.chainId = chainId;
+            const chainIdDecimal = parseInt(chainId, 16);
+            
+            let networkName = 'unknown';
+            switch (chainIdDecimal) {
+              case 1: networkName = 'Ethereum Mainnet'; break;
+              case 137: networkName = 'Polygon'; break;
+              case 56: networkName = 'BNB Smart Chain'; break;
+              case 43114: networkName = 'Avalanche'; break;
+              default: networkName = `Unknown (${chainIdDecimal})`;
+            }
+            
+            log(`✅ Chain ID: ${chainId} (${networkName})`);
+          } catch (error) {
+            log(`⚠️ Could not get chain ID: ${error.message}`);
+          }
+        }
+        
+        // Step 4: Request challenge
+        log('- Requesting auth challenge...');
+        const challenge = await walletAuthService.requestChallenge(address, walletProviders[walletType].name);
+        
+        if (!challenge || !challenge.message) {
+          throw new Error('Failed to get challenge message');
+        }
+        
+        result.challengeReceived = true;
+        log(`✅ Challenge received: ${challenge.message.substring(0, 20)}...`);
+        
+        // Step 5: Sign challenge
+        log('- Signing challenge message...');
+        
+        let signature;
+        try {
+          if (walletType === 'phantom') {
+            // Phantom uses a different signing method
+            const encodedMessage = new TextEncoder().encode(challenge.message);
+            signature = await window.phantom.solana.signMessage(encodedMessage, 'utf8');
+          } else if (walletType === 'trustwallet') {
+            // Trust Wallet specific signing with fallbacks
+            try {
+              signature = await window.ethereum.request({
+                method: 'personal_sign',
+                params: [challenge.message, address]
+              });
+            } catch (signErr) {
+              log(`Trust Wallet personal_sign failed: ${signErr.message}, trying alternative`);
+              
+              // Try eth_sign as fallback (Trust Wallet sometimes requires this)
+              signature = await window.ethereum.request({
+                method: 'eth_sign',
+                params: [address, challenge.message]
+              });
+            }
+          } else {
+            // Standard Ethereum-compatible wallets
+            signature = await window.ethereum.request({
+              method: 'personal_sign',
+              params: [challenge.message, address]
+            });
+          }
+          
+          result.signatureCreated = true;
+          log('✅ Message signed successfully');
+          
+          // Step 6: Authenticate with signature
+          log('- Authenticating with signature...');
+          
+          const authResponse = await walletAuthService.authenticate({
+            address: address,
+            walletAddress: address,
+            signature: walletType === 'phantom' ? signature.signature : signature,
+            message: challenge.message
+          });
+          
+          if (!authResponse || !authResponse.accessToken) {
+            throw new Error('Authentication response invalid - no access token returned');
+          }
+          
+          result.authenticated = true;
+          log('✅ Authentication successful!');
+        } catch (error) {
+          if (error.code === 4001) { // User rejected request
+            throw new Error('User denied signature request');
+          }
+          throw error;
+        }
+        
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+        result.errors.push(errorMessage);
+        log(`❌ Test failed: ${errorMessage}`);
+      } finally {
+        result.durationMs = Date.now() - startTime;
+        return result;
+      }
+    }
+
+    // Logging function
+    const logOutput = document.getElementById('logOutput');
+    
+    function log(message) {
+      console.log(message);
+      
+      if (logOutput) {
+        let formattedMessage = message;
+        if (message.includes('✅')) {
+          formattedMessage = `<span style="color:green">${message}</span>`;
+        } else if (message.includes('❌')) {
+          formattedMessage = `<span style="color:red">${message}</span>`;
+        } else if (message.startsWith('⚠️')) {
+          formattedMessage = `<span style="color:orange">${message}</span>`;
+        }
+        
+        logOutput.innerHTML += formattedMessage + '<br>';
+        logOutput.scrollTop = logOutput.scrollHeight;
+      }
+    }
+    
+    function logDiagnostic(message) {
+      const diagOutput = document.getElementById('diagnosticOutput');
+      if (diagOutput) {
+        diagOutput.innerHTML += message + '<br>';
+        diagOutput.scrollTop = diagOutput.scrollHeight;
+      }
+    }
+    
+    function logFix(message) {
+      const fixOutput = document.getElementById('fixOutput');
+      if (fixOutput) {
+        fixOutput.innerHTML += message + '<br>';
+        fixOutput.scrollTop = fixOutput.scrollHeight;
+      }
+    }
+
+    // Function to display wallet information
+    function displayWalletInfo() {
+      const walletInfoElem = document.getElementById('walletInfo');
+      if (!walletInfoElem) return;
+
+      walletInfoElem.innerHTML = '<h3>Detected Wallets:</h3><ul>';
+      
+      // Check each wallet provider
+      let hasDetectedWallet = false;
+      
+      if (window.ethereum) {
+        walletInfoElem.innerHTML += `<li>Ethereum provider detected</li>`;
+        hasDetectedWallet = true;
+        
+        if (window.ethereum.isMetaMask && !window.ethereum.isTrust) {
+          walletInfoElem.innerHTML += `<li>MetaMask detected ✅</li>`;
+        }
+        
+        if (window.ethereum.isTrust) {
+          walletInfoElem.innerHTML += `<li>Trust Wallet detected ✅</li>`;
+        }
+        
+        if (window.ethereum.isCoinbaseWallet) {
+          walletInfoElem.innerHTML += `<li>Coinbase Wallet detected ✅</li>`;
+        }
+        
+        // Additional properties that might help identify the wallet
+        const providerInfo = Object.keys(window.ethereum)
+          .filter(key => typeof window.ethereum[key] !== 'function' && key !== 'provider')
+          .map(key => `${key}: ${window.ethereum[key]}`);
+        
+        walletInfoElem.innerHTML += `<li>Provider properties: ${providerInfo.slice(0, 5).join(', ')}</li>`;
+        
+        // Display chain info
+        window.ethereum.request({ method: 'eth_chainId' })
+          .then(chainId => {
+            const chainIdDecimal = parseInt(chainId, 16);
+            walletInfoElem.innerHTML += `<li>Current chain ID: ${chainId} (${chainIdDecimal})</li>`;
+          })
+          .catch(error => {
+            walletInfoElem.innerHTML += `<li>Error getting chain ID: ${error.message}</li>`;
+          });
+      }
+      
+      if (window.phantom) {
+        walletInfoElem.innerHTML += `<li>Phantom wallet detected ✅</li>`;
+        hasDetectedWallet = true;
+      }
+      
+      if (!hasDetectedWallet) {
+        walletInfoElem.innerHTML += `<li>No wallet extensions detected ❌</li>`;
+      }
+      
+      walletInfoElem.innerHTML += `</ul>`;
+    }
+
+    // Function to display test results in a table
+    function displayResults(results) {
+      const container = document.getElementById('resultsContainer');
+      
+      if (!container) return;
+      
+      // Create table
+      let tableHtml = `
+        <table>
+          <tr>
+            <th>Wallet Type</th>
+            <th>Detected</th>
+            <th>Connected</th>
+            <th>Address</th>
+            <th>Challenge</th>
+            <th>Signature</th>
+            <th>Authenticated</th>
+            <th>Status</th>
+          </tr>
+      `;
+      
+      // Add result rows
+      for (const result of results) {
+        tableHtml += `
+          <tr>
+            <td>${result.walletType}</td>
+            <td>${result.detected ? '✅' : '❌'}</td>
+            <td>${result.connected ? '✅' : '❌'}</td>
+            <td>${result.address ? result.address.substring(0, 6) + '...' + result.address.slice(-4) : 'N/A'}</td>
+            <td>${result.challengeReceived ? '✅' : '❌'}</td>
+            <td>${result.signatureCreated ? '✅' : '❌'}</td>
+            <td>${result.authenticated ? '✅' : '❌'}</td>
+            <td>${result.errors.length === 0 ? '✅ Success' : '❌ Failed'}</td>
+          </tr>
+        `;
+      }
+      
+      tableHtml += `</table>`;
+      
+      // Add error details if any
+      const hasErrors = results.some(r => r.errors.length > 0);
+      if (hasErrors) {
+        tableHtml += `<h3>Errors</h3>`;
+        
+        for (const result of results) {
+          if (result.errors.length > 0) {
+            tableHtml += `<p><strong>${result.walletType}</strong></p><ul>`;
+            
+            for (const error of result.errors) {
+              tableHtml += `<li class="error">${error}</li>`;
+            }
+            
+            tableHtml += `</ul>`;
+          }
+        }
+      }
+      
+      container.innerHTML = tableHtml;
+    }
+    
+    // Create wallet selection grid
+    function createWalletGrid() {
+      const grid = document.getElementById('walletGrid');
+      if (!grid) return;
+      
+      grid.innerHTML = '';
+      
+      for (const [type, provider] of Object.entries(walletProviders)) {
+        const isDetected = provider.detect();
+        
+        const card = document.createElement('div');
+        card.className = `wallet-card ${isDetected ? '' : 'disabled'}`;
+        card.innerHTML = `
+          <img src="${provider.icon}" alt="${provider.name}" />
+          <h3>${provider.name}</h3>
+          <span>${isDetected ? 'Detected' : 'Not Detected'}</span>
+        `;
+        
+        if (isDetected) {
+          card.addEventListener('click', async () => {
+            try {
+              document.querySelectorAll('.wallet-card').forEach(c => c.classList.add('disabled'));
+              const result = await testWalletAuth(type);
+              displayResults([result]);
+            } catch (error) {
+              log(`Test execution failed: ${error.message}`);
+            } finally {
+              document.querySelectorAll('.wallet-card').forEach(c => c.classList.remove('disabled'));
+            }
+          });
+        }
+        
+        grid.appendChild(card);
+      }
+    }
+    
+    // Function to run wallet diagnostics
+    async function runWalletDiagnostics() {
+      const output = document.getElementById('diagnosticOutput');
+      output.innerHTML = '<p><strong>Running wallet diagnostics...</strong></p>';
+      
+      // Check for ethereum provider
+      if (!window.ethereum) {
+        output.innerHTML += '<p style="color:red">❌ No Ethereum provider found</p>';
+        return;
+      }
+      
+      output.innerHTML += '<p style="color:green">✅ Ethereum provider found</p>';
+      
+      // Check wallet types
+      const walletChecks = {
+        'MetaMask': window.ethereum.isMetaMask && !window.ethereum.isTrust,
+        'Trust Wallet': window.ethereum.isTrust || window.TrustWalletFix.detect().detected,
+        'Coinbase Wallet': window.ethereum.isCoinbaseWallet,
+        'Phantom': window.phantom && window.phantom.solana
+      };
+      
+      output.innerHTML += '<p><strong>Detected wallets:</strong></p><ul>';
+      
+      for (const [name, isDetected] of Object.entries(walletChecks)) {
+        output.innerHTML += `<li>${name}: ${isDetected ? '✅ Detected' : '❌ Not detected'}</li>`;
+      }
+      
+      output.innerHTML += '</ul>';
+      
+      // Check for Trust Wallet specifically
+      if (window.TrustWalletFix.detect().detected) {
+        output.innerHTML += '<p><strong>Trust Wallet Detection Details:</strong></p>';
+        const details = window.TrustWalletFix.detect().details;
+        
+        for (const [key, value] of Object.entries(details)) {
+          output.innerHTML += `<p>${key}: ${value ? '✅' : '❌'}</p>`;
+        }
+      }
+      
+      // Check chain ID
+      try {
+        const chainId = await window.ethereum.request({ method: 'eth_chainId' });
+        const chainIdDecimal = parseInt(chainId, 16);
+        
+        let networkName = 'Unknown';
+        switch (chainIdDecimal) {
+          case 1: networkName = 'Ethereum Mainnet'; break;
+          case 137: networkName = 'Polygon'; break;
+          case 56: networkName = 'BNB Smart Chain'; break;
+          case 43114: networkName = 'Avalanche'; break;
+        }
+        
+        output.innerHTML += `<p><strong>Current Network:</strong> ${networkName} (Chain ID: ${chainId}, Decimal: ${chainIdDecimal})</p>`;
+        
+        // Check if we're on the correct network for our tests (Polygon)
+        if (chainIdDecimal === 137) {
+          output.innerHTML += '<p style="color:green">✅ Connected to Polygon network</p>';
+        } else {
+          output.innerHTML += '<p style="color:orange">⚠️ Not connected to Polygon network</p>';
+          output.innerHTML += '<p>Consider switching to Polygon for testing</p>';
+        }
+      } catch (error) {
+        output.innerHTML += `<p style="color:red">❌ Error checking chain ID: ${error.message}</p>`;
+      }
+      
+      // Additional technical details for debugging
+      output.innerHTML += '<details><summary>Technical Details</summary>';
+      output.innerHTML += `<p>User Agent: ${navigator.userAgent}</p>`;
+      
+      if (window.ethereum) {
+        const providerKeys = Object.keys(window.ethereum).filter(key => typeof window.ethereum[key] !== 'function');
+        output.innerHTML += `<p>Provider Properties: ${providerKeys.join(', ')}</p>`;
+      }
+      
+      output.innerHTML += '</details>';
+    }
+    
+    // Function to check network compatibility
+    async function checkNetworkCompatibility() {
+      const output = document.getElementById('diagnosticOutput');
+      output.innerHTML = '<p><strong>Checking network compatibility...</strong></p>';
+      
+      if (!window.ethereum) {
+        output.innerHTML += '<p style="color:red">❌ No Ethereum provider found</p>';
+        return;
+      }
+      
+      try {
+        const chainId = await window.ethereum.request({ method: 'eth_chainId' });
+        const chainIdDecimal = parseInt(chainId, 16);
+        
+        // For our test app, we want Polygon (137)
+        const targetChainId = '0x89'; // Polygon in hex
+        const targetChainIdDecimal = 137;
+        
+        if (chainId === targetChainId) {
+          output.innerHTML += '<p style="color:green">✅ Already connected to Polygon network</p>';
+          return;
+        }
+        
+        output.innerHTML += `<p>Current chain ID: ${chainId} (${chainIdDecimal})</p>`;
+        output.innerHTML += `<p>Target chain ID: ${targetChainId} (${targetChainIdDecimal}, Polygon)</p>`;
+        
+        // Ask if the user wants to switch networks
+        output.innerHTML += '<p>Would you like to switch to Polygon network?</p>';
+        output.innerHTML += '<button id="switchToPolygon">Switch to Polygon</button>';
+        
+        document.getElementById('switchToPolygon').addEventListener('click', async () => {
+          try {
+            output.innerHTML += '<p>Attempting to switch to Polygon...</p>';
+            
+            // First try adding the chain if it doesn't exist
+            try {
+              await window.ethereum.request({
+                method: 'wallet_addEthereumChain',
+                params: [{
+                  chainId: '0x89',
+                  chainName: 'Polygon Mainnet',
+                  nativeCurrency: {
+                    name: 'MATIC',
+                    symbol: 'MATIC',
+                    decimals: 18
+                  },
+                  rpcUrls: ['https://polygon-rpc.com/'],
+                  blockExplorerUrls: ['https://polygonscan.com/']
+                }]
+              });
+              
+              output.innerHTML += '<p>Added Polygon network to wallet</p>';
+            } catch (addError) {
+              output.innerHTML += `<p>Error adding network: ${addError.message}</p>`;
+            }
+            
+            // Then try switching to the chain
+            await window.ethereum.request({
+              method: 'wallet_switchEthereumChain',
+              params: [{ chainId: '0x89' }]
+            });
+            
+            output.innerHTML += '<p style="color:green">✅ Successfully switched to Polygon network</p>';
+            
+            // Re-run diagnostics after a short delay
+            setTimeout(runWalletDiagnostics, 1000);
+          } catch (error) {
+            output.innerHTML += `<p style="color:red">❌ Failed to switch networks: ${error.message}</p>`;
+          }
+        });
+      } catch (error) {
+        output.innerHTML += `<p style="color:red">❌ Error checking chain ID: ${error.message}</p>`;
+      }
+    }
+    
+    // Setup tab handling
+    document.querySelectorAll('.tab').forEach(tab => {
+      tab.addEventListener('click', () => {
+        // Remove active class from all tabs
+        document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+        document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+        
+        // Add active class to selected tab
+        tab.classList.add('active');
+        const tabId = tab.getAttribute('data-tab');
+        document.getElementById(`${tabId}-tab`).classList.add('active');
+      });
+    });
+    
+    // Set up event handlers
+    document.addEventListener('DOMContentLoaded', () => {
+      // Initialize
+      log('✨ Wallet Authentication Test Runner loaded');
+      log('Select a wallet from the grid to begin testing');
+      displayWalletInfo();
+      createWalletGrid();
+      
+      // Apply TrustWalletFix on page load
+      window.TrustWalletFix.apply();
+      
+      // Setup diagnostic button handlers
+      document.getElementById('runDiagnostics').addEventListener('click', runWalletDiagnostics);
+      document.getElementById('checkCompatibility').addEventListener('click', checkNetworkCompatibility);
+      
+      // Setup fix button handlers
+      document.getElementById('applyTrustFix').addEventListener('click', () => {
+        const result = window.TrustWalletFix.apply();
+        if (result) {
+          logFix('<p style="color:green">✅ Trust Wallet fixes applied successfully</p>');
+        } else {
+          logFix('<p>Trust Wallet not detected or fixes not needed</p>');
+        }
+        displayWalletInfo();
+        createWalletGrid();
+      });
+      
+      document.getElementById('forcePolygonNetwork').addEventListener('click', async () => {
+        logFix('<p>Attempting to force Polygon network...</p>');
+        
+        if (!window.ethereum) {
+          logFix('<p style="color:red">❌ No Ethereum provider found</p>');
+          return;
+        }
+        
+        try {
+          await window.ethereum.request({
+            method: 'wallet_switchEthereumChain',
+            params: [{ chainId: '0x89' }]
+          });
+          logFix('<p style="color:green">✅ Successfully switched to Polygon network</p>');
+        } catch (switchError) {
+          // This error code indicates that the chain has not been added to MetaMask.
+          if (switchError.code === 4902) {
+            try {
+              logFix('<p>Polygon network not found in wallet, adding it...</p>');
+              await window.ethereum.request({
+                method: 'wallet_addEthereumChain',
+                params: [{
+                  chainId: '0x89',
+                  chainName: 'Polygon Mainnet',
+                  nativeCurrency: {
+                    name: 'MATIC',
+                    symbol: 'MATIC',
+                    decimals: 18
+                  },
+                  rpcUrls: ['https://polygon-rpc.com/'],
+                  blockExplorerUrls: ['https://polygonscan.com/']
+                }]
+              });
+              logFix('<p style="color:green">✅ Polygon network added and selected</p>');
+            } catch (addError) {
+              logFix(`<p style="color:red">❌ Failed to add Polygon network: ${addError.message}</p>`);
+            }
+          } else {
+            logFix(`<p style="color:red">❌ Failed to switch to Polygon: ${switchError.message}</p>`);
+          }
+        }
+        
+        displayWalletInfo();
+      });
+      
+      document.getElementById('clearWalletData').addEventListener('click', () => {
+        if (typeof localStorage !== 'undefined') {
+          // Clear common wallet-related data
+          const keysToRemove = [
+            'walletconnect',
+            'accessToken',
+            'refreshToken',
+            'user_profile',
+            'lastConnectedWallet',
+            'lastConnectedAddress',
+            'walletProvider',
+            'WALLET_TYPE',
+            'WALLET_ADDRESS',
+            '_corrupted_flag',
+            'device_verification'
+          ];
+          
+          keysToRemove.forEach(key => localStorage.removeItem(key));
+          
+          // Also clear session storage
+          sessionStorage.clear();
+          
+          logFix('<p style="color:green">✅ Wallet data cleared from storage</p>');
+          logFix('<p>You may need to disconnect and reconnect your wallet</p>');
+        } else {
+          logFix('<p style="color:red">❌ Local storage not available</p>');
+        }
+      });
+    });
+  </script>
+</body>
+</html>

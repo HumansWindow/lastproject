@@ -1,18 +1,25 @@
 import React, { useEffect } from 'react';
 import { AppProps } from 'next/app';
 import { appWithTranslation } from 'next-i18next';
-import { WalletProvider } from '../contexts/wallet';
-import { AuthProvider } from '../contexts/auth';
-import { initializeDebugging } from '../utils/initialize-debug';
-import Layout from '../components/layout/Layout';
+import { WalletProvider } from "../contexts/WalletProvider";
+import { AuthProvider } from "../contexts/AuthProvider";
+import { initializeDebugging } from "../utils/initializeDebug";
+import Layout from "../components/layout/Layout";
 import '../styles/globals.css';
+// Import game section styles
+import '../styles/game/section-base.css';
+import '../styles/game/section-text-image.css';
+import '../styles/game/section-card-carousel.css';
+import '../styles/game/section-timeline.css';
+import '../styles/game/section-galaxy-background.css';
+import '../styles/game/animations.css';
 // Import i18n instance to ensure it's initialized early
 import '../i18n';
 // Import wallet initialization safety layer
-import { initializeWalletSafely } from '../services/wallet/wallet-initialization';
+import { initializeWalletSafely } from "../services/wallet/walletInitialization";
 
 // Import the ConnectionTestResult interface
-import type { ConnectionTestResult } from '../utils/wallet-connection-debugger';
+import type { ConnectionTestResult } from "../utils/walletConnectionDebugger";
 
 function MyApp({ Component, pageProps }: AppProps) {
   useEffect(() => {

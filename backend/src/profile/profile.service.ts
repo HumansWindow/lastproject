@@ -289,15 +289,28 @@ export class ProfileService {
    * @param completeLaterDto Complete later data
    * @returns Updated profile
    */
-  async markCompleteLater(userId: string, completeLaterDto: CompleteLaterDto): Promise<Profile> {
+  async markCompleteLater(userId: string, completeLaterDto: CompleteLaterDto & Partial<UpdateProfileDto>): Promise<Profile> {
     try {
       // First check if the profile exists
       let profile: Profile;
       try {
         profile = await this.findByUserId(userId);
         
-        // Update the existing profile
+        // Update the existing profile with completeLater flag and any additional provided data
         profile.completeLater = completeLaterDto.completeLater;
+        
+        // Update any additional profile fields that were provided (like detected country/language)
+        const { completeLater, ...additionalData } = completeLaterDto;
+        
+        // Only apply non-empty values
+        Object.entries(additionalData).forEach(([key, value]) => {
+          if (value !== null && value !== undefined && value !== '') {
+            profile[key] = value;
+          }
+        });
+        
+        this.logger.log(`Updating profile with complete-later and additional data for user: ${userId}`);
+        
         return await this.profileRepository.save(profile);
       } catch (error) {
         if (error instanceof NotFoundException) {
@@ -308,8 +321,7 @@ export class ProfileService {
           }
           
           try {
-            // Create minimal profile with completeLater flag
-            // We use queryRunner to ensure transaction safety
+            // Create minimal profile with completeLater flag and any additional data
             const queryRunner = this.profileRepository.manager.connection.createQueryRunner();
             await queryRunner.connect();
             await queryRunner.startTransaction();
@@ -317,9 +329,26 @@ export class ProfileService {
             try {
               // Create the profile entity first
               const newProfile = new Profile();
-              // Set only the required user ID field using snake_case convention
-              newProfile.userId = userId;  // This maps to user_id in the database
+              // Set user ID and complete later flag
+              newProfile.userId = userId;
               newProfile.completeLater = completeLaterDto.completeLater;
+              
+              // Add any additional detected data like country and language
+              const { completeLater, ...additionalData } = completeLaterDto;
+              
+              // Apply non-empty values
+              Object.entries(additionalData).forEach(([key, value]) => {
+                if (value !== null && value !== undefined && value !== '') {
+                  newProfile[key] = value;
+                }
+              });
+              
+              // Log what we're saving
+              this.logger.log(`Creating new profile with complete-later and detected data for user: ${userId}`, {
+                userId,
+                completeLater,
+                additionalDataKeys: Object.keys(additionalData)
+              });
               
               // Save within the transaction
               const savedProfile = await queryRunner.manager.save(newProfile);

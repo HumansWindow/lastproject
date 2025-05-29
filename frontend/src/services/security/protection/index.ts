@@ -1,3 +1,3 @@
 // Protection services exports
-export * from './device-fingerprint';
-export * from './captcha-service';
+export * from "./deviceFingerprint";
+export * from "./captchaService";

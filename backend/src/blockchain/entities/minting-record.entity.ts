@@ -25,6 +25,8 @@ export class MintingRecord {
 
   @Column({ name: 'user_id' })
   @Index()
+  @Column({ name: 'user_id' })
+
   userId: string;
 
   @ManyToOne(() => User, { onDelete: 'CASCADE' })
@@ -33,6 +35,8 @@ export class MintingRecord {
 
   @Column({ name: 'wallet_address', length: 42 })
   @Index()
+  @Column({ name: 'wallet_address' })
+
   walletAddress: string;
 
   @Column({ name: 'amount', type: 'decimal', precision: 36, scale: 18 })

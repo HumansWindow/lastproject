@@ -20,6 +20,8 @@ export enum SectionProgressStatus {
 
 /**
  * Enum defining the possible status values for user progress
+ * This is kept for backwards compatibility with existing code
+ * Use ModuleProgressStatus for new code
  */
 export enum ProgressStatus {
   NOT_STARTED = 'not_started',
@@ -28,6 +30,9 @@ export enum ProgressStatus {
   LOCKED = 'locked',
   AWAITING_UNLOCK = 'awaiting_unlock'
 }
+
+// Type compatibility between ProgressStatus and ModuleProgressStatus
+export type CompatibleProgressStatus = ModuleProgressStatus | ProgressStatus;
 
 /**
  * Interface for progress statistics

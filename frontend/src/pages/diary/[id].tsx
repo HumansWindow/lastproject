@@ -1,13 +1,13 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { NextPage } from 'next';
-import Layout from '../../components/layout/Layout';
+import Layout from "../../components/layout/Layout";
 import { useRouter } from 'next/router';
-import { diaryService } from '../../services/api/modules/diary';
-import { Diary } from '../../types/diary';
-import { DiaryLocationLabels, FeelingOptions, ExtendedDiary } from "../../types/diary-extended";
+import { diaryService } from "../../services/api/modules/diary";
+import { Diary } from "../../types/diary";
+import { DiaryLocationLabels, FeelingOptions, ExtendedDiary } from "../../types/diaryExtended";
 import Link from 'next/link';
 import { format } from 'date-fns';
-import { retrieveEncryptedMedia } from '../../utils/encryption';
+import { retrieveEncryptedMedia } from "../../utils/encryption";
 
 const DiaryDetailPage: NextPage = () => {
   const router = useRouter();
@@ -26,8 +26,19 @@ const DiaryDetailPage: NextPage = () => {
     try {
       setLoading(true);
       const response = await diaryService.getDiaryEntry(id as string);
-      const content = response.content; // Access content directly from response
-      setDiary(response);
+      // Convert DiaryEntry to ExtendedDiary by ensuring location property is compatible
+      const extendedDiary: ExtendedDiary = {
+        ...response,
+        location: typeof response.location === 'string' 
+          ? response.location
+          : (response.location || { name: 'Unknown', latitude: 0, longitude: 0 })
+      };
+      setDiary(extendedDiary);
+      
+      // If the diary has media and is stored locally, try to load it
+      if (extendedDiary.hasMedia && extendedDiary.isStoredLocally) {
+        loadLocalMedia(extendedDiary.id);
+      }
     } catch (error) {
       console.error('Error fetching diary entry:', error);
       setError('Failed to load diary entry');

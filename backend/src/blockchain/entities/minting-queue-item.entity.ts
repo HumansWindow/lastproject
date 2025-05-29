@@ -35,6 +35,8 @@ export class MintingQueueItem {
 
   @Column({ name: 'user_id' })
   @Index()
+  @Column({ name: 'user_id' })
+
   userId: string;
 
   @ManyToOne(() => User, { onDelete: 'CASCADE' })
@@ -43,6 +45,8 @@ export class MintingQueueItem {
 
   @Column({ name: 'wallet_address', length: 42 })
   @Index()
+  @Column({ name: 'wallet_address' })
+
   walletAddress: string;
 
   @Column({ name: 'device_id', nullable: true })
@@ -88,6 +92,8 @@ export class MintingQueueItem {
 
   @CreateDateColumn({ name: 'created_at' })
   @Index()
+  @Column({ name: 'created_at' })
+
   createdAt: Date;
 
   @UpdateDateColumn({ name: 'updated_at' })

@@ -1,165 +1,44 @@
 # Wallet Authentication Code Fixes
 
-## Database Schema Fixed
+## Files Modified
 
-✅ The refresh_tokens table has been fixed to support both camelCase and snake_case column naming.
+- ✅ components/WalletConnectButton.tsx - Updated blockchain references
+- ✅ contexts/AuthProvider.tsx - Updated blockchain references
+- ⏩ services/wallet/providers/ethereum/trustwallet.ts - No changes needed
+- ✅ services/api/modules/auth/wallet-auth-service.ts - Fixed blockchain parameter handling
+- ✅ utils/authDebugger.ts - Updated blockchain references
 
-## Issue Identified
+## Files That May Need Manual Review
 
-The wallet authentication error was caused by:
+- 🔍 services/wallet/walletService.ts - May use blockchain types, should be reviewed
+- 🔍 config/blockchain/constants.ts - May use blockchain types, should be reviewed
 
-1. Mismatch between column naming in code vs. database (`expires_at` vs `expiresAt`)
-2. Missing `NOT NULL` constraints on required columns
-3. Failed foreign key constraint during token creation
+## Next Steps
 
-## Code Changes Required
+1. Review the modified files to ensure changes are correct
+2. Check the files flagged for manual review
+3. Test wallet authentication with different wallet providers
+4. Standardize any remaining blockchain type usage
 
-To prevent these issues from happening again, apply the following code changes:
+## Recent Fixes
 
-### 1. Update your RefreshToken entity
+### Fixed Trust Wallet Authentication (2025-05-26)
 
-```typescript
-// src/auth/entities/refresh-token.entity.ts
-import { Column, Entity, JoinColumn, ManyToOne, PrimaryGeneratedColumn } from 'typeorm';
-import { User } from '../../users/entities/user.entity';
+Fixed the 400 Bad Request error when authenticating with Trust Wallet:
 
-@Entity('refresh_tokens')
-export class RefreshToken {
-  @PrimaryGeneratedColumn('uuid')
-  id: string;
+1. Updated `wallet-auth-service.ts` to properly include the blockchain parameter in API requests
+2. Fixed TypeScript errors and improved code quality
+3. Created comprehensive documentation for the authentication flow
+4. Successfully tested with Trust Wallet
 
-  @Column()
-  token: string;
+Documentation:
+- `/docs/frontend/authentication-flow-consolidated.md` - Consolidated authentication flow
+- `/docs/frontend/security-enhancements-consolidated.md` - Security enhancements
+- `/docs/frontend/trust-wallet-authentication-fix.md` - Trust Wallet specific fix guide
+- `/docs/frontend/trust-wallet-authentication-fix-report.md` - Implementation report
 
-  // Support both naming conventions with transformers
-  @Column({
-    name: 'expiresAt',
-    transformer: {
-      to: (value: Date) => value,
-      from: (value: Date) => value,
-    }
-  })
-  expiresAt: Date;
+## Testing Instructions
 
-  // Support both naming conventions with transformers
-  @Column({
-    name: 'userId',
-    transformer: {
-      to: (value: string) => value,
-      from: (value: string) => value,
-    }
-  })
-  userId: string;
-
-  @Column({
-    name: 'createdAt',
-    default: () => 'NOW()',
-    transformer: {
-      to: (value: Date) => value,
-      from: (value: Date) => value,
-    }
-  })
-  createdAt: Date;
-
-  // Define relationship to User entity
-  @ManyToOne(() => User, { onDelete: 'CASCADE' })
-  @JoinColumn({ name: 'userId' })
-  user: User;
-}
-```
-
-### 2. Update your TokenService
-
-```typescript
-// src/auth/services/token.service.ts
-import { Injectable } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
-import { RefreshToken } from '../entities/refresh-token.entity';
-
-@Injectable()
-export class TokenService {
-  constructor(
-    @InjectRepository(RefreshToken)
-    private refreshTokenRepository: Repository<RefreshToken>,
-  ) {}
-
-  async createRefreshToken(userId: string): Promise<string> {
-    // Generate a random token or use a JWT
-    const token = this.generateRandomToken();
-    
-    // Calculate expiration date (e.g., 7 days from now)
-    const expiresAt = new Date();
-    expiresAt.setDate(expiresAt.getDate() + 7);
-    
-    // Create and save the refresh token
-    const refreshToken = this.refreshTokenRepository.create({
-      token,
-      expiresAt,
-      userId,
-      createdAt: new Date(),
-    });
-    
-    await this.refreshTokenRepository.save(refreshToken);
-    
-    return token;
-  }
-
-  private generateRandomToken(): string {
-    // Implement a secure token generation method
-    return require('crypto').randomBytes(64).toString('hex');
-  }
-}
-```
-
-### 3. Update your WalletAuthService
-
-```typescript
-// src/auth/services/wallet-auth.service.ts
-// Inside your walletLogin method:
-async walletLogin(address: string, signature: string): Promise<any> {
-  try {
-    // Start a transaction
-    const queryRunner = this.dataSource.createQueryRunner();
-    await queryRunner.connect();
-    await queryRunner.startTransaction();
-    
-    try {
-      // Your existing code...
-      
-      // Create tokens
-      const accessToken = await this.tokenService.generateAccessToken(user.id);
-      const refreshToken = await this.tokenService.createRefreshToken(user.id);
-      
-      // If everything is successful, commit the transaction
-      await queryRunner.commitTransaction();
-      
-      return {
-        accessToken,
-        refreshToken,
-        user: { id: user.id, walletAddress: user.walletAddress }
-      };
-    } catch (err) {
-      // If anything fails, roll back the transaction
-      await queryRunner.rollbackTransaction();
-      throw err;
-    } finally {
-      // Release the query runner
-      await queryRunner.release();
-    }
-  } catch (error) {
-    this.logger.error(`[${traceId}] Wallet login error: ${error.message}`);
-    throw new InternalServerErrorException(`Failed to generate authentication tokens: ${error.message}`);
-  }
-}
-```
-
-## Testing
-
-After applying these changes:
-
-1. Restart your backend service: `npm run start:dev`
-2. Try to authenticate with a wallet again
-3. Check logs for any remaining errors
-4. Ensure no errors occur in the token creation process
-
+1. Test connecting with Trust Wallet
+2. Test connecting with MetaMask
+3. Verify authentication works with the standardized blockchain types

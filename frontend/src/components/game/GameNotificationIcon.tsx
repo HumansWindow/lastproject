@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from 'react';
-import { Badge, IconButton, Tooltip } from '@mui/material';
+import { Badge, IconButton, Tooltip } from "@mui/material";
 import NotificationsIcon from '@mui/icons-material/Notifications';
-import { gameNotificationService } from '../../services/game/game-notification.service';
-import { useAuth } from '../../hooks/useAuth';
+import { gameNotificationService } from "../../services/game/gameNotification.service";
+import { useAuth } from "../../hooks/useAuth";
 
 interface GameNotificationIconProps {
   onClick?: () => void;

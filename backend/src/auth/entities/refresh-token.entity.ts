@@ -9,10 +9,9 @@ import {
 import { User } from '../../users/entities/user.entity';
 
 /**
- * RefreshToken entity - supports both camelCase and snake_case column naming
- * The database has triggers that keep userId and user_id columns synchronized
+ * RefreshToken entity - stores refresh tokens for authenticated users
  */
-@Entity('refresh_tokens')
+@Entity({ name: 'refresh_tokens' })
 export class RefreshToken {
   @PrimaryGeneratedColumn('uuid')
   id: string;
@@ -20,42 +19,22 @@ export class RefreshToken {
   @Column()
   token: string;
 
-  /**
-   * ExpiresAt field - supports both camelCase and snake_case in DB
-   * TypeScript property is always camelCase
-   */
-  @Column({ name: 'expiresAt' })
+  @Column({ name: 'expires_at' })
   expiresAt: Date;
 
-  /**
-   * UserId field - camelCase version (matches TypeScript convention)
-   * Database triggers keep userId and user_id in sync
-   */
-  @Column({ name: 'userId' })
-  userId: string;
-
-  /**
-   * UserId field - snake_case version (matches SQL convention)
-   * Database triggers keep userId and user_id in sync
-   * This property ensures both columns are populated during entity creation
-   */
+  // Add both variants of the user ID field to accommodate the database trigger
+  // The trigger expects both user_id and userId, so we'll include both
   @Column({ name: 'user_id' })
+  userId: string;
+  
+  // Virtual column that will be synchronized by the trigger
+  @Column({ name: 'user_id', select: false, insert: false, update: false })
   user_id: string;
 
-  /**
-   * Relation to User entity
-   * We join using both column names to ensure proper foreign key handling
-   */
   @ManyToOne(() => User, { onDelete: 'CASCADE' })
-  @JoinColumn([
-    { name: 'userId', referencedColumnName: 'id' },
-    { name: 'user_id', referencedColumnName: 'id' }
-  ])
+  @JoinColumn({ name: 'user_id' })
   user: User;
 
-  /**
-   * CreatedAt timestamp - supports both camelCase and snake_case in DB
-   */
-  @CreateDateColumn({ name: 'createdAt' })
+  @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
 }

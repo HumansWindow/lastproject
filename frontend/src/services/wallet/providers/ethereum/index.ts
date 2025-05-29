@@ -1,10 +1,10 @@
 /**
  * Export Ethereum wallet providers
  */
-import { MetaMaskProvider } from './metamask';
-import { WalletConnectAdapter } from './walletconnect';
-import { BinanceWalletProvider } from './binance';
-import { TrustWalletProvider } from './trustwallet';
+import { MetaMaskProvider } from "./metamask";
+import { WalletConnectAdapter } from "./walletconnect";
+import { BinanceWalletProvider } from "./binance";
+import { TrustWalletProvider } from "./trustwallet";
 
 export {
   MetaMaskProvider,

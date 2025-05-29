@@ -1,4 +1,4 @@
 // Security services barrel file
-export * from './encryption';
-export * from './protection';
-export * from './security-service';
+export * from "./encryption";
+export * from "./protection";
+export * from "./securityService";

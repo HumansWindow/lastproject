@@ -12,12 +12,15 @@ export class GameModuleRepository {
   ) {}
 
   /**
-   * Find a game module by ID
+   * Find a game module by ID or options
    */
-  async findOne(id: string): Promise<GameModule | null> {
-    return this.gameModuleRepository.findOne({
-      where: { id },
-    });
+  async findOne(idOrOptions: string | object): Promise<GameModule | null> {
+    if (typeof idOrOptions === 'string') {
+      return this.gameModuleRepository.findOne({
+        where: { id: idOrOptions },
+      });
+    }
+    return this.gameModuleRepository.findOne(idOrOptions as any);
   }
 
   /**

@@ -1,2 +1,2 @@
 // Diary module exports
-export * from './diary-service';
+export * from "./diaryService";

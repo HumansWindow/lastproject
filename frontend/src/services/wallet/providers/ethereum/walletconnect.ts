@@ -7,7 +7,7 @@ import {
   WalletInfo,
   WalletProvider,
   WalletProviderType
-} from '../../core/wallet-base';
+} from "../../core/walletBase";
 
 export class WalletConnectAdapter implements WalletProvider {
   private walletConnectProvider: EthereumProvider | null = null;

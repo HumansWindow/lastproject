@@ -1,7 +1,11 @@
 import React, { useState, useEffect } from 'react';
+import Layout from "../components/layout/Layout";
+import type { NextPage } from "next";
+import { WalletInfo } from "../services/wallet/core/walletBase";
+import { WalletSelectorModal } from "../components/wallet-selector/WalletSelectorModal";
+import WalletDebugWrapper from "../components/debug/WalletDebugWrapper";
 import { Container, Button, Card, Alert } from 'react-bootstrap';
-import { WalletSelectorModal } from '@/components/wallet-selector';
-import { walletSelector, WalletInfo } from '@/services/wallet';
+import { walletSelector } from "../services/WalletProvider";
 
 const WalletDemo: React.FC = () => {
   const [showWalletModal, setShowWalletModal] = useState(false);
@@ -127,9 +131,9 @@ const WalletDemo: React.FC = () => {
       )}
 
       <WalletSelectorModal
-        show={showWalletModal}
-        onHide={() => setShowWalletModal(false)}
-        onConnect={handleWalletConnect}
+        open={showWalletModal}
+        onClose={() => setShowWalletModal(false)}
+        onSelect={handleWalletConnect}
       />
     </Container>
   );

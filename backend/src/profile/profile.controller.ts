@@ -25,6 +25,7 @@ import {
 } from '@nestjs/swagger';
 import { ProfileService } from './profile.service';
 import { ProfileErrorHandlerService } from './profile-error-handler.service';
+import { GeoLocationService } from './geo-location.service';
 import {
   CreateProfileDto,
   UpdateProfileDto,
@@ -35,6 +36,7 @@ import {
   UpdateNotificationSettingsDto,
   CompleteLaterDto,
 } from './dto/profile.dto';
+import { GeoLocationDto } from './dto/geo-location.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 
 @ApiTags('profile')
@@ -44,7 +46,8 @@ export class ProfileController {
 
   constructor(
     private readonly profileService: ProfileService,
-    private readonly errorHandler: ProfileErrorHandlerService
+    private readonly errorHandler: ProfileErrorHandlerService,
+    private readonly geoLocationService: GeoLocationService
   ) {}
 
   @Post()
@@ -102,17 +105,6 @@ export class ProfileController {
       }
       throw error;
     }
-  }
-
-  @Get(':id')
-  @UseGuards(JwtAuthGuard)
-  @ApiOperation({ summary: 'Get a profile by ID' })
-  @ApiParam({ name: 'id', description: 'Profile ID' })
-  @ApiResponse({ status: HttpStatus.OK, description: 'Profile information retrieved', type: ProfileResponseDto })
-  @ApiResponse({ status: HttpStatus.NOT_FOUND, description: 'Profile not found' })
-  @ApiBearerAuth()
-  async findById(@Param('id') id: string) {
-    return this.profileService.findById(id);
   }
 
   @Put()
@@ -183,6 +175,42 @@ export class ProfileController {
     return { exists: await this.profileService.exists(req.user.userId) };
   }
 
+  @Get('detect-location')
+  @UseGuards(JwtAuthGuard)
+  @ApiOperation({ summary: 'Detect user location from IP address' })
+  @ApiResponse({ status: HttpStatus.OK, description: 'Location detected successfully', type: GeoLocationDto })
+  @ApiResponse({ status: HttpStatus.BAD_REQUEST, description: 'Failed to detect location' })
+  @ApiBearerAuth()
+  async detectLocation(@Request() req): Promise<GeoLocationDto> {
+    try {
+      const { location, language } = await this.geoLocationService.getLocationAndLanguage(req);
+      
+      return {
+        country: location.country,
+        countryCode: location.countryCode,
+        city: location.city,
+        region: location.region,
+        timezone: location.timezone,
+        language: language,
+        requiresConfirmation: true
+      };
+    } catch (error) {
+      this.logger.error(`Error detecting location: ${error.message}`, error.stack);
+      throw new BadRequestException('Failed to detect location');
+    }
+  }
+
+  @Get(':id')
+  @UseGuards(JwtAuthGuard)
+  @ApiOperation({ summary: 'Get a profile by ID' })
+  @ApiParam({ name: 'id', description: 'Profile ID' })
+  @ApiResponse({ status: HttpStatus.OK, description: 'Profile information retrieved', type: ProfileResponseDto })
+  @ApiResponse({ status: HttpStatus.NOT_FOUND, description: 'Profile not found' })
+  @ApiBearerAuth()
+  async findById(@Param('id') id: string) {
+    return this.profileService.findById(id);
+  }
+
   @Post('complete-later')
   @UseGuards(JwtAuthGuard)
   @ApiOperation({ summary: 'Mark profile as "complete later" for the authenticated user' })
@@ -197,7 +225,33 @@ export class ProfileController {
         throw new BadRequestException('User ID missing from authentication token');
       }
       
-      return await this.profileService.markCompleteLater(userId, completeLaterDto);
+      // If "complete later" is true, try to detect location and save it
+      let profileData = completeLaterDto;
+      if (completeLaterDto.completeLater) {
+        try {
+          // Try to detect location data
+          const { location, language } = await this.geoLocationService.getLocationAndLanguage(req);
+          
+          // Merge the detected data with complete later flag
+          profileData = {
+            ...completeLaterDto,
+            country: location.country,
+            city: location.city,
+            timezone: location.timezone,
+            language: language
+          };
+          
+          this.logger.log(`Auto-detected profile data for later completion: ${JSON.stringify({
+            country: location.country,
+            language,
+          })}`);
+        } catch (geoError) {
+          // Just log the error but continue with basic complete later
+          this.logger.error(`Failed to auto-detect location for complete-later: ${geoError.message}`);
+        }
+      }
+      
+      return await this.profileService.markCompleteLater(userId, profileData);
     } catch (error) {
       // Check specifically for field naming inconsistency errors
       if (error.response?.fieldNamingError) {
@@ -224,6 +278,32 @@ export class ProfileController {
       const userId = req.user.userId || req.user.id;
       if (!userId) {
         throw new BadRequestException('User ID missing from authentication token');
+      }
+      
+      // If country/language not provided, try to auto-detect
+      if (!updateProfileDto.country || !updateProfileDto.language) {
+        try {
+          const { location, language } = await this.geoLocationService.getLocationAndLanguage(req);
+          
+          // Add detected data only for fields that aren't already set
+          const enhancedProfileDto = {
+            ...updateProfileDto,
+            country: updateProfileDto.country || location.country,
+            city: updateProfileDto.city || location.city,
+            timezone: updateProfileDto.timezone || location.timezone,
+            language: updateProfileDto.language || language
+          };
+          
+          updateProfileDto = enhancedProfileDto;
+          
+          this.logger.log(`Enhanced profile data with auto-detected values: ${JSON.stringify({
+            country: updateProfileDto.country,
+            language: updateProfileDto.language
+          })}`);
+        } catch (geoError) {
+          this.logger.error(`Failed to auto-detect location for profile completion: ${geoError.message}`);
+          // Continue with original data if detection fails
+        }
       }
       
       // Check if profile exists before attempting to update

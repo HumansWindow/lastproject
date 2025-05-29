@@ -10,11 +10,11 @@ const isDevelopment = process.env.NODE_ENV === 'development';
 
 // Base URLs standardized to port 3001
 export const API_URL = isProduction 
-  ? process.env.NEXT_PUBLIC_API_URL || 'https://api.alivehuman.com'
+  ? process.env.NEXT_PUBLIC_API_URL ?? 'https://api.alivehuman.com'
   : 'http://localhost:3001'; // Always use port 3001 for development
 
 export const WEBSOCKET_URL = isProduction
-  ? process.env.NEXT_PUBLIC_WEBSOCKET_URL || 'wss://api.alivehuman.com'
+  ? process.env.NEXT_PUBLIC_WEBSOCKET_URL ?? 'wss://api.alivehuman.com'
   : 'ws://localhost:3001'; // Always use port 3001 for websocket too
 
 // Workaround for CORS - when testing, use same origin if we're already on localhost
@@ -22,12 +22,14 @@ export const getSafeApiUrl = () => {
   // In browser environment, check if we should use relative URLs to avoid CORS
   if (typeof window !== 'undefined') {
     const currentUrl = window.location.origin;
-    // If we're on localhost frontend and API is also localhost, use relative URL to avoid CORS
-    if (currentUrl.includes('localhost') && API_URL.includes('localhost')) {
-      return ''; // Use relative URL to current origin
+    
+    // If in development and running on localhost:3000, always use absolute URL with port 3001
+    if (isDevelopment && currentUrl.includes('localhost')) {
+      return API_URL; // Return full URL with port 3001
     }
-    // If the current URL matches the API domain, also use relative URLs
-    if (API_URL.includes(window.location.hostname)) {
+    
+    // If the current URL matches the API domain, use relative URLs
+    if (API_URL.includes(window.location.hostname) && !isDevelopment) {
       return '';
     }
   }
@@ -47,11 +49,11 @@ export const endpoints = {
     logout: `${getSafeApiUrl()}/auth/logout`,
   },
   
-  // Wallet auth endpoints
+  // Wallet auth endpoints - ensure these point to port 3001
   walletAuth: {
-    connect: `${getSafeApiUrl()}/auth/wallet/connect`,
-    authenticate: `${getSafeApiUrl()}/auth/wallet/authenticate`,
-    nonce: `${getSafeApiUrl()}/auth/wallet/nonce`,
+    connect: `${API_URL}/auth/wallet/connect`,
+    authenticate: `${API_URL}/auth/wallet/authenticate`,
+    nonce: `${API_URL}/auth/wallet/nonce`,
   },
   
   // User endpoints
@@ -186,9 +188,9 @@ export const websocket = {
 
 // API client configuration
 export const apiClientConfig = {
-  baseURL: getSafeApiUrl() || '/',
+  baseURL: API_URL,
   timeout: 15000, // 15 seconds
-  withCredentials: false, // Set to false to avoid CORS preflight issues
+  withCredentials: true, // Set to true to allow cookies to be sent to the API
   headers: {
     'Content-Type': 'application/json',
     'Accept': 'application/json',

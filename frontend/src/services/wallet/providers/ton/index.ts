@@ -1,7 +1,7 @@
 /**
  * Export TON wallet providers
  */
-import { TonKeeperProvider } from './tonkeeper';
+import { TonKeeperProvider } from "./tonkeeper";
 
 export {
   TonKeeperProvider

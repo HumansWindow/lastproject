@@ -32,17 +32,16 @@ export class MerkleService implements OnModuleInit {
    */
   async initializeFromDatabase() {
     try {
-      // Find all verified wallet addresses
-      const users = await this.userRepository.find({
-        select: ['walletAddress'],
-        where: { 
-          walletAddress: Not(IsNull()),
-          isVerified: true 
-        }
-      });
+      // Find all verified wallet addresses using proper SQL syntax
+      const users = await this.userRepository
+        .createQueryBuilder('user')
+        .select(['user.id', '"user"."wallet_address" AS wallet_address'])
+        .where('"user"."wallet_address" IS NOT NULL')
+        .andWhere('"user"."is_verified" = :isVerified', { isVerified: true })
+        .getRawMany();
 
       const walletAddresses = users
-        .map(user => user.walletAddress)
+        .map(user => user.wallet_address)  // Use the transformed alias
         .filter(Boolean) as string[];
 
       this.logger.log(`Initializing merkle tree with ${walletAddresses.length} wallet addresses from database`);

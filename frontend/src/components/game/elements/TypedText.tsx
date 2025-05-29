@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, createElement } from 'react';
 import gsap from 'gsap';
 
 export interface TypedTextProps {
@@ -81,15 +81,15 @@ const TypedText: React.FC<TypedTextProps> = ({
     };
   }, [text, speed, delay]);
   
-  // Dynamically create the element based on the tag prop
-  const Element = tag as keyof JSX.IntrinsicElements;
-  
-  return (
-    <Element 
-      ref={elementRef as React.RefObject<any>} 
-      className={`TypeStyle ${className}`}>
-      {/* Text will be inserted by the animation */}
-    </Element>
+  // Instead of using JSX with a dynamic tag, create the element with React.createElement
+  return createElement(
+    tag,
+    { 
+      ref: elementRef,
+      className: `TypeStyle ${className}`
+    },
+    // Children will be inserted by the animation
+    null
   );
 };
 

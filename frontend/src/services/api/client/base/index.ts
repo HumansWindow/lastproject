@@ -1,2 +1,2 @@
 // Base API client exports
-export { apiClient } from '../../api-client';
+export { apiClient } from "../../apiClient";

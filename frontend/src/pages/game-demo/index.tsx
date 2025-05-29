@@ -9,7 +9,7 @@ import {
   CardItem,
   TimelineItem,
   useGameSections
-} from '../../components/game';
+} from "../../components/game";
 
 const GameDemoPage: NextPage = () => {
   // Use our game sections hook instead of managing state manually

@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { Button, Container, Typography, Box } from '@mui/material';
+import { Button, Container, Typography, Box } from "@mui/material";
 import dynamic from 'next/dynamic';
-import { WebSocketStatusProps } from './WebSocketStatus';
+import { WebSocketStatusProps } from "./WebSocketStatus";
 
 // Fix dynamic import syntax
 const WebSocketStatus = dynamic<WebSocketStatusProps>(
@@ -11,7 +11,7 @@ const WebSocketStatus = dynamic<WebSocketStatusProps>(
 
 const WebSocketDemoContent: React.FC = () => {
   const [connected, setConnected] = useState<boolean>(false);
-  const [messages, setMessages] = useState<string[]>([]);
+  const [messages, setMessages] = useState<Array<{id: string; text: string}>>([]);
   const [socket, setSocket] = useState<WebSocket | null>(null);
 
   useEffect(() => {
@@ -22,26 +22,34 @@ const WebSocketDemoContent: React.FC = () => {
     };
   }, [socket]);
 
+  const addMessage = (text: string) => {
+    // Add a unique ID to each message using timestamp + random string
+    setMessages(prev => [...prev, {
+      id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      text
+    }]);
+  };
+
   const connectWebSocket = () => {
     const ws = new WebSocket('ws://localhost:8080/ws');
     
     ws.onopen = () => {
       setConnected(true);
-      setMessages(prev => [...prev, 'Connected to WebSocket server']);
+      addMessage('Connected to WebSocket server');
     };
 
     ws.onmessage = (event) => {
-      setMessages(prev => [...prev, `Received: ${event.data}`]);
+      addMessage(`Received: ${event.data}`);
     };
 
     ws.onclose = () => {
       setConnected(false);
-      setMessages(prev => [...prev, 'Disconnected from WebSocket server']);
+      addMessage('Disconnected from WebSocket server');
     };
 
     ws.onerror = (error) => {
       console.error('WebSocket error:', error);
-      setMessages(prev => [...prev, 'WebSocket error occurred']);
+      addMessage('WebSocket error occurred');
     };
 
     setSocket(ws);
@@ -58,7 +66,7 @@ const WebSocketDemoContent: React.FC = () => {
     if (socket && socket.readyState === WebSocket.OPEN) {
       const message = `Hello server! Time: ${new Date().toISOString()}`;
       socket.send(message);
-      setMessages(prev => [...prev, `Sent: ${message}`]);
+      addMessage(`Sent: ${message}`);
     }
   };
 
@@ -110,9 +118,9 @@ const WebSocketDemoContent: React.FC = () => {
         overflowY: 'auto',
         bgcolor: '#f5f5f5'
       }}>
-        {messages.map((message, index) => (
-          <Typography key={index} sx={{ mb: 1 }}>
-            {message}
+        {messages.map((message) => (
+          <Typography key={message.id} sx={{ mb: 1 }}>
+            {message.text}
           </Typography>
         ))}
       </Box>

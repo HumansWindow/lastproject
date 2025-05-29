@@ -1,8 +1,8 @@
 /**
  * Export Solana wallet providers
  */
-import { PhantomProvider } from './phantom';
-import { SolflareProvider } from './solflare';
+import { PhantomProvider } from "./phantom";
+import { SolflareProvider } from "./solflare";
 
 export {
   PhantomProvider,

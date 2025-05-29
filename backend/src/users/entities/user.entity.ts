@@ -26,18 +26,13 @@ export enum UserRole {
   MODERATOR = 'moderator',
 }
 
-@Entity('users')
+@Entity({ name: 'users' })
 export class User {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Column({ name: 'user_id', nullable: true })
-  userId?: string;
-
-  @ManyToOne(() => User, { nullable: true })
-  @JoinColumn({ name: 'user_id' })
-  user?: User;
-
+  // User relation was removed - it was causing the error with duplicate user_id field
+  
   // Email and password are now moved to Profile entity
   // Adding getters/setters for backward compatibility
   get email(): string | undefined {
@@ -73,10 +68,10 @@ export class User {
   @Column({ name: 'avatar_url', nullable: true })
   avatarUrl: string;
 
-  @Column({ default: true })
+  @Column({ default: true, name: 'is_active' })
   isActive: boolean;
 
-  @Column({ default: false })
+  @Column({ default: false, name: 'is_verified' })
   isVerified: boolean;
 
   @Column({ name: 'verification_token', nullable: true })
@@ -139,7 +134,7 @@ export class User {
   @OneToMany(() => RefreshToken, (token) => token.user)
   refreshTokens: RefreshToken[];
 
-  @Column({ nullable: true, unique: true })
+  @Column({ name: 'wallet_address', nullable: true, unique: true })
   @Index() // Add index for better query performance
   walletAddress?: string;
 

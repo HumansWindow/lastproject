@@ -1,6 +1,6 @@
 import React, { ReactNode } from 'react';
-import { useAuthDebug } from '../../hooks/useAuthDebug';
-import AuthDebugPanel from './AuthDebugPanel';
+import { useAuthDebug } from "../../hooks/useAuthDebug";
+import AuthDebugPanel from "./AuthDebugPanel";
 
 interface Props {
   children: ReactNode;

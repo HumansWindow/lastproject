@@ -70,6 +70,7 @@ const AnimatedImage: React.FC<AnimatedImageProps> = ({
     <div ref={imgRef} className={getWrapperClass()}>
       {isSvg ? (
         // For SVGs, use an img tag to allow animations to work properly
+        // eslint-disable-next-line @next/next/no-img-element
         <img
           src={src}
           alt={alt}

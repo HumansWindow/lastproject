@@ -66,11 +66,14 @@ export class UsersController {
   @ApiResponse({ status: 200, description: 'Return the user profile' })
   async getProfile(@Req() req: RequestWithUser) {
     try {
-      const user = await this.usersService.findOne(req.user.id);
-      // No need to manually exclude password as it's now in the Profile entity
-      return user;
+      return await this.usersService.findOne(req.user.id);
     } catch (error) {
-      throw new NotFoundException('User profile not found');
+      // Properly handle the error by checking its type and providing useful information
+      if (error?.message?.includes('not found')) {
+        throw new NotFoundException(`User profile with ID ${req.user.id} not found`);
+      }
+      // Re-throw the original error to preserve the stack trace and error information
+      throw error;
     }
   }
 

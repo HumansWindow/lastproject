@@ -25,6 +25,6 @@ export class ContentVersionEntity {
   @Column({ type: 'int', default: 1 })
   versionNumber: number;
 
-  @CreateDateColumn()
+  @CreateDateColumn({ name: "created_at" })
   createdAt: Date;
 }

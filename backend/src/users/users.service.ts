@@ -157,6 +157,20 @@ export class UsersService {
    * @param walletAddress The wallet address to search for
    * @returns The user if found, or null
    */
+  
+  /**
+   * Find a user by wallet address
+   * @param walletAddress The wallet address to search for
+   * @returns The user if found, null otherwise
+   * @deprecated Use findByWalletAddress instead with property name (not DB column)
+   */
+  
+  /**
+   * Find a user by wallet address
+   * @param walletAddress The wallet address to search for
+   * @returns The user if found, null otherwise
+   * @deprecated Use findByWalletAddress instead with property name (not DB column)
+   */
   async findByWalletAddress(walletAddress: string): Promise<User | null> {
     this.logger.log(`Looking up user by wallet address: ${walletAddress}`);
     
@@ -168,7 +182,7 @@ export class UsersService {
       // Use a simpler query that doesn't rely on all columns
       const user = await this.userRepository
         .createQueryBuilder('user')
-        .where('LOWER(user.walletAddress) = LOWER(:address)', { address: normalizedAddress })
+        .where('LOWER(user.wallet_address) = LOWER(:address)', { address: normalizedAddress })
         .getOne();
       
       if (user) {

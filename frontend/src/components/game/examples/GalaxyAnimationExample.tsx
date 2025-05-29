@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { useGalaxyAnimation } from '../../../animations/galaxy';
+import Image from 'next/image';
+import { useGalaxyAnimation } from "../../../animations/galaxy";
 
 /**
  * Example component demonstrating the use of Galaxy animation
@@ -58,7 +59,7 @@ const GalaxyAnimationExample: React.FC = () => {
               </div>
               <div className="col-md-6 right-content">
                 <div className="image-container">
-                  <img src="/images/planet.svg" alt="Planet" />
+                  <Image src="/images/planet.svg" alt="Planet" width={500} height={500} />
                 </div>
               </div>
             </div>
@@ -87,7 +88,7 @@ const GalaxyAnimationExample: React.FC = () => {
               </div>
               <div className="col-md-6 right-content">
                 <div className="image-container">
-                  <img src="/images/galaxy.svg" alt="Galaxy" />
+                  <Image src="/images/galaxy.svg" alt="Galaxy" width={500} height={500} />
                 </div>
               </div>
             </div>

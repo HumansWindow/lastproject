@@ -1,0 +1,20 @@
+                             Table "public.referral_codes"
+   Column    |            Type             | Collation | Nullable |      Default       
+-------------+-----------------------------+-----------+----------+--------------------
+ id          | uuid                        |           | not null | uuid_generate_v4()
+ user_id     | uuid                        |           |          | 
+ code        | character varying(50)       |           |          | 
+ is_active   | boolean                     |           |          | true
+ usage_limit | integer                     |           |          | 10
+ used_count  | integer                     |           |          | 0
+ expires_at  | timestamp without time zone |           |          | 
+ created_at  | timestamp without time zone |           |          | CURRENT_TIMESTAMP
+Indexes:
+    "referral_codes_pkey" PRIMARY KEY, btree (id)
+    "referral_codes_code_key" UNIQUE CONSTRAINT, btree (code)
+Foreign-key constraints:
+    "fk_referral_codes_users" FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    "referral_codes_user_id_fkey" FOREIGN KEY (user_id) REFERENCES users(id)
+Referenced by:
+    TABLE "referrals" CONSTRAINT "referrals_referral_code_id_fkey" FOREIGN KEY (referral_code_id) REFERENCES referral_codes(id)
+

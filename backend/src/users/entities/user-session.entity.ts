@@ -4,12 +4,13 @@ import {
   PrimaryGeneratedColumn, 
   CreateDateColumn,
   ManyToOne,
-  JoinColumn
+  JoinColumn,
+  UpdateDateColumn
 } from 'typeorm';
 import { User } from './user.entity';
 import { UserDevice } from './user-device.entity';
 
-@Entity('user_sessions')
+@Entity({ name: 'user_sessions' })
 export class UserSession {
   @PrimaryGeneratedColumn('uuid')
   id: string;
@@ -17,16 +18,19 @@ export class UserSession {
   @Column({ name: 'user_id' })
   userId: string;
 
-  // Add explicit column for userId to handle dual-column schema requirement
-  @Column({ name: 'userId', nullable: false })
-  userIdDirect: string;
+  // Removed problematic field userIdDirect that was causing column error
 
   @ManyToOne(() => User, user => user.sessions, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'user_id' })
   user: User;
 
-  @Column({ name: 'device_id', length: 255, nullable: true })
+  @Column({ name: 'device_id', nullable: true })
   deviceId: string;
+
+  // Add relationship with UserDevice entity
+  @ManyToOne(() => UserDevice)
+  @JoinColumn({ name: 'device_id', referencedColumnName: 'id' })
+  device: UserDevice;
 
   @Column({ length: 500, nullable: true })
   token: string;
@@ -43,7 +47,7 @@ export class UserSession {
   @Column({ name: 'is_active', default: true })
   isActive: boolean;
 
-  @Column({ name: 'endedAt', type: 'timestamp', nullable: true })
+  @Column({ name: 'ended_at', type: 'timestamp', nullable: true })
   endedAt: Date;
 
   @Column({ type: 'int', nullable: true })

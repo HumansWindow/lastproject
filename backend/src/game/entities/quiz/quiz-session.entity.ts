@@ -25,6 +25,8 @@ export class QuizSession {
   quiz: Quiz;
 
   @Column({ type: 'uuid' })
+  @Column({ name: 'user_id' })
+
   userId: string;
 
   @Column({ type: 'enum', enum: QuizSessionStatus, default: QuizSessionStatus.STARTED })
@@ -69,9 +71,9 @@ export class QuizSession {
   @OneToMany(() => UserQuizResponse, response => response.quizSession)
   responses: UserQuizResponse[];
 
-  @CreateDateColumn()
+  @CreateDateColumn({ name: "created_at" })
   createdAt: Date;
 
-  @UpdateDateColumn()
+  @UpdateDateColumn({ name: "updated_at" })
   updatedAt: Date;
 }

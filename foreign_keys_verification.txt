@@ -1,0 +1,16 @@
+ table_schema |       constraint_name        |   table_name   | column_name | foreign_table_name | foreign_column_name 
+--------------+------------------------------+----------------+-------------+--------------------+---------------------
+ public       | fk_profiles_users            | profiles       | user_id     | users              | id
+ public       | profiles_user_id_fkey        | profiles       | user_id     | users              | id
+ public       | fk_referral_codes_users      | referral_codes | user_id     | users              | id
+ public       | referral_codes_user_id_fkey  | referral_codes | user_id     | users              | id
+ public       | fk_user_devices_users        | user_devices   | user_id     | users              | id
+ public       | user_devices_user_id_fkey1   | user_devices   | user_id     | users              | id
+ public       | fk_user_sessions_devices     | user_sessions  | device_id   | user_devices       | id
+ public       | fk_user_sessions_users       | user_sessions  | user_id     | users              | id
+ public       | fk_user_sessions_user_id     | user_sessions  | user_id     | users              | id
+ public       | user_sessions_wallet_id_fkey | user_sessions  | wallet_id   | wallets            | id
+ public       | wallets_user_id_fkey         | wallets        | user_id     | users              | id
+ public       | fk_wallets_users             | wallets        | user_id     | users              | id
+(12 rows)
+

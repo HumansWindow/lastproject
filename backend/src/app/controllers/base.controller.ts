@@ -1,5 +1,6 @@
 import { Controller, Get, Post, Body, Logger, HttpException, HttpStatus } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
+import { SkipSessionCheck } from '../../auth/decorators/skip-session-check.decorator';
 
 @ApiTags('base')
 @Controller()
@@ -7,6 +8,7 @@ export class BaseController {
   private readonly logger = new Logger(BaseController.name);
 
   @Get()
+  @SkipSessionCheck()
   @ApiOperation({ summary: 'Health check endpoint' })
   @ApiResponse({ status: 200, description: 'API is running' })
   healthCheck() {
@@ -19,6 +21,7 @@ export class BaseController {
   }
 
   @Get('health')
+  @SkipSessionCheck()
   @ApiOperation({ summary: 'Health check endpoint for monitoring' })
   @ApiResponse({ status: 200, description: 'API is running' })
   healthMonitoring() {
@@ -32,6 +35,7 @@ export class BaseController {
   }
 
   @Get('auth/wallet/health')
+  @SkipSessionCheck()
   @ApiOperation({ summary: 'Wallet authentication health check' })
   @ApiResponse({ status: 200, description: 'Wallet authentication system is available' })
   walletAuthHealth() {

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { AuthDebugger } from '../utils/auth-debugger';
+import { AuthDebugger } from "../utils/authDebugger";
 
 /**
  * Hook to use auth debugger in React components

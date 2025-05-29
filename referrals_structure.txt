@@ -1,0 +1,15 @@
+                                           Table "public.referrals"
+      Column      |            Type             | Collation | Nullable |                Default                
+------------------+-----------------------------+-----------+----------+---------------------------------------
+ id               | integer                     |           | not null | nextval('referrals_id_seq'::regclass)
+ referrer_id      | integer                     |           |          | 
+ referred_id      | integer                     |           |          | 
+ referral_code_id | integer                     |           |          | 
+ reward_claimed   | boolean                     |           |          | false
+ created_at       | timestamp without time zone |           |          | CURRENT_TIMESTAMP
+Indexes:
+    "referrals_pkey" PRIMARY KEY, btree (id)
+    "referrals_referred_id_key" UNIQUE CONSTRAINT, btree (referred_id)
+Foreign-key constraints:
+    "referrals_referral_code_id_fkey" FOREIGN KEY (referral_code_id) REFERENCES referral_codes(id)
+

@@ -1,0 +1,24 @@
+                      List of relations
+ Schema |             Name              | Type  |   Owner    
+--------+-------------------------------+-------+------------
+ public | backup_referral_codes         | table | Aliveadmin
+ public | backup_referrals              | table | Aliveadmin
+ public | diaries                       | table | postgres
+ public | migrations                    | table | postgres
+ public | minting_queue_items           | table | Aliveadmin
+ public | nft_collections               | table | postgres
+ public | nfts                          | table | postgres
+ public | profiles                      | table | Aliveadmin
+ public | referral_codes                | table | Aliveadmin
+ public | referrals                     | table | Aliveadmin
+ public | refresh_tokens                | table | Aliveadmin
+ public | refresh_tokens_backup         | table | Aliveadmin
+ public | user_devices                  | table | Aliveadmin
+ public | user_sessions                 | table | Aliveadmin
+ public | user_sessions_orphaned_backup | table | Aliveadmin
+ public | users                         | table | Aliveadmin
+ public | wallet_challenges             | table | Aliveadmin
+ public | wallet_nonces                 | table | Aliveadmin
+ public | wallets                       | table | Aliveadmin
+(19 rows)
+

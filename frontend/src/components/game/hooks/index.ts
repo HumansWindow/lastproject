@@ -1,1 +1,1 @@
-export { default as useGameSections } from './useGameSections';
+export { default as useGameSections } from "./useGameSections";

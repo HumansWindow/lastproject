@@ -1,11 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import { NextPage } from 'next';
-import Layout from '../../../components/layout/Layout';
-import DiaryForm from '../../../components/diary/DiaryForm';
+import Layout from "../../../components/layout/Layout";
+import DiaryForm from "../../../components/diary/DiaryForm";
 import { useRouter } from 'next/router';
-import { diaryService } from '../../../services/api/modules/diary';
-import { Diary } from '../../../types/diary';
-import { ExtendedDiary } from '../../../types/diary-extended';
+import { diaryService } from "../../../services/api/modules/diary";
+import { Diary } from "../../../types/diary";
+import { ExtendedDiary } from "../../../types/diaryExtended";
 import Link from 'next/link';
 
 const EditDiaryPage: NextPage = () => {

@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { realtimeService } from '../services/realtime';
-import { NotificationEvent } from '../types/api-types';
-import WebSocketStatus from './WebSocketStatus';
+import { realtimeService } from "../services/realtime/index";
+import { NotificationEvent } from "../types/apiTypes";
+import WebSocketStatus from "./WebSocketStatus";
 
 interface NotificationsPanelProps {
   maxNotifications?: number;

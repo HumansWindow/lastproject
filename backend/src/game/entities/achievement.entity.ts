@@ -5,20 +5,16 @@ export class Achievement {
   @PrimaryGeneratedColumn('uuid')
   id: string;
   
-  @Column()
-  name: string;
+  @Column({ name: 'name' })name: string;
   
-  @Column()
-  description: string;
+  @Column({ name: 'description' })description: string;
   
   @Column({ name: 'image_url' })
   imageUrl: string;
   
-  @Column()
-  points: number;
+  @Column({ name: 'points' })points: number;
   
-  @Column()
-  requirements: string;
+  @Column({ name: 'requirements' })requirements: string;
   
   @Column({ name: 'is_active', default: true })
   isActive: boolean;

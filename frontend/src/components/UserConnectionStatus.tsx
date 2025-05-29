@@ -1,5 +1,5 @@
 import React from 'react';
-import useUserConnection from '../hooks/useUserConnection';
+import useUserConnection from "../hooks/useUserConnection";
 import '../styles/components/UserConnectionStatus.css';
 
 interface UserConnectionStatusProps {

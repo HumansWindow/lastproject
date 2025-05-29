@@ -1,15 +1,32 @@
-import { realtimeService } from '../../realtime';
-import type { 
+import { realtimeService as globalRealtimeService, 
+  ConnectionStatus,
   NftTransferEvent, 
   BalanceUpdateEvent, 
-  NotificationEvent 
-} from '../../realtime';
+  NotificationEvent,
+  TokenPriceEvent,
+  StakingUpdateEvent,
+  WebSocketError,
+  MessageHandler,
+  ErrorHandler
+} from "../../realtime";
 
-// Re-export the realtime service and types
-export { realtimeService };
-export type { NftTransferEvent, BalanceUpdateEvent, NotificationEvent };
+// Re-export the types but not the service to avoid conflicts
+export type { 
+  NftTransferEvent, 
+  BalanceUpdateEvent, 
+  NotificationEvent,
+  TokenPriceEvent,
+  StakingUpdateEvent,
+  WebSocketError,
+  ConnectionStatus,
+  MessageHandler,
+  ErrorHandler
+};
 
 // Add any API-specific realtime methods here if needed
 export const initializeRealtimeApi = (token: string): void => {
-  realtimeService.setToken(token);
+  globalRealtimeService.setToken(token);
 };
+
+// Export functions that use the global realtimeService
+export const realtimeApi = globalRealtimeService;

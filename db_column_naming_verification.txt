@@ -1,0 +1,127 @@
+    table_name     |      column_name       |          data_type          
+-------------------+------------------------+-----------------------------
+ profiles          | address                | character varying
+ profiles          | avatar_url             | character varying
+ profiles          | bio                    | text
+ profiles          | city                   | character varying
+ profiles          | complete_later         | boolean
+ profiles          | country                | character varying
+ profiles          | created_at             | timestamp with time zone
+ profiles          | date_format            | character varying
+ profiles          | display_name           | character varying
+ profiles          | email                  | character varying
+ profiles          | email_notifications    | boolean
+ profiles          | first_name             | character varying
+ profiles          | id                     | uuid
+ profiles          | instagram_handle       | character varying
+ profiles          | language               | character varying
+ profiles          | last_location_update   | timestamp without time zone
+ profiles          | last_name              | character varying
+ profiles          | latitude               | numeric
+ profiles          | linkedin_profile       | character varying
+ profiles          | location_visibility    | character varying
+ profiles          | longitude              | numeric
+ profiles          | password               | character varying
+ profiles          | phone_number           | character varying
+ profiles          | postal_code            | character varying
+ profiles          | profile_visibility     | character varying
+ profiles          | push_notifications     | boolean
+ profiles          | state                  | character varying
+ profiles          | telegram_handle        | character varying
+ profiles          | time_format            | character varying
+ profiles          | timezone               | character varying
+ profiles          | twitter_handle         | character varying
+ profiles          | unique_id              | character varying
+ profiles          | updated_at             | timestamp with time zone
+ profiles          | user_id                | uuid
+ profiles          | visibility_level       | character varying
+ profiles          | website                | character varying
+ referral_codes    | code                   | character varying
+ referral_codes    | created_at             | timestamp without time zone
+ referral_codes    | expires_at             | timestamp without time zone
+ referral_codes    | id                     | integer
+ referral_codes    | is_active              | boolean
+ referral_codes    | usage_limit            | integer
+ referral_codes    | used_count             | integer
+ referral_codes    | user_id                | integer
+ user_devices      | brand                  | text
+ user_devices      | browser                | character varying
+ user_devices      | browser_version        | text
+ user_devices      | created_at             | timestamp without time zone
+ user_devices      | device_id              | text
+ user_devices      | device_type            | text
+ user_devices      | first_seen             | timestamp with time zone
+ user_devices      | id                     | uuid
+ user_devices      | is_active              | boolean
+ user_devices      | is_approved            | boolean
+ user_devices      | last_ip_address        | text
+ user_devices      | last_seen              | timestamp with time zone
+ user_devices      | last_seen_at           | timestamp with time zone
+ user_devices      | last_used_at           | timestamp with time zone
+ user_devices      | model                  | text
+ user_devices      | name                   | character varying
+ user_devices      | os                     | text
+ user_devices      | os_name                | character varying
+ user_devices      | os_version             | text
+ user_devices      | platform               | character varying
+ user_devices      | updated_at             | timestamp without time zone
+ user_devices      | user_agent             | text
+ user_devices      | user_id                | uuid
+ user_devices      | visit_count            | integer
+ user_devices      | wallet_addresses       | text
+ user_sessions     | created_at             | timestamp without time zone
+ user_sessions     | device_id              | uuid
+ user_sessions     | duration               | integer
+ user_sessions     | ended_at               | timestamp with time zone
+ user_sessions     | expires_at             | timestamp with time zone
+ user_sessions     | id                     | uuid
+ user_sessions     | ip_address             | text
+ user_sessions     | is_active              | boolean
+ user_sessions     | token                  | character varying
+ user_sessions     | user_agent             | text
+ user_sessions     | user_id                | uuid
+ user_sessions     | wallet_id              | uuid
+ users             | avatar_url             | character varying
+ users             | created_at             | timestamp with time zone
+ users             | email                  | character varying
+ users             | first_name             | character varying
+ users             | has_expired_tokens     | boolean
+ users             | id                     | uuid
+ users             | is_active              | boolean
+ users             | is_admin               | boolean
+ users             | is_verified            | boolean
+ users             | last_login_at          | timestamp without time zone
+ users             | last_login_ip          | character varying
+ users             | last_mint_date         | timestamp with time zone
+ users             | last_name              | character varying
+ users             | minted_amount          | numeric
+ users             | password               | character varying
+ users             | referral_code          | character varying
+ users             | referral_tier          | integer
+ users             | referred_by_id         | uuid
+ users             | referrer_id            | uuid
+ users             | reset_password_expires | timestamp without time zone
+ users             | reset_password_token   | character varying
+ users             | role                   | character varying
+ users             | token_expiry_date      | timestamp with time zone
+ users             | updated_at             | timestamp with time zone
+ users             | username               | character varying
+ users             | verification_token     | character varying
+ users             | wallet_address         | character varying
+ wallet_challenges | challenge              | text
+ wallet_challenges | challenge_text         | text
+ wallet_challenges | created_at             | timestamp with time zone
+ wallet_challenges | expires_at             | timestamp with time zone
+ wallet_challenges | id                     | uuid
+ wallet_challenges | is_used                | boolean
+ wallet_challenges | wallet_address         | character varying
+ wallets           | address                | character varying
+ wallets           | chain                  | character varying
+ wallets           | created_at             | timestamp with time zone
+ wallets           | id                     | uuid
+ wallets           | is_active              | boolean
+ wallets           | private_key            | character varying
+ wallets           | updated_at             | timestamp with time zone
+ wallets           | user_id                | uuid
+(123 rows)
+

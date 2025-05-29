@@ -2,9 +2,9 @@ import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn, UpdateDateCol
 import { GameModule } from './game-module.entity';
 import { GameSection } from './game-section.entity';
 import { User } from '../../users/entities/user.entity';
-import { ProgressStatus } from '../interfaces/progress-status.interface';
+import { ModuleProgressStatus, CompatibleProgressStatus } from '../interfaces/progress-status.interface';
 
-@Entity('user_progress')
+@Entity({ name: 'user_progress' })
 export class UserProgress {
   @PrimaryGeneratedColumn('uuid')
   id: string;
@@ -36,8 +36,13 @@ export class UserProgress {
   @Column({ name: 'is_completed', default: false })
   isCompleted: boolean;
 
-  @Column({ name: 'status', default: 'not_started' })
-  status: ProgressStatus;
+  @Column({ 
+    name: 'status', 
+    type: 'enum', 
+    enum: ModuleProgressStatus,
+    default: ModuleProgressStatus.NOT_STARTED
+  })
+  status: CompatibleProgressStatus;
 
   @Column({ name: 'started_at', nullable: true })
   startedAt: Date;

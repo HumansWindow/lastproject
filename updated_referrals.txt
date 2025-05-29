@@ -1,0 +1,16 @@
+                                  Table "public.referrals"
+      Column      |            Type             | Collation | Nullable |      Default       
+------------------+-----------------------------+-----------+----------+--------------------
+ id               | uuid                        |           | not null | uuid_generate_v4()
+ referrer_id      | uuid                        |           |          | 
+ referred_id      | uuid                        |           |          | 
+ referral_code_id | uuid                        |           |          | 
+ reward_claimed   | boolean                     |           |          | false
+ created_at       | timestamp without time zone |           |          | CURRENT_TIMESTAMP
+Indexes:
+    "referrals_pkey" PRIMARY KEY, btree (id)
+Foreign-key constraints:
+    "referrals_referral_code_id_fkey" FOREIGN KEY (referral_code_id) REFERENCES referral_codes(id)
+    "referrals_referred_id_fkey" FOREIGN KEY (referred_id) REFERENCES users(id)
+    "referrals_referrer_id_fkey" FOREIGN KEY (referrer_id) REFERENCES users(id)
+

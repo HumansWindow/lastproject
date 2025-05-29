@@ -12,18 +12,18 @@ import {
   TransactionStatus
 } from '../dto/reward.dto';
 import { ConfigService } from '@nestjs/config';
+import { RewardTransactionRepository } from '../repositories/reward-transaction.repository';
+import { GameModuleRepository } from '../repositories/game-module.repository';
+import { UserQuizResponseRepository } from '../repositories/quiz/user-quiz-response.repository';
 
 @Injectable()
 export class RewardsService {
   private readonly logger = new Logger(RewardsService.name);
 
   constructor(
-    @InjectRepository(RewardTransaction)
-    private readonly rewardTransactionRepository: Repository<RewardTransaction>,
-    @InjectRepository(GameModule)
-    private readonly gameModuleRepository: Repository<GameModule>,
-    @InjectRepository(UserQuizResponse)
-    private readonly userQuizResponseRepository: Repository<UserQuizResponse>,
+    private readonly rewardTransactionRepository: RewardTransactionRepository,
+    private readonly gameModuleRepository: GameModuleRepository,
+    private readonly userQuizResponseRepository: UserQuizResponseRepository,
     private readonly configService: ConfigService
   ) {}
 
@@ -112,15 +112,13 @@ export class RewardsService {
       return this.mapToDto(existingTransaction);
     }
     
-    // Create new transaction record
-    const transaction = this.rewardTransactionRepository.create({
+    // Create and save new transaction record
+    const savedTransaction = await this.rewardTransactionRepository.createAndSave({
       userId: userId,
       moduleId: moduleId,
       amount: parseFloat(calculation.totalAmount),
       status: 'pending'
     });
-    
-    const savedTransaction = await this.rewardTransactionRepository.save(transaction);
     return this.mapToDto(savedTransaction);
   }
 

@@ -41,6 +41,30 @@ frontend/
     │   │   ├── WalletSelector.module.css # Wallet selector styles
     │   │   ├── WalletSelector.tsx        # Wallet selector component
     │   │   └── WalletSelectorModal.tsx   # Wallet selector modal
+    │   ├── common/                  # Common components
+    │   │   └── ModalPortal.tsx           # Modal portal for React portals
+    │   ├── game/                    # Game-related components
+    │   │   ├── elements/                 # Game UI elements
+    │   │   │   ├── AnimatedImage.tsx     # Animated image component
+    │   │   │   ├── index.ts              # Elements barrel exports
+    │   │   │   ├── NavigationButton.tsx  # Navigation button component
+    │   │   │   └── TypedText.tsx         # Typed text animation component
+    │   │   ├── examples/                 # Example game components
+    │   │   │   └── GalaxyAnimationExample.tsx # Galaxy animation example
+    │   │   ├── hooks/                    # Game-specific hooks
+    │   │   │   ├── index.ts              # Hooks barrel exports
+    │   │   │   └── useGameSections.ts    # Hook for game sections
+    │   │   ├── sections/                 # Game section components
+    │   │   │   ├── BaseSection.tsx       # Base section component
+    │   │   │   ├── CardCarouselSection.tsx # Card carousel section
+    │   │   │   ├── index.ts              # Sections barrel exports
+    │   │   │   ├── TextImageSection.tsx  # Text and image section
+    │   │   │   └── TimelineSection.tsx   # Timeline section component
+    │   │   ├── GameNotificationBell.tsx  # Game notification bell
+    │   │   ├── GameNotificationIcon.tsx  # Game notification icon
+    │   │   ├── GameNotificationPanel.tsx # Game notification panel
+    │   │   └── index.ts                  # Game components barrel exports
+    │   ├── LocationDetector.tsx     # Location detector component
     │   ├── NFTTransferMonitor.tsx   # NFT transfer monitoring component
     │   ├── NotificationBell.tsx     # Notification bell component
     │   ├── NotificationsPanel.tsx   # Notifications panel component
@@ -56,10 +80,9 @@ frontend/
     ├── config/                      # Configuration files
     │   └── api.config.ts            # API configuration
     ├── contexts/                    # React contexts
-    │   ├── auth.tsx                 # Authentication context
-    │   ├── wallet.tsx               # Wallet context
-    │   ├── WebSocketContext.tsx     # WebSocket context
-    │   └── websocket.tsx            # WebSocket context implementation
+    │   ├── AuthProvider.tsx          # Authentication context provider
+    │   ├── WalletProvider.tsx        # Wallet context provider
+    │   └── WebSocketProvider.tsx     # WebSocket context provider
     ├── hooks/                       # Custom React hooks
     │   ├── useAuthDebug.ts          # Authentication debug hook
     │   ├── useObservable.ts         # Observable hook
@@ -137,14 +160,14 @@ frontend/
     │   ├── realtime/               # Realtime services
     │   │   ├── config.ts           # Realtime configuration
     │   │   ├── events/             # Realtime events
-    │   │   │   ├── event-bus.ts    # Realtime event bus
+    │   │   │   ├── eventBus.ts     # Realtime event bus
     │   │   │   └── index.ts        # Event exports
     │   │   ├── index.ts            # Realtime exports
     │   │   └── websocket/          # WebSocket implementation
     │   │       ├── index.ts        # WebSocket exports
-    │   │       ├── realtime-service-interface.ts # Realtime service interface
-    │   │       ├── realtime-service.ts # Realtime service implementation
-    │   │       └── websocket-manager.ts # WebSocket manager
+    │   │       ├── realtimeServiceInterface.ts # Realtime service interface
+    │   │       ├── realtimeService.ts # Realtime service implementation
+    │   │       └── websocketManager.ts # WebSocket manager
     │   ├── realtime.ts            # Main realtime service
     │   ├── security/              # Security services
     │   │   ├── encryption/         # Encryption services

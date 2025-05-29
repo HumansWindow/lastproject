@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, SelectQueryBuilder } from 'typeorm';
 import { UserQuizResponse } from '../../entities/quiz/user-quiz-response.entity';
 
 @Injectable()
@@ -157,5 +157,12 @@ export class UserQuizResponseRepository {
       averageTimeSpent,
       optionDistribution: Object.keys(optionDistribution).length > 0 ? optionDistribution : undefined,
     };
+  }
+  
+  /**
+   * Create a query builder for UserQuizResponse
+   */
+  createQueryBuilder(alias: string): SelectQueryBuilder<UserQuizResponse> {
+    return this.responseRepository.createQueryBuilder(alias);
   }
 }

@@ -2,7 +2,7 @@ import { Entity, Column, PrimaryGeneratedColumn, ManyToOne, JoinColumn } from 't
 import { Achievement } from './achievement.entity';
 import { User } from '../../users/entities/user.entity';
 
-@Entity('user_achievements')
+@Entity({ name: 'user_achievements' })
 export class UserAchievement {
   @PrimaryGeneratedColumn('uuid')
   id: string;

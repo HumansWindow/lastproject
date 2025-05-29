@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { realtimeService } from '../services/realtime';
-import { ConnectionStatus, WebSocketError } from '../types/realtime-types';
-import WebSocketStatus from '../components/WebSocketStatus';
-import NotificationsPanel from '../components/NotificationsPanel';
-import WalletBalanceMonitor from '../components/WalletBalanceMonitor';
-import NFTTransferMonitor from '../components/NFTTransferMonitor';
+import { realtimeService } from "../services/realtime/index";
+import { ConnectionStatus, WebSocketError } from "../types/realtimeTypes";
+import WebSocketStatus from "../components/WebSocketStatus";
+import NotificationsPanel from "../components/NotificationsPanel";
+import WalletBalanceMonitor from "../components/WalletBalanceMonitor";
+import NFTTransferMonitor from "../components/NFTTransferMonitor";
 import { Alert, Badge, Form } from 'react-bootstrap';
 
 const RealTimeDemo: React.FC = () => {

@@ -1,9 +1,9 @@
 import React from 'react';
 import Link from 'next/link';
 import { useTranslation } from 'next-i18next';
-import { useAuth } from '@/contexts/auth';
-import { WalletConnectButton } from '../WalletConnectButton';
-import ThemeToggle from '../ThemeToggle';
+import { useAuth } from "@/contexts/AuthProvider";
+import { WalletConnectButton } from "../WalletConnectButton";
+import ThemeToggle from "../ThemeToggle";
 
 const Navbar: React.FC = () => {
   const { t } = useTranslation('common');

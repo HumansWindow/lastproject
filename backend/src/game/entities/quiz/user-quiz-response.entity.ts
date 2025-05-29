@@ -10,7 +10,7 @@ import {
 import { QuizQuestion } from './quiz-question.entity';
 import { QuizSession } from './quiz-session.entity';
 
-@Entity('user_quiz_responses')
+@Entity({ name: 'user_quiz_responses' })
 export class UserQuizResponse {
   @PrimaryGeneratedColumn('uuid')
   id: string;
@@ -53,9 +53,9 @@ export class UserQuizResponse {
   @Column({ type: 'jsonb', nullable: true })
   metadata: Record<string, any>; // Additional data about the response
 
-  @CreateDateColumn()
+  @CreateDateColumn({ name: "created_at" })
   createdAt: Date;
 
-  @UpdateDateColumn()
+  @UpdateDateColumn({ name: "updated_at" })
   updatedAt: Date;
 }

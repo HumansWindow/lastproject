@@ -1,6 +1,7 @@
 #!/bin/bash
 
 # Script to clean user data and logs for testing registration and minting processes
+# Modified to preserve the admin user with username '1AliveGod' and wallet authentication data
 
 # Get the absolute path to the current directory
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -8,6 +9,7 @@ SQL_FILE="${SCRIPT_DIR}/clean-user-data.sql"
 
 echo "========================================================"
 echo "Starting database and logs cleaning process for testing"
+echo "Preserving admin user with username '1AliveGod' and wallet auth data"
 echo "========================================================"
 
 # Database connection parameters - update with your actual credentials
@@ -35,11 +37,45 @@ done
 echo "Creating/updating SQL file for database cleaning..."
 cat > "$SQL_FILE" <<EOF
 -- SQL to clean all user-related tables and minting data
--- This script will safely handle nonexistent tables and preserve foreign key constraints
+-- This script will preserve the admin user with username '1AliveGod' and wallet authentication data
 
 -- Start transaction and temporarily disable triggers
 BEGIN;
 SET session_replication_role = 'replica';
+
+-- Backup the admin user (username = '1AliveGod') to a temporary table
+CREATE TEMP TABLE admin_backup AS 
+SELECT * FROM users WHERE username = '1AliveGod';
+
+-- Also backup related records for the admin user
+-- Backup related wallets
+CREATE TEMP TABLE admin_wallets_backup AS 
+SELECT w.* FROM wallets w
+JOIN admin_backup a ON w.user_id = a.id;
+
+-- Backup related user_devices if table exists
+DO \$\$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'user_devices') THEN
+        EXECUTE 'CREATE TEMP TABLE admin_devices_backup AS 
+                 SELECT ud.* FROM user_devices ud
+                 JOIN admin_backup a ON ud.user_id = a.id';
+    END IF;
+END \$\$;
+
+-- Backup wallet authentication related records before cleaning
+CREATE TEMP TABLE wallet_auth_data_backup AS
+SELECT * FROM user_devices WHERE wallet_addresses IS NOT NULL AND wallet_addresses != '[]';
+
+-- Backup related profiles if table exists
+DO \$\$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'profiles') THEN
+        EXECUTE 'CREATE TEMP TABLE admin_profiles_backup AS 
+                 SELECT p.* FROM profiles p
+                 JOIN admin_backup a ON p.user_id = a.id';
+    END IF;
+END \$\$;
 
 -- Clean tables without using the DO block that was causing issues
 -- Instead use individual commands with transaction protection
@@ -68,18 +104,52 @@ BEGIN
     END IF;
 END \$\$;
 
+-- Restore the admin user from backup
+INSERT INTO public.users SELECT * FROM admin_backup;
+
+-- Restore admin's wallets
+INSERT INTO public.wallets SELECT * FROM admin_wallets_backup;
+
+-- Restore admin's devices if table exists
+DO \$\$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'user_devices') THEN
+        IF EXISTS (SELECT 1 FROM pg_tables WHERE tablename = 'admin_devices_backup') THEN
+            EXECUTE 'INSERT INTO public.user_devices SELECT * FROM admin_devices_backup';
+        END IF;
+    END IF;
+END \$\$;
+
+-- Restore wallet authentication data if exists
+DO \$\$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'user_devices') THEN
+        IF EXISTS (SELECT 1 FROM pg_tables WHERE tablename = 'wallet_auth_data_backup') THEN
+            EXECUTE 'INSERT INTO public.user_devices SELECT * FROM wallet_auth_data_backup 
+                    ON CONFLICT (id) DO NOTHING';
+            
+            -- Output the count of restored wallet authentication records
+            RAISE NOTICE 'Restored % wallet authentication records', 
+                (SELECT COUNT(*) FROM wallet_auth_data_backup);
+        END IF;
+    END IF;
+END \$\$;
+
+-- Restore admin's profile if table exists
+DO \$\$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'profiles') THEN
+        IF EXISTS (SELECT 1 FROM pg_tables WHERE tablename = 'admin_profiles_backup') THEN
+            EXECUTE 'INSERT INTO public.profiles SELECT * FROM admin_profiles_backup';
+        END IF;
+    END IF;
+END \$\$;
+
 -- Enable triggers again
 SET session_replication_role = 'origin';
 
--- Reset sequence values for ID columns that we know exist
-ALTER SEQUENCE IF EXISTS public.users_id_seq RESTART WITH 1;
-ALTER SEQUENCE IF EXISTS public.wallets_id_seq RESTART WITH 1;
-ALTER SEQUENCE IF EXISTS public.user_devices_id_seq RESTART WITH 1;
-ALTER SEQUENCE IF EXISTS public.user_sessions_id_seq RESTART WITH 1;
-ALTER SEQUENCE IF EXISTS public.minting_queue_items_id_seq RESTART WITH 1;
-ALTER SEQUENCE IF EXISTS public.referral_codes_id_seq RESTART WITH 1;
-ALTER SEQUENCE IF EXISTS public.referrals_id_seq RESTART WITH 1;
-ALTER SEQUENCE IF EXISTS public.profiles_id_seq RESTART WITH 1;
+-- Skip resetting sequence values since we're using UUID primary keys
+-- This prevents errors with the MAX function on UUID columns
 
 -- Commit the transaction
 COMMIT;
@@ -150,6 +220,7 @@ if [ "$CLEAN_LOGS" = true ]; then
             "${SCRIPT_DIR}/log"
             "${SCRIPT_DIR}/../log"
             "/var/log/postgresql"
+            "/home/alivegod/Desktop/4-Ordibehesht/LastProjectendpoint/LastProject/logs"
         )
         
         for DIR in "${POTENTIAL_LOG_DIRS[@]}"; do
@@ -172,7 +243,9 @@ fi
 if [ $DB_RESULT -eq 0 ]; then
     echo "========================================================"
     echo "Database cleaned successfully!"
-    echo "All user, wallet, and minting data has been cleared."
+    echo "All user, wallet, and minting data has been cleared EXCEPT:"
+    echo "- Admin user '1AliveGod'"
+    echo "- Wallet authentication associations for device fingerprinting"
     echo "The system is now ready for testing registration and minting."
     if [ "$CLEAN_LOGS" = true ]; then
         echo "Log files have been cleaned."
@@ -186,12 +259,12 @@ if [ $DB_RESULT -eq 0 ]; then
     
     # Add a check command to display table counts to verify cleaning
     if [ "$USE_SUDO" = true ]; then
-        echo "Verifying tables were cleaned (should show zero counts):"
-        sudo -u postgres psql -d $DB_NAME -c "SELECT 'users' as table_name, COUNT(*) as count FROM users UNION ALL SELECT 'wallets', COUNT(*) FROM wallets UNION ALL SELECT 'minting_queue_items', COUNT(*) FROM minting_queue_items ORDER BY table_name;"
+        echo "Verifying tables were cleaned (should show only admin user remains):"
+        sudo -u postgres psql -d $DB_NAME -c "SELECT 'users' as table_name, COUNT(*) as count FROM users UNION ALL SELECT 'wallets', COUNT(*) FROM wallets UNION ALL SELECT 'admin_user', COUNT(*) FROM users WHERE username = '1AliveGod' UNION ALL SELECT 'user_devices_with_wallets', COUNT(*) FROM user_devices WHERE wallet_addresses IS NOT NULL ORDER BY table_name;"
     else
         export PGPASSWORD="$DB_PASSWORD"
-        echo "Verifying tables were cleaned (should show zero counts):"
-        psql -U $DB_USER -h localhost -d $DB_NAME -c "SELECT 'users' as table_name, COUNT(*) as count FROM users UNION ALL SELECT 'wallets', COUNT(*) FROM wallets UNION ALL SELECT 'minting_queue_items', COUNT(*) FROM minting_queue_items ORDER BY table_name;"
+        echo "Verifying tables were cleaned (should show only admin user remains):"
+        psql -U $DB_USER -h localhost -d $DB_NAME -c "SELECT 'users' as table_name, COUNT(*) as count FROM users UNION ALL SELECT 'wallets', COUNT(*) FROM wallets UNION ALL SELECT 'admin_user', COUNT(*) FROM users WHERE username = '1AliveGod' UNION ALL SELECT 'user_devices_with_wallets', COUNT(*) FROM user_devices WHERE wallet_addresses IS NOT NULL ORDER BY table_name;"
         unset PGPASSWORD
     fi
     
@@ -201,9 +274,9 @@ else
     echo "Error: Database cleaning may have encountered issues."
     echo "Please manually check if tables were cleared using:"
     if [ "$USE_SUDO" = true ]; then
-        echo "sudo -u postgres psql -d $DB_NAME -c \"SELECT 'users' as table, COUNT(*) FROM users; SELECT 'wallets' as table, COUNT(*) FROM wallets;\""
+        echo "sudo -u postgres psql -d $DB_NAME -c \"SELECT 'users' as table, COUNT(*) FROM users; SELECT 'admin_user' as table, COUNT(*) FROM users WHERE username = '1AliveGod';\""
     else
-        echo "psql -U $DB_USER -h localhost -d $DB_NAME -c \"SELECT 'users' as table, COUNT(*) FROM users; SELECT 'wallets' as table, COUNT(*) FROM wallets;\""
+        echo "psql -U $DB_USER -h localhost -d $DB_NAME -c \"SELECT 'users' as table, COUNT(*) FROM users; SELECT 'admin_user' as table, COUNT(*) FROM users WHERE username = '1AliveGod';\""
     fi
     echo "========================================================"
     

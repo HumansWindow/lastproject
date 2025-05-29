@@ -4,7 +4,7 @@
  * This provider handles interactions with the Binance Chain Wallet browser extension
  */
 import { ethers } from 'ethers';
-import { BlockchainType, SignMessageResult, WalletConnectionResult, WalletInfo, WalletProvider, WalletProviderType } from '../../core/wallet-base';
+import { BlockchainType, SignMessageResult, WalletConnectionResult, WalletInfo, WalletProvider, WalletProviderType } from "../../core/walletBase";
 
 export class BinanceWalletProvider implements WalletProvider {
   private provider: any;
@@ -13,7 +13,12 @@ export class BinanceWalletProvider implements WalletProvider {
   private initializationPromise: Promise<boolean> | null = null;
 
   constructor() {
-    this.provider = null;
+    // Safe access to window object to prevent SSR errors
+    if (typeof window !== 'undefined') {
+      this.provider = window.BinanceChain || (window as any).ethereum?.isBinanceChain && (window as any).ethereum;
+    } else {
+      this.provider = null;
+    }
   }
 
   /**
@@ -97,7 +102,9 @@ export class BinanceWalletProvider implements WalletProvider {
    * @returns {boolean} Whether the extension is installed
    */
   isAvailable(): boolean {
-    return typeof window !== 'undefined' && Boolean(window.BinanceChain);
+    // Check if window is defined first
+    if (typeof window === 'undefined') return false;
+    return !!this.provider;
   }
 
   /**
@@ -105,18 +112,7 @@ export class BinanceWalletProvider implements WalletProvider {
    * @returns {Promise<WalletConnectionResult>} Connection result with wallet info
    */
   async connect(): Promise<WalletConnectionResult> {
-    if (!this.initialized) {
-      const success = await this.initialize();
-      if (!success) {
-        return {
-          success: false,
-          error: 'Binance wallet provider not initialized'
-        };
-      }
-    }
-
     try {
-      // Make sure the provider is defined before making requests
       if (!this.provider) {
         return {
           success: false,
@@ -124,16 +120,43 @@ export class BinanceWalletProvider implements WalletProvider {
         };
       }
 
-      const accounts = await this.provider.request({ method: 'eth_requestAccounts' });
+      let accounts: string[] = [];
+      
+      // For Binance Chain Wallet, we need to use enable() instead of eth_requestAccounts
+      try {
+        // Try the enable method first (preferred for Binance)
+        if (typeof this.provider.enable === 'function') {
+          accounts = await this.provider.enable();
+        } 
+        // Fall back to standard methods if enable is not available
+        else if (typeof this.provider.request === 'function') {
+          accounts = await this.provider.request({ method: 'eth_requestAccounts' });
+        } 
+        // Try other possible methods
+        else if (typeof this.provider.requestAccounts === 'function') {
+          accounts = await this.provider.requestAccounts();
+        } else {
+          throw new Error('No supported method to request accounts');
+        }
+      } catch (requestError) {
+        console.error('Failed to connect Binance wallet:', requestError);
+        throw requestError;
+      }
+      
+      // Check if we have any accounts
       if (!accounts || accounts.length === 0) {
         return {
           success: false,
-          error: 'No accounts found in Binance wallet'
+          error: 'No accounts found'
         };
       }
 
+      // Get the selected address
       const address = accounts[0];
-      const chainId = await this.provider.request({ method: 'eth_chainId' });
+
+      // For Binance Chain wallet, we don't need to get the chainId
+      // We'll use a hardcoded value since we know it's Binance
+      const chainId = '0x38'; // BSC Mainnet
       
       this.currentWalletInfo = {
         address,
@@ -149,10 +172,10 @@ export class BinanceWalletProvider implements WalletProvider {
         provider: this.provider
       };
     } catch (error: any) {
-      console.error('Failed to connect to Binance wallet:', error);
+      console.error('Error connecting to Binance wallet:', error);
       return {
         success: false,
-        error: error?.message || 'Failed to connect to Binance wallet'
+        error: error.message || 'Failed to connect to Binance wallet'
       };
     }
   }
@@ -171,7 +194,14 @@ export class BinanceWalletProvider implements WalletProvider {
    * @returns {boolean} Whether the wallet is connected
    */
   isConnected(): boolean {
-    return !!this.currentWalletInfo;
+    try {
+      // For Binance, check if we have a current wallet info
+      return !!this.currentWalletInfo || 
+             !!this.provider?.selectedAddress || 
+             (typeof this.provider?.isConnected === 'function' && this.provider.isConnected());
+    } catch (error) {
+      return false;
+    }
   }
 
   /**
@@ -195,11 +225,34 @@ export class BinanceWalletProvider implements WalletProvider {
     }
 
     try {
-      const accounts = await this.provider.request({ method: 'eth_accounts' });
-      return accounts || [];
+      // For Binance Chain Wallet, we need to use its specific API
+      if (this.currentWalletInfo?.address) {
+        // If we already have the address, return it
+        return [this.currentWalletInfo.address];
+      }
+      
+      // If we don't have the address yet, try to get it using the Binance API
+      if (typeof this.provider.enable === 'function') {
+        const accounts = await this.provider.enable();
+        return accounts || [];
+      }
+      
+      // Fall back to standard method
+      if (typeof this.provider.request === 'function') {
+        const accounts = await this.provider.request({ method: 'eth_accounts' });
+        return accounts || [];
+      }
+      
+      // If we can't get accounts, check if there's a selectedAddress property
+      if (this.provider.selectedAddress) {
+        return [this.provider.selectedAddress];
+      }
+      
+      return [];
     } catch (error) {
       console.error('Failed to get Binance wallet accounts:', error);
-      throw error;
+      // Return empty array instead of throwing
+      return [];
     }
   }
 
@@ -210,84 +263,92 @@ export class BinanceWalletProvider implements WalletProvider {
    * @returns {Promise<SignMessageResult>} The signature result
    */
   async signMessage(message: string, address?: string): Promise<SignMessageResult> {
-    if (!this.initialized) {
-      const success = await this.initialize();
-      if (!success) {
+    try {
+      if (!this.provider) {
         return {
           success: false,
-          error: 'Binance wallet provider not initialized'
+          error: 'Binance wallet provider not available'
         };
       }
-    }
 
-    try {
       // Get the address if not provided
       if (!address) {
-        const accounts = await this.getAccounts();
-        if (accounts.length === 0) {
-          return {
-            success: false,
-            error: 'No accounts found in Binance wallet'
-          };
+        // Try to use the current wallet info first
+        if (this.currentWalletInfo?.address) {
+          address = this.currentWalletInfo.address;
+        } else {
+          try {
+            const accounts = await this.getAccounts();
+            if (accounts.length === 0) {
+              return {
+                success: false,
+                error: 'No accounts found in Binance wallet'
+              };
+            }
+            address = accounts[0];
+          } catch (error) {
+            console.error('Failed to get accounts for signing:', error);
+            return {
+              success: false,
+              error: 'Could not get account address for signing'
+            };
+          }
         }
-        address = accounts[0];
       }
 
-      // Try personal_sign first
+      // Binance Chain Wallet only supports signMessage method
+      // Try Binance-specific method first
+      if (typeof this.provider.signMessage === 'function') {
+        try {
+          const signature = await this.provider.signMessage(address, message);
+          return {
+            success: true,
+            signature
+          };
+        } catch (signMessageError) {
+          console.warn('Binance signMessage failed:', signMessageError);
+        }
+      }
+
+      // Try personal_sign next (standard method)
       try {
         const signature = await this.provider.request({
           method: 'personal_sign',
           params: [message, address]
         });
+
         return {
           success: true,
           signature
         };
       } catch (personalSignError) {
-        console.warn('Binance wallet personal_sign failed, trying eth_sign...', personalSignError);
+        console.warn('personal_sign failed, trying alternative methods:', personalSignError);
         
-        // Fallback to eth_sign
+        // Try manual hash signing as last resort
         try {
+          // Convert message to hex if needed
+          const messageHex = ethers.utils.isHexString(message) ? message : 
+            ethers.utils.hexlify(ethers.utils.toUtf8Bytes(message));
+          
           const signature = await this.provider.request({
             method: 'eth_sign',
-            params: [address, ethers.utils.hexlify(ethers.utils.toUtf8Bytes(message))]
+            params: [address, messageHex]
           });
+
           return {
             success: true,
             signature
           };
         } catch (ethSignError) {
-          console.warn('Binance wallet eth_sign failed, trying signMessage...', ethSignError);
-          
-          // Last attempt with any custom methods Binance might have
-          try {
-            // Some wallets have a direct signMessage API
-            if (typeof this.provider.signMessage === 'function') {
-              const signature = await this.provider.signMessage(message);
-              return {
-                success: true,
-                signature
-              };
-            }
-            
-            return {
-              success: false,
-              error: 'No supported signing method available in Binance wallet'
-            };
-          } catch (finalError: any) {
-            console.error('All Binance wallet signing methods failed', finalError);
-            return {
-              success: false,
-              error: finalError?.message || 'Failed to sign message with Binance wallet'
-            };
-          }
+          console.error('All signing methods failed:', ethSignError);
+          throw new Error('Failed to sign message with Binance wallet. Please try another wallet or contact support.');
         }
       }
     } catch (error: any) {
       console.error('Error signing message with Binance wallet:', error);
       return {
         success: false,
-        error: error?.message || 'Error signing message with Binance wallet'
+        error: error.message || 'Failed to sign message with Binance wallet'
       };
     }
   }
@@ -298,21 +359,14 @@ export class BinanceWalletProvider implements WalletProvider {
    * @returns {Promise<boolean>} Whether the switch was successful
    */
   async switchNetwork(chainId: string): Promise<boolean> {
-    if (!this.initialized) {
-      const success = await this.initialize();
-      if (!success) {
-        return false;
-      }
-    }
+    if (!this.provider) return false;
 
     try {
-      await this.provider.request({
-        method: 'wallet_switchEthereumChain',
-        params: [{ chainId }]
-      });
-      return true;
+      // Binance Chain Wallet doesn't support network switching
+      // Always return true for BNB chainId or false for others
+      return chainId === '0x38'; // BSC Mainnet
     } catch (error) {
-      console.error('Failed to switch network in Binance wallet:', error);
+      console.error('Failed to switch network on Binance wallet:', error);
       return false;
     }
   }

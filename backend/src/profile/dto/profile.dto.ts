@@ -364,4 +364,24 @@ export class CompleteLaterDto {
   })
   @IsBoolean()
   completeLater: boolean;
+  
+  @ApiPropertyOptional({ description: 'Auto-detected country' })
+  @IsOptional()
+  @IsString()
+  country?: string;
+
+  @ApiPropertyOptional({ description: 'Auto-detected city' })
+  @IsOptional()
+  @IsString()
+  city?: string;
+
+  @ApiPropertyOptional({ description: 'Auto-detected timezone' })
+  @IsOptional()
+  @IsString()
+  timezone?: string;
+
+  @ApiPropertyOptional({ description: 'Auto-detected or preferred language' })
+  @IsOptional()
+  @IsString()
+  language?: string;
 }

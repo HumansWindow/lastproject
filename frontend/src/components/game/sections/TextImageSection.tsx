@@ -1,11 +1,10 @@
 import React from 'react';
 import { Row, Col } from 'react-bootstrap';
-import BaseSection, { BaseSectionProps } from './BaseSection';
-import { TypedText, AnimatedImage } from '../elements';
-import type { AnimationType } from '../elements';
+import BaseSection, { BaseSectionProps } from "./BaseSection";
+import { TypedText, AnimatedImage } from "../elements";
+import type { AnimationType } from "../elements";
 
-// Import specific CSS for Text+Image section
-import '../../../../styles/game/section-text-image.css';
+// CSS is now imported in _app.tsx
 
 export interface TextImageSectionProps extends BaseSectionProps {
   content: string;

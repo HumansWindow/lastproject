@@ -1,5 +1,0 @@
-// Import the setupSwagger function from the new file
-import { setupSwagger } from './swagger-config';
-
-// Add this line in your bootstrap function before app.listen():
-setupSwagger(app);

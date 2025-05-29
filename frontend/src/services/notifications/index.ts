@@ -1,2 +1,2 @@
 // Notification services exports
-export * from './notification-service';
+export * from "./notificationService";

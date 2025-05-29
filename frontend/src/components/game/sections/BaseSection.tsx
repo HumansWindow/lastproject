@@ -1,8 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/router';
 
-// Import our CSS
-import '../../../../styles/game/section-base.css';
+// CSS is now imported in _app.tsx
 
 export interface NavigationConfig {
   prevSection: string | null;

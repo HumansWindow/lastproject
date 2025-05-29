@@ -13,8 +13,7 @@ export class Account {
   @JoinColumn({ name: 'user_id' })
   user: User;
   
-  @Column()
-  walletAddress: string;
+  @Column({ name: 'wallet_address' }) walletAddress: string;
   
   @Column({ default: 'ETH' })
   chainType: string;
@@ -37,9 +36,9 @@ export class Account {
   @Column({ nullable: true, type: 'simple-json' })
   metadata: Record<string, any>;
   
-  @CreateDateColumn()
+  @CreateDateColumn({ name: "created_at" })
   createdAt: Date;
   
-  @UpdateDateColumn()
+  @UpdateDateColumn({ name: "updated_at" })
   updatedAt: Date;
 }

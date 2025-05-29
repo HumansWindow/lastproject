@@ -1,9 +1,9 @@
 import React, { useEffect, useRef } from 'react';
-import BaseSection, { BaseSectionProps } from './BaseSection';
-import { TypedText } from '../elements';
+import Image from 'next/image';
+import BaseSection, { BaseSectionProps } from "./BaseSection";
+import { TypedText } from "../elements";
 
-// Import specific CSS for Timeline section
-import '../../../../styles/game/section-timeline.css';
+// CSS is now imported in _app.tsx
 
 export interface TimelineItem {
   id: string;
@@ -57,7 +57,7 @@ const TimelineSection: React.FC<TimelineSectionProps> = ({
     const timelineItems = timelineRef.current.querySelectorAll('.timeline-item');
     timelineItems.forEach((item, index) => {
       // Add delay based on item index for staggered animation
-      item.style.animationDelay = `${index * 0.2}s`;
+      (item as HTMLElement).style.animationDelay = `${index * 0.2}s`;
       observer.observe(item);
     });
     
@@ -94,10 +94,13 @@ const TimelineSection: React.FC<TimelineSectionProps> = ({
           >
             <div className="timeline-content">
               {item.image && (
-                <img 
+                <Image 
                   src={item.image} 
                   alt={item.title}
                   className="timeline-img"
+                  layout="responsive"
+                  width={500}
+                  height={300}
                 />
               )}
               

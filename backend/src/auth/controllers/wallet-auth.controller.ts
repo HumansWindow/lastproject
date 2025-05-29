@@ -1,4 +1,4 @@
-import { Controller, Post, Body, Req, Logger, BadRequestException, UnauthorizedException, ForbiddenException, Inject, forwardRef } from '@nestjs/common';
+import { Controller, Post, Body, Req, Logger, BadRequestException, UnauthorizedException, ForbiddenException, Inject, forwardRef, Get } from '@nestjs/common';
 import { Request } from 'express';
 import { AuthService } from '../auth.service';
 import { WalletLoginDto } from '../dto/wallet-login.dto';
@@ -8,6 +8,8 @@ import { verifyMessage } from 'ethers/lib/utils';
 import { UserDevicesService } from '../../users/services/user-devices.service';
 import { DeviceDetectorService } from '../../shared/services/device-detector.service';
 import * as crypto from 'crypto';
+import { SkipSessionCheck } from '../decorators/skip-session-check.decorator';
+import { SkipThrottle } from '@nestjs/throttler';
 
 // Challenge cache to prevent duplicate wallet connection requests
 interface ChallengeRecord {
@@ -41,19 +43,23 @@ export class WalletAuthController {
   ) {}
 
   @Post('connect')
+  @SkipSessionCheck()
   @ApiOperation({ summary: 'Initiate wallet connection and get challenge' })
   @ApiResponse({ 
     status: 200, 
     description: 'Returns a challenge to be signed by the wallet',
     type: WalletConnectResponseDto 
   })    
-  async connect(@Body() body: { address: string }, @Req() req: Request): Promise<WalletConnectResponseDto> {
-    if (!body.address) {
+  async connect(@Body() body: { address?: string, walletAddress?: string }, @Req() req: Request): Promise<WalletConnectResponseDto> {
+    // Support both address and walletAddress parameters for backwards compatibility
+    const walletAddress = body.walletAddress || body.address;
+    
+    if (!walletAddress) {
       throw new BadRequestException('Wallet address is required');
     }
     
     // Normalize the address to lowercase
-    const normalizedAddress = body.address.toLowerCase();
+    const normalizedAddress = walletAddress.toLowerCase();
     
     this.logger.log(`Wallet connection request received for address: ${normalizedAddress}`);
     
@@ -124,6 +130,7 @@ export class WalletAuthController {
    * This allows clients to authenticate even when wallet signing fails
    */
   @Post('recovery-challenge')
+  @SkipSessionCheck()
   @ApiOperation({ summary: 'Generate recovery challenge when wallet signing fails' })
   @ApiResponse({ status: 200, description: 'Recovery challenge generated' })
   @ApiResponse({ status: 400, description: 'Invalid request' })
@@ -169,12 +176,32 @@ export class WalletAuthController {
   }
 
   @Post('authenticate')
+  @SkipSessionCheck()
   @ApiOperation({ summary: 'Authenticate with wallet signature' })
   @ApiResponse({ status: 200, description: 'Authentication successful' })
   @ApiResponse({ status: 401, description: 'Invalid signature' })
   async authenticate(@Body() walletLoginDto: WalletLoginDto, @Req() req: Request) {
+    this.logger.log(`Authentication request received: ${JSON.stringify({
+      addressExists: !!walletLoginDto.address || !!walletLoginDto.walletAddress,
+      messageExists: !!walletLoginDto.message,
+      signatureExists: !!walletLoginDto.signature
+    })}`);
+    
+    // Log the actual request body for debugging (with sensitive data masked)
+    this.logger.log(`Authentication request body: ${JSON.stringify({
+      address: walletLoginDto.address ? `${walletLoginDto.address.substring(0, 10)}...` : undefined,
+      walletAddress: walletLoginDto.walletAddress ? `${walletLoginDto.walletAddress.substring(0, 10)}...` : undefined,
+      message: walletLoginDto.message ? `${walletLoginDto.message.substring(0, 20)}...` : undefined,
+      signature: walletLoginDto.signature ? `${walletLoginDto.signature.substring(0, 10)}...` : undefined,
+      deviceId: walletLoginDto.deviceId,
+      email: walletLoginDto.email
+    })}`);
+    
+    // Support both walletAddress and address parameters for backwards compatibility
+    const walletAddress = walletLoginDto.walletAddress || walletLoginDto.address;
+    
     // Normalize wallet address
-    const normalizedAddress = walletLoginDto.walletAddress?.toLowerCase();
+    const normalizedAddress = walletAddress?.toLowerCase();
     
     // Add request tracking ID for correlation across logs
     const requestId = Math.random().toString(36).substring(2, 15);
@@ -287,7 +314,10 @@ export class WalletAuthController {
     req: Request,
     requestId: string
   ) {
-    const normalizedAddress = walletLoginDto.walletAddress?.toLowerCase();
+    // Support both walletAddress and address parameters
+    const walletAddress = walletLoginDto.walletAddress || walletLoginDto.address;
+    const normalizedAddress = walletAddress?.toLowerCase();
+    
     this.logger.log(`[${requestId}] Processing recovery authentication for ${normalizedAddress}`);
     
     try {
@@ -392,5 +422,20 @@ export class WalletAuthController {
     if (expiredCount > 0) {
       this.logger.debug(`Cleaned up ${expiredCount} expired recovery tokens from cache`);
     }
+  }
+
+  /**
+   * Health check endpoint for wallet authentication
+   */
+  @Get('health')
+  @SkipThrottle()
+  @ApiOperation({ summary: 'Wallet auth health check endpoint' })
+  @ApiResponse({ status: 200, description: 'Wallet auth service is healthy' })
+  async healthCheck() {
+    return {
+      status: 'ok',
+      service: 'wallet-auth',
+      timestamp: new Date().toISOString()
+    };
   }
 }

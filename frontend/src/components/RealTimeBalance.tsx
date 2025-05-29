@@ -1,8 +1,8 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { BalanceUpdateEvent } from "../types/api-types";
-import { realtimeService } from '../services/realtime';
-import WebSocketStatus from './WebSocketStatus';
-import { clientOnly } from '../utils/clientOnly';
+import { BalanceUpdateEvent } from "../types/apiTypes";
+import { realtimeService } from "../services/realtime/index";
+import WebSocketStatus from "./WebSocketStatus";
+import { clientOnly } from "../utils/clientOnly";
 
 interface RealTimeBalanceProps {
   walletAddress: string;

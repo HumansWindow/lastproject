@@ -1,16 +1,14 @@
 import { Entity, Column, PrimaryGeneratedColumn, ManyToOne } from 'typeorm';
 import { User } from '../../users/entities/user.entity';
 
-@Entity('wallets')
+@Entity({ name: 'wallets' })
 export class Wallet {
   @PrimaryGeneratedColumn()
   id: number;
 
-  @Column()
-  address: string;
+  @Column({ name: 'address' }) address: string;
 
-  @Column()
-  chain: string;
+  @Column({ name: 'chain' }) chain: string;
 
   @ManyToOne(() => User, (user) => user.wallets)
   user: User;

@@ -1,7 +1,7 @@
-import { GalaxyAnimation } from './GalaxyAnimation';
-import { GalaxyTransitionManager } from './GalaxyTransitionManager';
-import { GalaxyConfig } from './types';
-import { useGalaxyAnimation } from './useGalaxyAnimation';
+import { GalaxyAnimation } from "./galaxyAnimation";
+import { GalaxyTransitionManager } from "./galaxyTransitionManager";
+import { GalaxyConfig } from "./types";
+import { useGalaxyAnimation } from "./useGalaxyAnimation";
 
 /**
  * Initialize the galaxy animation with default settings
@@ -31,7 +31,7 @@ export function initGalaxyAnimation(config?: Partial<GalaxyConfig>) {
 }
 
 // Export all types and classes for direct import if needed
-export * from './types';
-export { GalaxyAnimation } from './GalaxyAnimation';
-export { GalaxyTransitionManager } from './GalaxyTransitionManager';
-export { useGalaxyAnimation } from './useGalaxyAnimation';
+export * from "./types";
+export { GalaxyAnimation } from "./galaxyAnimation";
+export { GalaxyTransitionManager } from "./galaxyTransitionManager";
+export { useGalaxyAnimation } from "./useGalaxyAnimation";

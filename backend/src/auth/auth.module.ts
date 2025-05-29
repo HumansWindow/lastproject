@@ -25,6 +25,12 @@ import { DeviceDetectorService } from '../shared/services/device-detector.servic
 import { ProfileModule } from '../profile/profile.module';
 import { WalletTransactionService } from './services/wallet-transaction.service';
 import { Profile } from '../profile/entities/profile.entity';
+import { SessionSecurityModule } from './modules/session-security.module';
+import { APP_GUARD } from '@nestjs/core';
+import { SessionSecurityGuard } from './guards/session-security.guard';
+import { TokenModule } from '../token/token.module';
+import { TokenService } from './services/token.service';
+import { UserSessionsService } from '../users/services/user-sessions.service';
 
 @Module({
   imports: [
@@ -46,13 +52,15 @@ import { Profile } from '../profile/entities/profile.entity';
     MailModule,
     SharedModule,
     forwardRef(() => BlockchainModule),
+    forwardRef(() => TokenModule), // Make sure TokenModule is imported with forwardRef to prevent circular dependency issues
     WalletsModule,
     forwardRef(() => ProfileModule),
+    SessionSecurityModule,
   ],
   controllers: [
     AuthController,
     WalletAuthController,
-    WalletAuthDebugController, // Make sure this is included
+    WalletAuthDebugController,
   ],
   providers: [
     AuthService,
@@ -60,9 +68,15 @@ import { Profile } from '../profile/entities/profile.entity';
     LocalStrategy,
     WalletStrategy,
     UserDevicesService,
+    UserSessionsService, // Add UserSessionsService for session security
     DeviceDetectorService,
     WalletTransactionService,
+    TokenService, // Ensure TokenService is explicitly provided here
+    {
+      provide: APP_GUARD,
+      useClass: SessionSecurityGuard,
+    },
   ],
-  exports: [AuthService, JwtModule, WalletTransactionService],
+  exports: [AuthService, JwtModule, WalletTransactionService, TokenService],
 })
 export class AuthModule {}

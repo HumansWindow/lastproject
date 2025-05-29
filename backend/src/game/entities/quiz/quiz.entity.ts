@@ -64,6 +64,8 @@ export class Quiz {
   randomizeQuestions: boolean;
 
   @Column({ type: 'boolean', default: true })
+  @Column({ name: 'is_active' })
+
   isActive: boolean;
 
   @Column({ type: 'int', default: 1 })
@@ -72,10 +74,10 @@ export class Quiz {
   @OneToMany(() => QuizQuestion, question => question.quiz)
   questions: QuizQuestion[];
 
-  @CreateDateColumn()
+  @CreateDateColumn({ name: "created_at" })
   createdAt: Date;
 
-  @UpdateDateColumn()
+  @UpdateDateColumn({ name: "updated_at" })
   updatedAt: Date;
 
   @Column({ nullable: true })

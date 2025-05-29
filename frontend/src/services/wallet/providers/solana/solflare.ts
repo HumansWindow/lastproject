@@ -10,7 +10,7 @@ import {
   WalletInfo,
   WalletProvider,
   WalletProviderType
-} from '../../core/wallet-base';
+} from "../../core/walletBase";
 
 // Define Solflare wallet types for TypeScript
 declare global {

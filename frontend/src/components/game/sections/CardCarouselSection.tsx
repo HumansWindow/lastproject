@@ -1,10 +1,10 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Card } from 'react-bootstrap';
-import BaseSection, { BaseSectionProps } from './BaseSection';
-import { TypedText } from '../elements';
+import Image from 'next/image';
+import BaseSection, { BaseSectionProps } from "./BaseSection";
+import { TypedText } from "../elements";
 
-// Import specific CSS for Card Carousel section
-import '../../../../styles/game/section-card-carousel.css';
+// CSS is now imported in _app.tsx
 
 export interface CardItem {
   id: string;
@@ -141,7 +141,13 @@ const CardCarouselSection: React.FC<CardCarouselSectionProps> = ({
                 
                 {card.image && (
                   <div className="card-img-container mb-3">
-                    <img src={card.image} alt={card.title} className="img-fluid" />
+                    <Image 
+                      src={card.image} 
+                      alt={card.title} 
+                      className="img-fluid" 
+                      width={500}
+                      height={300}
+                    />
                   </div>
                 )}
                 

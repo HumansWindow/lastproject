@@ -46,6 +46,7 @@ import { ContentVersionRepository } from './repositories/content-version.reposit
 import { ContentTemplateRepository } from './repositories/content-template.repository';
 import { ContentApprovalRepository } from './repositories/content-approval.repository';
 import { CollaborationCommentRepository } from './repositories/collaboration-comment.repository';
+import { RewardTransactionRepository } from './repositories/reward-transaction.repository';
 
 // Entities
 import { GameModule as GameModuleEntity } from './entities/game-module.entity';
@@ -63,11 +64,13 @@ import { CollaborationComment } from './entities/collaboration-comment.entity';
 import { GameNotificationTemplate } from './entities/game-notification-template.entity';
 import { UserNotification } from './entities/user-notification.entity';
 import { ModuleNotificationSchedule } from './entities/module-notification-schedule.entity';
+import { RewardTransaction } from './entities/reward-transaction.entity';
 
 // External modules
 import { UsersModule } from '../users/users.module';
 import { BlockchainModule } from '../blockchain/blockchain.module';
 import { SharedModule } from '../shared/shared.module';
+import { JwtModule } from '@nestjs/jwt';
 
 @Module({
   imports: [
@@ -90,10 +93,15 @@ import { SharedModule } from '../shared/shared.module';
       GameNotificationTemplate,
       UserNotification,
       ModuleNotificationSchedule,
+      RewardTransaction,
     ]),
     UsersModule,
     BlockchainModule,
     SharedModule,
+    JwtModule.register({
+      secret: process.env.JWT_SECRET || 'secretKeyForDevelopment',
+      signOptions: { expiresIn: '1h' },
+    }),
   ],
   controllers: [
     GameModulesController,
@@ -141,6 +149,7 @@ import { SharedModule } from '../shared/shared.module';
     ContentTemplateRepository,
     ContentApprovalRepository,
     CollaborationCommentRepository,
+    RewardTransactionRepository,
   ],
   exports: [
     GameModulesService,

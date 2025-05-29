@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
-import walletService from '../../services/wallet';
+import { walletService } from "../../services/wallet/walletService";
 
 interface LogEntry {
   timestamp: string;
@@ -44,9 +44,9 @@ const AuthDebugPanel: React.FC<Props> = ({ visible = true, onClose }) => {
       handleWalletAuthLog as EventListener
     );
     
-    // Enable debugging in wallet authenticator
-    if (walletService.authenticator) {
-      walletService.authenticator.enableDebug(true);
+    // Enable debugging in wallet service - use static method
+    if (walletService.constructor && typeof (walletService.constructor as any).setDebugEnabled === 'function') {
+      (walletService.constructor as any).setDebugEnabled(true);
     }
     
     return () => {
@@ -56,9 +56,9 @@ const AuthDebugPanel: React.FC<Props> = ({ visible = true, onClose }) => {
         handleWalletAuthLog as EventListener
       );
       
-      // Disable debugging when component is unmounted
-      if (walletService.authenticator) {
-        walletService.authenticator.enableDebug(false);
+      // Disable debugging when component is unmounted - use static method
+      if (walletService.constructor && typeof (walletService.constructor as any).setDebugEnabled === 'function') {
+        (walletService.constructor as any).setDebugEnabled(false);
       }
     };
   }, [isActive]);
@@ -68,8 +68,11 @@ const AuthDebugPanel: React.FC<Props> = ({ visible = true, onClose }) => {
   }, [visible]);
 
   const updateLogs = () => {
-    // Legacy method for backward compatibility
-    const currentLogs = walletService.getDebugLogs?.() || [];
+    // Legacy method for backward compatibility - use static method through constructor
+    const currentLogs = walletService.constructor && 
+      typeof (walletService.constructor as any).getDebugLogs === 'function' ? 
+      (walletService.constructor as any).getDebugLogs() || [] : [];
+      
     if (currentLogs.length > 0) {
       const formattedLogs = currentLogs.map((log: string) => {
         const isError = log.includes('ERROR') || log.includes('Error') || log.includes('error');
@@ -102,133 +105,124 @@ const AuthDebugPanel: React.FC<Props> = ({ visible = true, onClose }) => {
 
   const handleClearLogs = () => {
     setLogs([]);
-    if (walletService.clearDebugLogs) {
-      walletService.clearDebugLogs();
+    // Use static method through constructor
+    if (walletService.constructor && typeof (walletService.constructor as any).clearDebugLogs === 'function') {
+      (walletService.constructor as any).clearDebugLogs();
     }
   };
 
-  const toggleMinimized = () => {
+  const handleMinimize = () => {
     setMinimized(!minimized);
   };
 
-  if (!isActive) return null;
+  if (!isActive) {
+    return null;
+  }
+  
+  // Panel styles
+  const containerStyle: React.CSSProperties = {
+    position: 'fixed',
+    bottom: '20px',
+    right: '20px',
+    width: minimized ? '200px' : '400px',
+    maxHeight: minimized ? '40px' : '400px',
+    backgroundColor: '#f8f9fa',
+    border: '1px solid #dee2e6',
+    borderRadius: '4px',
+    boxShadow: '0 0.5rem 1rem rgba(0, 0, 0, 0.15)',
+    zIndex: 1050,
+    overflow: 'hidden',
+    transition: 'all 0.3s ease',
+  };
+
+  const headerStyle: React.CSSProperties = {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: '8px 12px',
+    backgroundColor: '#e9ecef',
+    borderBottom: minimized ? 'none' : '1px solid #dee2e6',
+  };
+
+  const buttonStyle: React.CSSProperties = {
+    background: 'none',
+    border: 'none',
+    cursor: 'pointer',
+    padding: '4px',
+    marginLeft: '5px',
+  };
+
+  const logContainerStyle: React.CSSProperties = {
+    maxHeight: '320px',
+    overflowY: 'auto',
+    padding: '10px',
+    display: minimized ? 'none' : 'block',
+  };
+
+  const logEntryStyle = (isError: boolean): React.CSSProperties => ({
+    margin: '4px 0',
+    padding: '4px 8px',
+    borderRadius: '3px',
+    backgroundColor: isError ? '#f8d7da' : '#d4edda',
+    color: isError ? '#721c24' : '#155724',
+    fontSize: '12px',
+    fontFamily: 'monospace',
+    whiteSpace: 'pre-wrap',
+    wordBreak: 'break-word',
+  });
+
+  const controlsStyle: React.CSSProperties = {
+    display: minimized ? 'none' : 'flex',
+    justifyContent: 'flex-end',
+    padding: '8px',
+    borderTop: '1px solid #dee2e6',
+  };
+
+  const clearButtonStyle: React.CSSProperties = {
+    background: 'none',
+    border: '1px solid #6c757d',
+    borderRadius: '4px',
+    padding: '4px 8px',
+    cursor: 'pointer',
+    fontSize: '12px',
+    color: '#6c757d',
+  };
 
   return (
-    <div 
-      style={{
-        position: 'fixed',
-        bottom: '10px',
-        right: '10px',
-        width: minimized ? '200px' : '400px',
-        height: minimized ? '40px' : '300px',
-        background: 'rgba(0, 0, 0, 0.8)',
-        color: '#00ff00',
-        padding: '10px',
-        fontFamily: 'monospace',
-        fontSize: '12px',
-        zIndex: 9999,
-        border: '1px solid #333',
-        borderRadius: '5px',
-        overflow: 'hidden',
-        display: 'flex',
-        flexDirection: 'column'
-      }}
-    >
-      <div style={{ 
-        display: 'flex', 
-        justifyContent: 'space-between', 
-        alignItems: 'center',
-        borderBottom: minimized ? 'none' : '1px solid #444',
-        paddingBottom: '5px',
-        marginBottom: minimized ? '0' : '5px'
-      }}>
-        <div style={{ fontWeight: 'bold' }}>🔍 Wallet Auth Debugger</div>
+    <div style={containerStyle}>
+      <div style={headerStyle}>
+        <span style={{ fontWeight: 'bold', fontSize: '14px' }}>
+          Wallet Auth Debug
+        </span>
         <div>
-          <button
-            onClick={toggleMinimized}
-            style={{
-              background: '#333',
-              border: 'none',
-              color: 'white',
-              marginRight: '5px',
-              padding: '2px 5px',
-              cursor: 'pointer'
-            }}
-          >
-            {minimized ? '+' : '-'}
+          <button style={buttonStyle} onClick={handleMinimize} title={minimized ? 'Expand' : 'Minimize'}>
+            {minimized ? '🔼' : '🔽'}
           </button>
-          <button
-            onClick={handleClose}
-            style={{
-              background: '#333',
-              border: 'none',
-              color: 'white',
-              padding: '2px 5px',
-              cursor: 'pointer'
-            }}
-          >
-            X
+          <button style={buttonStyle} onClick={handleClose} title="Close">
+            ❌
           </button>
         </div>
       </div>
       
-      {!minimized && (
-        <>
-          <div 
-            ref={logsContainerRef}
-            style={{ 
-              overflowY: 'auto', 
-              flex: 1, 
-              paddingRight: '5px'
-            }}
-          >
-            {logs.length === 0 ? (
-              <div style={{ color: '#888', fontStyle: 'italic' }}>No logs yet...</div>
-            ) : (
-              logs.map((log, index) => (
-                <div 
-                  key={index} 
-                  style={{ 
-                    color: log.isError ? '#ff5555' : '#00ff00',
-                    marginBottom: '3px',
-                    fontSize: '11px',
-                    whiteSpace: 'pre-wrap',
-                    wordBreak: 'break-word'
-                  }}
-                >
-                  <span style={{ color: '#888' }}>{log.timestamp.slice(-13)}</span>
-                  {" "}
-                  {log.isError ? '❌ ' : '✓ '}
-                  {log.message}
-                </div>
-              ))
-            )}
+      <div ref={logsContainerRef} style={logContainerStyle}>
+        {logs.length === 0 ? (
+          <div style={{ padding: '8px', color: '#6c757d', fontSize: '12px', fontStyle: 'italic' }}>
+            No logs yet. Connect a wallet to see authentication activity.
           </div>
-          
-          <div style={{ 
-            display: 'flex', 
-            justifyContent: 'space-between',
-            marginTop: '8px',
-            borderTop: '1px solid #444',
-            paddingTop: '8px'
-          }}>
-            <span style={{ fontSize: '10px' }}>{logs.length} logs</span>
-            <button
-              onClick={handleClearLogs}
-              style={{
-                background: '#333',
-                border: 'none',
-                color: 'white',
-                padding: '2px 5px',
-                cursor: 'pointer',
-                fontSize: '10px'
-              }}
-            >
-              Clear Logs
-            </button>
-          </div>
-        </>
-      )}
+        ) : (
+          logs.map((log, index) => (
+            <div key={index} style={logEntryStyle(log.isError)}>
+              <span style={{ opacity: 0.7 }}>[{log.timestamp}]</span> {log.message}
+            </div>
+          ))
+        )}
+      </div>
+
+      <div style={controlsStyle}>
+        <button style={clearButtonStyle} onClick={handleClearLogs}>
+          Clear Logs
+        </button>
+      </div>
     </div>
   );
 };

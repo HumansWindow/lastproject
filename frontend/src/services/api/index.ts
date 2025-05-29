@@ -1,3 +1,3 @@
 // API services barrel file
-export * from './client';
-export * from './modules';
+export * from "./apiClient";
+export * from "./modules";

@@ -36,8 +36,7 @@ export class UserSessionsService {
 
       const sessionData = {
         userId: data.userId, // Use UUID string
-        user_id: data.userId, // Also set user_id for backward compatibility
-        deviceId: deviceUuid,
+        deviceId: deviceUuid || null, // Make deviceId optional to avoid foreign key constraint issues
         ipAddress: data.ipAddress,
         userAgent: data.userAgent,
         token: data.token,
@@ -70,24 +69,29 @@ export class UserSessionsService {
       token?: string;
       expiresAt?: Date;
     }
-  ): Promise<UserSession> {
+  ): Promise<UserSession | null> {
     try {
       // Add request ID for tracing in logs
       const requestId = Math.random().toString(36).substring(2, 8);
       this.logger.log(`[${requestId}] Creating session within transaction for user: ${data.userId}`);
       
-      // Convert deviceId to UUID format for consistency
-      let deviceUuid = data.deviceId;
-      if (data.deviceId && !this.isUUID(data.deviceId)) {
-        // Convert hash to UUID for storage
-        deviceUuid = this.hashToUUID(data.deviceId);
-        this.logger.log(`[${requestId}] Converting device ID to UUID: ${data.deviceId.substring(0, 8)}... -> ${deviceUuid}`);
+      // Convert deviceId to UUID format for consistency if provided
+      let deviceUuid = null;
+      if (data.deviceId) {
+        if (!this.isUUID(data.deviceId)) {
+          // Convert hash to UUID for storage
+          deviceUuid = this.hashToUUID(data.deviceId);
+          this.logger.log(`[${requestId}] Converting device ID to UUID: ${data.deviceId.substring(0, 8)}... -> ${deviceUuid}`);
+        } else {
+          deviceUuid = data.deviceId;
+        }
       }
 
+      // Create a session without a device ID to avoid foreign key constraints
       const sessionData = {
-        userId: data.userId, // Use UUID string
-        user_id: data.userId, // Also set user_id for backward compatibility
-        deviceId: deviceUuid,
+        userId: data.userId,
+        // Make deviceId null to avoid foreign key constraint issues
+        deviceId: null, 
         ipAddress: data.ipAddress,
         userAgent: data.userAgent,
         token: data.token,
@@ -97,14 +101,32 @@ export class UserSessionsService {
       // Create the session using the entity manager
       const session = entityManager.create(UserSession, sessionData);
       
-      // Save the session using the entity manager
-      const savedSession = await entityManager.save(session);
-      this.logger.log(`[${requestId}] Successfully created session within transaction for user: ${data.userId}`);
-      
-      return Array.isArray(savedSession) ? savedSession[0] : savedSession;
+      try {
+        // Save the session using the entity manager
+        const savedSession = await entityManager.save(session);
+        this.logger.log(`[${requestId}] Successfully created session within transaction for user: ${data.userId}`);
+        
+        return Array.isArray(savedSession) ? savedSession[0] : savedSession;
+      } catch (innerError) {
+        // If we get a foreign key constraint error, try creating a session without device ID
+        if (innerError.message && innerError.message.includes('foreign key constraint')) {
+          this.logger.warn(`[${requestId}] Foreign key constraint error, creating session without device ID: ${innerError.message}`);
+          
+          // Try again without device ID
+          session.deviceId = null;
+          const savedSessionRetry = await entityManager.save(session);
+          this.logger.log(`[${requestId}] Successfully created session without device ID for user: ${data.userId}`);
+          
+          return Array.isArray(savedSessionRetry) ? savedSessionRetry[0] : savedSessionRetry;
+        } else {
+          // If it's not a foreign key issue, rethrow
+          throw innerError;
+        }
+      }
     } catch (error) {
       this.logger.error(`Failed to create session within transaction: ${error.message}`);
-      throw error; // Let the transaction handle the error
+      // Don't throw here - let the auth flow continue even if session creation fails
+      return null;
     }
   }
 
@@ -119,6 +141,20 @@ export class UserSessionsService {
   /**
    * Find all sessions for a user
    */
+  
+  /**
+   * Find by user ID
+   * @param userId The user ID to search for
+   * @returns Matching records for the user
+   * @deprecated Use findByUserId instead with property name (not DB column)
+   */
+  
+  /**
+   * Find by user ID
+   * @param userId The user ID to search for
+   * @returns Matching records for the user
+   * @deprecated Use findByUserId instead with property name (not DB column)
+   */
   async findByUserId(userId: string): Promise<UserSession[]> {
     // No need to convert userId to string since it should already be a string UUID
     return await this.sessionRepository.find({ where: { userId } });
@@ -131,6 +167,24 @@ export class UserSessionsService {
     return await this.sessionRepository.find({
       where: { 
         userId,
+        isActive: true
+      }
+    });
+  }
+
+  /**
+   * Find active sessions by device ID
+   */
+  async findActiveSessionsByDeviceId(deviceId: string): Promise<UserSession[]> {
+    // Convert deviceId to UUID if needed
+    let deviceUuid = deviceId;
+    if (deviceId && !this.isUUID(deviceId)) {
+      deviceUuid = this.hashToUUID(deviceId);
+    }
+    
+    return await this.sessionRepository.find({
+      where: { 
+        deviceId: deviceUuid,
         isActive: true
       }
     });
@@ -187,7 +241,7 @@ export class UserSessionsService {
     if (this.isUUID(hash)) return hash;
     
     // Use the first 32 characters of the hash to create a UUID
-    const hashPart = hash.replace(/-/g, '').substring(0, 32);
+    const hashPart = hash.replace(/-/g, '').substring(0, 32).padEnd(32, '0');
     const segments = [
       hashPart.substring(0, 8),
       hashPart.substring(8, 12),

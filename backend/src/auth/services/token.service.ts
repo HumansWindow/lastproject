@@ -1,150 +1,133 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { JwtService } from '@nestjs/jwt';
-import { Repository } from 'typeorm';
 import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
 import { RefreshToken } from '../entities/refresh-token.entity';
-import { ErrorHandlingService } from '../../shared/services/error-handling.service';
-import * as crypto from 'crypto';
+import { JwtService } from '@nestjs/jwt';
+import { ConfigService } from '@nestjs/config';
+import { v4 as uuidv4 } from 'uuid';
+import { Request } from 'express';
 
 @Injectable()
 export class TokenService {
   private readonly logger = new Logger(TokenService.name);
-
+  
   constructor(
-    private jwtService: JwtService,
     @InjectRepository(RefreshToken)
     private refreshTokenRepository: Repository<RefreshToken>,
-    private errorHandlingService: ErrorHandlingService,
+    private jwtService: JwtService,
+    private configService: ConfigService,
   ) {}
 
-  /**
-   * Generate a JWT access token for the user
-   */
-  async generateAccessToken(userId: string): Promise<string> {
-    try {
-      const payload = { sub: userId };
-      return this.jwtService.sign(payload);
-    } catch (error) {
-      this.logger.error(`Error generating access token for user ${userId}: ${error.message}`);
-      this.errorHandlingService.handleAuthError(error, 'generateAccessToken');
-    }
+  async createRefreshToken(userId: string): Promise<string> {
+    // Generate a random token
+    const token = uuidv4();
+    
+    // Calculate expiration date (7 days from now)
+    const expiresAt = new Date();
+    expiresAt.setDate(expiresAt.getDate() + 7);
+    
+    // Create and save the refresh token
+    const refreshToken = this.refreshTokenRepository.create({
+      token,
+      expiresAt,
+      userId,
+      createdAt: new Date(),
+    });
+    
+    await this.refreshTokenRepository.save(refreshToken);
+    
+    return token;
   }
 
-  /**
-   * Create a new refresh token for a user
-   */
-  async createRefreshToken(userId: string): Promise<string> {
-    try {
-      // Set expiration date (e.g., 7 days from now)
-      const expiresAt = new Date();
-      expiresAt.setDate(expiresAt.getDate() + 7);
-      
-      // Generate a secure random token
-      const token = this.generateRandomToken();
-      
-      // Skip database storage if configured for testing
-      const skipTokenStorage = process.env.SKIP_REFRESH_TOKEN_STORAGE === 'true';
-      if (skipTokenStorage && (process.env.NODE_ENV === 'test' || process.env.NODE_ENV === 'development')) {
-        this.logger.warn(`[TEST MODE] Skipping refresh token storage for user: ${userId}`);
-        return token;
-      }
-      
-      // Store the token in the database
-      const refreshToken = this.refreshTokenRepository.create({
-        token,
-        expiresAt,
-        userId,
-        createdAt: new Date(),
-      });
-      
-      await this.refreshTokenRepository.save(refreshToken);
-      
-      return token;
-    } catch (error) {
-      this.logger.error(`Error creating refresh token for user ${userId}: ${error.message}`);
-      this.errorHandlingService.handleAuthError(error, 'createRefreshToken');
-    }
-  }
-  
-  /**
-   * Validate a refresh token and return the associated user ID
-   */
-  async validateRefreshToken(token: string): Promise<string> {
-    try {
-      const refreshToken = await this.refreshTokenRepository.findOne({
-        where: { token }
-      });
-      
-      if (!refreshToken) {
-        throw new Error('Invalid refresh token');
-      }
-      
-      // Check if token is expired
-      if (refreshToken.expiresAt < new Date()) {
-        throw new Error('Refresh token has expired');
-      }
-      
-      return refreshToken.userId;
-    } catch (error) {
-      this.logger.error(`Error validating refresh token: ${error.message}`);
-      this.errorHandlingService.handleRefreshTokenError(error);
-    }
-  }
-  
-  /**
-   * Refresh the tokens: invalidate the old refresh token and create new ones
-   */
   async refreshTokens(refreshToken: string): Promise<{ accessToken: string; refreshToken: string }> {
-    const queryRunner = this.refreshTokenRepository.manager.connection.createQueryRunner();
-    await queryRunner.connect();
-    await queryRunner.startTransaction();
-    
     try {
-      // Find and validate the refresh token
-      const tokenEntity = await queryRunner.manager.findOne(RefreshToken, {
-        where: { token: refreshToken }
+      // Find the refresh token in the database
+      const tokenEntity = await this.refreshTokenRepository.findOne({ 
+        where: { token: refreshToken } 
       });
       
       if (!tokenEntity) {
-        throw new Error('Invalid refresh token');
+        throw new Error('Refresh token not found');
       }
       
+      // Check if the token has expired
       if (tokenEntity.expiresAt < new Date()) {
+        // Delete the expired token
+        await this.refreshTokenRepository.remove(tokenEntity);
         throw new Error('Refresh token has expired');
       }
       
-      const userId = tokenEntity.userId;
+      // Generate a new access token
+      const accessToken = this.jwtService.sign({ 
+        sub: tokenEntity.userId 
+      });
       
-      // Invalidate the old refresh token
-      await queryRunner.manager.remove(tokenEntity);
-      
-      // Generate new tokens
-      const newAccessToken = await this.generateAccessToken(userId);
-      const newRefreshToken = await this.createRefreshToken(userId);
-      
-      // Commit transaction
-      await queryRunner.commitTransaction();
+      // Generate a new refresh token and remove the old one
+      await this.refreshTokenRepository.remove(tokenEntity);
+      const newRefreshToken = await this.createRefreshToken(tokenEntity.userId);
       
       return {
-        accessToken: newAccessToken,
-        refreshToken: newRefreshToken,
+        accessToken,
+        refreshToken: newRefreshToken
       };
     } catch (error) {
-      // Rollback on error
-      if (queryRunner.isTransactionActive) {
-        await queryRunner.rollbackTransaction();
-      }
-      this.errorHandlingService.handleRefreshTokenError(error);
-    } finally {
-      // Always release the query runner
-      await queryRunner.release();
+      this.logger.error(`Error refreshing tokens: ${error.message}`);
+      throw error;
     }
   }
   
-  /**
-   * Generate a secure random token
-   */
-  private generateRandomToken(): string {
-    return crypto.randomBytes(64).toString('hex');
+  async deleteRefreshToken(token: string): Promise<void> {
+    try {
+      const tokenEntity = await this.refreshTokenRepository.findOne({ 
+        where: { token } 
+      });
+      
+      if (tokenEntity) {
+        await this.refreshTokenRepository.remove(tokenEntity);
+      }
+    } catch (error) {
+      this.logger.error(`Error deleting refresh token: ${error.message}`);
+      throw error;
+    }
+  }
+
+  async deleteAllUserRefreshTokens(userId: string): Promise<void> {
+    try {
+      const tokens = await this.refreshTokenRepository.find({ 
+        where: { userId } 
+      });
+      
+      if (tokens.length > 0) {
+        await this.refreshTokenRepository.remove(tokens);
+      }
+    } catch (error) {
+      this.logger.error(`Error deleting user refresh tokens: ${error.message}`);
+      throw error;
+    }
+  }
+  
+  // Updated to match the AuthService expectations (accepts userId, additionalPayload, and request)
+  async generateAccessToken(userId: string, additionalPayload?: any, req?: Request): Promise<string> {
+    // Create a base payload with the user ID as the subject
+    const payload = { 
+      sub: userId,
+      ...additionalPayload
+    };
+    
+    // Add request-specific metadata if available
+    if (req) {
+      const ip = req.ip || req.connection.remoteAddress;
+      const userAgent = req.headers['user-agent'];
+      
+      // Add these to the payload if needed
+      payload.ip = ip;
+      payload.userAgent = userAgent ? userAgent.substring(0, 100) : undefined;
+    }
+    
+    return this.jwtService.sign(payload);
+  }
+  
+  verifyToken(token: string): any {
+    return this.jwtService.verify(token);
   }
 }

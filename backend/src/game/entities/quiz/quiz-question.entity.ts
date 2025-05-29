@@ -33,8 +33,7 @@ export class QuizQuestion {
   @Column({ type: 'varchar', length: 500 })
   text: string;
 
-  @Column({ type: 'enum', enum: QuestionTypeEnum, default: QuestionTypeEnum.SINGLE_CHOICE })
-  type: QuestionTypeEnum;
+  @Column({ type: 'enum', enum: QuestionTypeEnum, default: QuestionTypeEnum.SINGLE_CHOICE , name: 'type' })type: QuestionTypeEnum;
 
   @Column({ type: 'int', default: 1 })
   points: number;
@@ -65,14 +64,16 @@ export class QuizQuestion {
   timeLimit: number; // Individual time limit in seconds, null = use quiz default
 
   @Column({ type: 'boolean', default: true })
+  @Column({ name: 'is_active' })
+
   isActive: boolean;
   
   @Column({ type: 'jsonb', nullable: true })
   metadata: Record<string, any>; // For extended question type data
   
-  @CreateDateColumn()
+  @CreateDateColumn({ name: "created_at" })
   createdAt: Date;
 
-  @UpdateDateColumn()
+  @UpdateDateColumn({ name: "updated_at" })
   updatedAt: Date;
 }

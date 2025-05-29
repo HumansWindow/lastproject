@@ -1,7 +1,7 @@
-import { useEffect, useRef, useState } from 'react';
-import { GalaxyAnimation } from './GalaxyAnimation';
-import { GalaxyTransitionManager } from './GalaxyTransitionManager';
-import { GalaxyConfig } from './types';
+import { useEffect, useRef, useState, useCallback } from 'react';
+import { GalaxyAnimation } from "./galaxyAnimation";
+import { GalaxyTransitionManager } from "./galaxyTransitionManager";
+import { GalaxyConfig } from "./types";
 
 /**
  * Options for the useGalaxyAnimation hook
@@ -77,7 +77,7 @@ export function useGalaxyAnimation(options: UseGalaxyAnimationOptions = {}): Use
   /**
    * Initialize the galaxy animation
    */
-  const initialize = () => {
+  const initialize = useCallback(() => {
     if (isInitialized || typeof window === 'undefined') return;
     
     // Create the animation
@@ -103,7 +103,7 @@ export function useGalaxyAnimation(options: UseGalaxyAnimationOptions = {}): Use
     if (onInitialized) {
       onInitialized(animation, transitionManager);
     }
-  };
+  }, [isInitialized, config, autoSetupNavigation, onInitialized]);
   
   /**
    * Navigate between sections with camera flyover
@@ -134,7 +134,7 @@ export function useGalaxyAnimation(options: UseGalaxyAnimationOptions = {}): Use
         animationRef.current = null;
       }
     };
-  }, [initializeOnMount]);
+  }, [initializeOnMount, initialize]);
   
   return {
     animation: animationRef.current,

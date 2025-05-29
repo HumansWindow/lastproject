@@ -1,3 +1,3 @@
 // Re-export from the implementation
-export * from './realtime-service';
-export { realtimeService } from './realtime-service';
+export * from "./realtimeService";
+export { realtimeService } from "./realtimeService";

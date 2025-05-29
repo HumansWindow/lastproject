@@ -1,3 +1,3 @@
 // Storage services barrel file
-export * from './cache';
-export * from './memory';
+export * from "./cache";
+export * from "./memory";

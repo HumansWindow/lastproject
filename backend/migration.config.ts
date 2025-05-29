@@ -1,0 +1,1 @@
+src/config/migration.config.ts

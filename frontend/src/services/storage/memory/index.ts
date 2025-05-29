@@ -1,2 +1,2 @@
 // Memory services exports
-export * from './memory-manager';
+export * from "./memoryManager";

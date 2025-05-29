@@ -4,9 +4,9 @@ import { serverSideTranslations } from 'next-i18next/serverSideTranslations';
 import Head from 'next/head';
 import { useRouter } from 'next/router';
 import React, { useEffect } from 'react';
-import { useAuth } from '../contexts/auth';
-import { useWallet } from '../contexts/wallet';
-import { UserProfile } from '../types/api-types';
+import { useAuth } from "../contexts/AuthProvider";
+import { useWallet } from "../contexts/WalletProvider";
+import { UserProfile } from "../types/apiTypes";
 
 export default function Home() {
   const { t } = useTranslation('common');

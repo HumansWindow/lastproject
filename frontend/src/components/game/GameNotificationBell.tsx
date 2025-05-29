@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { BellIcon } from '@heroicons/react/24/outline';
 import { BellAlertIcon } from '@heroicons/react/24/solid';
-import { gameNotificationService, GameNotification, GameNotificationCountSummary } from '../../services/game/game-notification.service';
-import GameNotificationPanel from './GameNotificationPanel';
+import { gameNotificationService, GameNotification, GameNotificationCountSummary } from "../../services/game/gameNotification.service";
+import GameNotificationPanel from "./GameNotificationPanel";
 
 interface GameNotificationBellProps {
   userId: string;
@@ -22,16 +22,17 @@ const GameNotificationBell: React.FC<GameNotificationBellProps> = ({ userId, cla
     
     const countsSubscription = gameNotificationService
       .getNotificationCounts()
-      .subscribe(newCounts => setCounts(newCounts));
+      .subscribe((newCounts: GameNotificationCountSummary) => setCounts(newCounts));
     
-    const notificationsSubscription = gameNotificationService
-      .getNotifications()
-      .subscribe(newNotifications => setNotifications(newNotifications));
+    // Get initial notifications
+    gameNotificationService.getNotifications().then(result => {
+      setNotifications(result.notifications);
+    });
     
     // Clean up subscriptions when the component unmounts
     return () => {
       countsSubscription.unsubscribe();
-      notificationsSubscription.unsubscribe();
+      gameNotificationService.cleanup();
     };
   }, [userId]);
   
@@ -68,7 +69,7 @@ const GameNotificationBell: React.FC<GameNotificationBellProps> = ({ userId, cla
           notifications={notifications}
           onClose={handleClose}
           onMarkAllAsRead={() => gameNotificationService.markAllAsRead()}
-          onMarkAsRead={(id) => gameNotificationService.markAsRead(id)}
+          onMarkAsRead={(id: string) => gameNotificationService.markAsRead(id)}
         />
       )}
     </div>

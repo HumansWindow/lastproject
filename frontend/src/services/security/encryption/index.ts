@@ -1,2 +1,2 @@
 // Encryption services exports
-export * from './encryption-service';
+export * from "./encryptionService";

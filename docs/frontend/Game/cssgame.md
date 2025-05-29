@@ -17,6 +17,24 @@ frontend/src/styles/game/
 └── index.css              # Main import file that bundles all styles
 ```
 
+### CSS Import Instructions
+
+**Important**: In Next.js applications, global CSS files can only be imported in the `_app.tsx` or `_app.js` file. All game CSS files should be imported there, not directly in the component files.
+
+```tsx
+// In _app.tsx
+import '../styles/globals.css';
+// Import game section styles
+import '../styles/game/section-base.css';
+import '../styles/game/section-text-image.css';
+import '../styles/game/section-card-carousel.css';
+import '../styles/game/section-timeline.css';
+import '../styles/game/section-galaxy-background.css';
+import '../styles/game/animations.css';
+```
+
+Do not import these CSS files directly in the component files as it will cause build errors.
+
 ### CSS File Descriptions
 
 #### section-base.css

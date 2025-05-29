@@ -1,2 +1,2 @@
 // Event services exports
-export * from './event-bus';
+export * from "./eventBus";

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
-import walletConnectionDebugger from '../../utils/wallet-connection-debugger';
-import styles from './WalletDebugPanel.module.css';
+import walletConnectionDebugger from "../../utils/walletConnectionDebugger";
+import styles from "./WalletDebugPanel.module.css";
 
 interface LogEntry {
   timestamp: string;

@@ -1,2 +1,2 @@
-export * from './ColorSystem';
-export * from './GalaxyColorSystem';
+export * from "./colorSystem";
+export * from "./galaxyColorSystem";

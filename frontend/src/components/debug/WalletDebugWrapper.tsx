@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import WalletDebugPanel from './WalletDebugPanel';
-import styles from './WalletDebugWrapper.module.css';
+import WalletDebugPanel from "./WalletDebugPanel";
+import styles from "./WalletDebugWrapper.module.css";
 
 interface Props {
   children: React.ReactNode;

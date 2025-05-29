@@ -1,7 +1,7 @@
 import React from 'react';
-import Navbar from './Navbar';
-import Footer from './Footer';
-import WalletDebugWrapper from '../debug/WalletDebugWrapper';
+import Navbar from "./Navbar";
+import Footer from "./Footer";
+import WalletDebugWrapper from "../debug/WalletDebugWrapper";
 
 interface LayoutProps {
   children: React.ReactNode;

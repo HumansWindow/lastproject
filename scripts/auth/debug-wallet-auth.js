@@ -1,3 +1,5 @@
+#!/usr/bin/env node
+// filepath: /home/alivegod/Desktop/4-Ordibehesht/LastProjectendpoint/LastProject/scripts/auth/debug-wallet-auth.js
 // This is a simple debug script to test the wallet authentication endpoint
 const fetch = require('node-fetch');
 

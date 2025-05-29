@@ -20,6 +20,7 @@ import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { verifyMessage } from 'ethers/lib/utils';
 import { JwtAuthGuard } from '../guards/jwt-auth.guard';
 import { JwtService } from '@nestjs/jwt';
+import { SkipSessionCheck } from '../decorators/skip-session-check.decorator';
 
 // Define the expected user structure from JWT token
 interface JwtUser {
@@ -36,6 +37,7 @@ interface JwtUser {
 @ApiTags('Wallet Auth Debug')
 @Controller('auth/wallet-debug')
 @UseInterceptors(ClassSerializerInterceptor)
+@SkipSessionCheck()  // Skip session check for all debug endpoints
 export class WalletAuthDebugController {
   private readonly logger = new Logger(WalletAuthDebugController.name);
   private isDebugEnabled: boolean;
@@ -59,7 +61,8 @@ export class WalletAuthDebugController {
   async verifySignature(@Body() body: { address: string; message: string; signature: string }) {
     const { address, message, signature } = body;
     try {
-      const verified = await this.authService.verifyWalletSignature({ walletAddress: address, message, signature });
+      // Update to use three separate parameters instead of a single object
+      const verified = await this.authService.verifyWalletSignature(address, message, signature);
       return { isValid: verified };
     } catch (error) {
       throw new HttpException(`Signature verification error: ${error.message}`, HttpStatus.BAD_REQUEST);

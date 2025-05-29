@@ -11,6 +11,7 @@
   "dependencies": {
     "@emotion/react": "^11.14.0",
     "@emotion/styled": "^11.14.0",
+    "@heroicons/react": "^2.0.18",
     "@mui/icons-material": "^7.0.2",
     "@mui/material": "^7.0.2",
     "@types/node": "^18.15.11",
@@ -34,6 +35,7 @@
     "next": "^13.3.0",
     "next-i18next": "^13.2.2",
     "next-themes": "^0.4.6",
+    "notistack": "^3.0.2",
     "os-browserify": "^0.3.0",
     "pako": "^2.1.0",
     "react": "^18.3.1",

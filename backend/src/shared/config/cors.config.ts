@@ -41,10 +41,19 @@ export const getCorsConfig = (): CorsOptions => {
     origin: origins,
     methods: ['GET', 'HEAD', 'PUT', 'PATCH', 'POST', 'DELETE', 'OPTIONS'],
     credentials: true,
-    allowedHeaders: 'Origin, X-Requested-With, Content-Type, Accept, Authorization, Access-Control-Allow-Headers, X-Device-Id, X-Device-Fingerprint, X-Wallet-Chain-Id, Cache-Control, Pragma, X-Request-Time, X-Total-Count',
-    exposedHeaders: 'X-Total-Count',
+    allowedHeaders: [
+      'Content-Type', 
+      'Accept', 
+      'Authorization', 
+      'X-Requested-With',
+      'X-Device-Fingerprint',
+      'X-Wallet-Request',
+      'X-Blockchain-Type',
+      'x-debug-request',
+      'x-request-id'
+    ],
+    exposedHeaders: ['Authorization'],
     preflightContinue: false,
-    optionsSuccessStatus: 204,
-    maxAge: 86400, // 24 hours
+    optionsSuccessStatus: 204
   };
 };

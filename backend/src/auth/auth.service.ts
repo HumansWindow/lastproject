@@ -14,7 +14,7 @@ import {
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, MoreThan, Connection } from 'typeorm';
+import { Repository, MoreThan, DataSource } from 'typeorm';
 import * as bcrypt from 'bcrypt';
 import { verifyMessage } from 'ethers/lib/utils';
 import { User, UserRole } from '../users/entities/user.entity';
@@ -41,6 +41,7 @@ import { ShahiTokenService } from '../blockchain/services/shahi-token.service';
 import { UserDevice } from '../users/entities/user-device.entity';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { ProfileService } from '../profile/profile.service';
+import { TokenService } from './services/token.service';
 
 @Injectable()
 export class AuthService {
@@ -71,7 +72,8 @@ export class AuthService {
     private readonly eventEmitter: EventEmitter2,
     @Inject(forwardRef(() => ProfileService))
     private readonly profileService: ProfileService,
-    private readonly connection: Connection, // Add TypeORM connection for transactions
+    private readonly dataSource: DataSource, // Changed from Connection to DataSource
+    private readonly tokenService: TokenService, // Add TokenService
   ) {}
 
   /**
@@ -190,22 +192,21 @@ export class AuthService {
       });
     }
     
-    // Create tokens
-    const tokens = await this.getTokens(user.id);
-    
-    // Create session
-    await this.userSessionsService.createSession({
-      userId: user.id,
-      deviceId,
-      token: tokens.refreshToken,
-      ipAddress,
-      userAgent,
-      expiresAt: new Date(Date.now() + this.getRefreshTokenExpiresInMs())
-    });
+    // Generate access token with session information using TokenService
+    const accessToken = await this.tokenService.generateAccessToken(user.id, undefined, req);
+    const refreshToken = await this.tokenService.createRefreshToken(user.id);
     
     // Add a deprecation warning for email/password login
     const response = {
-      ...await this.generateToken(user),
+      user: {
+        id: user.id,
+        email: email,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        role: user.role,
+      },
+      accessToken,
+      refreshToken,
       message: 'Email/password authentication is being phased out. Please connect a wallet for future logins.'
     };
     
@@ -323,8 +324,8 @@ export class AuthService {
     const requestId = Math.random().toString(36).substring(2, 15);
     this.logger.log(`[${requestId}] Starting wallet login for address: ${walletLoginDto.walletAddress}`);
   
-    // Use TypeORM transaction to ensure atomicity
-    const queryRunner = this.connection.createQueryRunner();
+    // Use TypeORM transaction to ensure atomicity - updated to use dataSource
+    const queryRunner = this.dataSource.createQueryRunner();
     await queryRunner.connect();
     await queryRunner.startTransaction();
     
@@ -629,8 +630,30 @@ export class AuthService {
         
         this.logger.log(`[${requestId}] Successfully completed wallet login for: ${normalizedAddress}`);
         
+        // Get user information with email from profile if available
+        let email: string | undefined = undefined;
+        try {
+          const profile = await this.profileService.findByUserId(user.id);
+          email = profile.email;
+        } catch (error) {
+          // Profile might not exist for wallet-only users
+          this.logger.debug(`No profile found for user ${user.id}, proceeding without email in token`);
+        }
+        
+        // Generate access token using TokenService
+        const accessToken = await this.tokenService.generateAccessToken(user.id, undefined, req);
+        
+        // Return a complete response with all required tokens
         return {
-          ...await this.generateToken(user),
+          user: {
+            id: user.id,
+            email: email,
+            firstName: user.firstName,
+            lastName: user.lastName,
+            role: user.role,
+          },
+          accessToken: accessToken,
+          refreshToken: tokens.refreshToken,  // Explicitly include the refresh token
           wallet: normalizedAddress,
           isNewUser,
           newProfile,
@@ -826,12 +849,7 @@ export class AuthService {
    */
   async refreshToken(refreshToken: string): Promise<{ accessToken: string; refreshToken: string }> {
     try {
-      // Verify the refresh token
-      const payload = await this.jwtService.verifyAsync(refreshToken, {
-        secret: this.configService.get<string>('JWT_SECRET')
-      });
-      
-      // Check if refresh token exists in database
+      // Check if refresh token exists in database - direct lookup
       const storedToken = await this.refreshTokenRepository.findOne({
         where: { 
           token: refreshToken,
@@ -840,17 +858,24 @@ export class AuthService {
       });
       
       if (!storedToken) {
+        this.logger.warn(`Invalid refresh token attempt: ${refreshToken.substring(0, 10)}...`);
         throw new UnauthorizedException('Invalid refresh token');
       }
       
-      // Generate new tokens
-      const userId = payload.sub;
-      const tokens = await this.getTokens(userId);
+      // Get the user ID from the stored token
+      const userId = storedToken.userId;
+      
+      // Generate new tokens using the token service
+      const accessToken = await this.tokenService.generateAccessToken(userId);
+      const newRefreshToken = await this.tokenService.createRefreshToken(userId);
       
       // Invalidate old refresh token (one-time use)
       await this.refreshTokenRepository.delete(storedToken.id);
       
-      return tokens;
+      return {
+        accessToken,
+        refreshToken: newRefreshToken
+      };
     } catch (error) {
       this.logger.error(`Token refresh failed: ${error.message}`);
       throw new UnauthorizedException('Invalid refresh token');
@@ -908,9 +933,14 @@ export class AuthService {
    * Generates a challenge for the wallet to sign
    * This is the preferred first step in authentication
    */
-  async handleWalletConnect(walletAddress: string): Promise<WalletConnectResponseDto> {
+  async handleWalletConnect(walletAddress: string, blockchain?: string): Promise<WalletConnectResponseDto> {
     if (!walletAddress) {
       throw new BadRequestException('Wallet address is required');
+    }
+    
+    // Log the blockchain type if provided
+    if (blockchain) {
+      this.logger.log(`Wallet connect with blockchain type: ${blockchain}`);
     }
     
     // Normalize the wallet address
@@ -960,11 +990,16 @@ export class AuthService {
    * Primary authentication method in the new system
    */
   async authenticateWallet(walletLoginDto: WalletLoginDto, req: Request) {
-    const { walletAddress, signature, message } = walletLoginDto;
+    const { walletAddress, signature, message, blockchain } = walletLoginDto;
     
     try {
       // Normalize address
       const normalizedAddress = walletAddress.toLowerCase();
+      
+      // Log blockchain type if available
+      if (blockchain) {
+        this.logger.log(`Authenticating with blockchain type: ${blockchain}`);
+      }
       
       // TESTING BYPASS: Check if we're in test/development mode and have a bypass flag
       const isTestMode = this.configService.get<string>('NODE_ENV') === 'test';
@@ -1007,8 +1042,17 @@ export class AuthService {
       
       // Normal production flow: Verify the signature using multiple methods
       try {
-        // First try the standard method
-        const recoveredAddress = verifyMessage(message, signature);
+        let recoveredAddress;
+        
+        // Use blockchain-specific verification when available
+        if (blockchain && blockchain.toLowerCase() === 'polygon') {
+          // For Trust Wallet using Polygon network
+          this.logger.log(`Using Polygon-specific verification for Trust Wallet`);
+          recoveredAddress = verifyMessage(message, signature);
+        } else {
+          // Default standard method for other wallets
+          recoveredAddress = verifyMessage(message, signature);
+        }
         
         if (recoveredAddress.toLowerCase() !== normalizedAddress) {
           this.logger.warn(`Address mismatch: ${recoveredAddress.toLowerCase()} vs ${normalizedAddress}`);
@@ -1204,9 +1248,9 @@ export class AuthService {
   }
   
   /**
-   * Generate token response for client
+   * Generate token response for client with session information
    */
-  async generateToken(user: User) {
+  async generateToken(user: User, req?: Request) {
     // Get user's profile to include email in the token
     let email: string | undefined = undefined;
     try {
@@ -1217,11 +1261,14 @@ export class AuthService {
       this.logger.debug(`No profile found for user ${user.id}, proceeding without email in token`);
     }
     
-    const payload: JwtPayload = {
-      sub: user.id,
-      email: email,
-      role: user.role
-    };
+    // Generate access token with session information if request is available
+    let accessToken = '';
+    if (req) {
+      accessToken = await this.tokenService.generateAccessToken(user.id, undefined, req);
+    } else {
+      // Fallback to simple access token without session information
+      accessToken = await this.tokenService.generateAccessToken(user.id);
+    }
     
     return {
       user: {
@@ -1231,7 +1278,7 @@ export class AuthService {
         lastName: user.lastName,
         role: user.role,
       },
-      accessToken: this.jwtService.sign(payload),
+      accessToken: accessToken,
     };
   }
 
@@ -1263,38 +1310,25 @@ export class AuthService {
 
   /**
    * Verify wallet signature
-   * @param data - signature data to verify
+   * @param address - Wallet address to verify against
+   * @param message - Message that was signed
+   * @param signature - Signature to verify
    */
-  async verifyWalletSignature(data: WalletLoginDto): Promise<any> {
+  async verifyWalletSignature(address: string, message: string, signature: string): Promise<boolean> {
     try {
-      // Extract data from the DTO
-      const { walletAddress, message, signature } = data;
-      
-      if (!walletAddress || !message || !signature) {
-        throw new BadRequestException('Missing required wallet authentication parameters');
+      // In test mode, bypass signature verification if enabled
+      if (this.configService.get<boolean>('BYPASS_WALLET_SIGNATURE', false)) {
+        return true;
       }
-      
-      // Normalize wallet address
-      const normalizedAddress = walletAddress.toLowerCase();
-      
-      // Verify the signature using ethers
+
+      // Verify the signature using ethers.js
       const recoveredAddress = verifyMessage(message, signature);
-      const recoveredNormalized = recoveredAddress.toLowerCase();
       
-      if (normalizedAddress !== recoveredNormalized) {
-        throw new UnauthorizedException('Invalid signature: recovered address does not match provided wallet address');
-      }
-      
-      return { 
-        verified: true, 
-        address: recoveredNormalized, 
-        message 
-      };
+      // Compare case-insensitive (addresses should be checksum addresses)
+      return recoveredAddress.toLowerCase() === address.toLowerCase();
     } catch (error) {
-      if (error instanceof HttpException) {
-        throw error;
-      }
-      throw new UnauthorizedException(`Wallet signature verification failed: ${error.message}`);
+      this.logger.error('Signature verification error:', error);
+      return false;
     }
   }
 

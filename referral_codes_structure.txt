@@ -1,0 +1,17 @@
+                                         Table "public.referral_codes"
+   Column    |            Type             | Collation | Nullable |                  Default                   
+-------------+-----------------------------+-----------+----------+--------------------------------------------
+ id          | integer                     |           | not null | nextval('referral_codes_id_seq'::regclass)
+ user_id     | integer                     |           |          | 
+ code        | character varying(50)       |           |          | 
+ is_active   | boolean                     |           |          | true
+ usage_limit | integer                     |           |          | 10
+ used_count  | integer                     |           |          | 0
+ expires_at  | timestamp without time zone |           |          | 
+ created_at  | timestamp without time zone |           |          | CURRENT_TIMESTAMP
+Indexes:
+    "referral_codes_pkey" PRIMARY KEY, btree (id)
+    "referral_codes_code_key" UNIQUE CONSTRAINT, btree (code)
+Referenced by:
+    TABLE "referrals" CONSTRAINT "referrals_referral_code_id_fkey" FOREIGN KEY (referral_code_id) REFERENCES referral_codes(id)
+

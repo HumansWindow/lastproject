@@ -1,0 +1,489 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Wallet Authentication Tester</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 20px;
+      line-height: 1.5;
+    }
+    h1 {
+      color: #333;
+      border-bottom: 1px solid #eee;
+      padding-bottom: 10px;
+    }
+    .card {
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      padding: 20px;
+      margin-bottom: 20px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    }
+    button {
+      background-color: #4CAF50;
+      color: white;
+      border: none;
+      padding: 10px 15px;
+      text-align: center;
+      text-decoration: none;
+      display: inline-block;
+      font-size: 16px;
+      margin: 4px 2px;
+      cursor: pointer;
+      border-radius: 4px;
+    }
+    button:disabled {
+      background-color: #cccccc;
+      cursor: not-allowed;
+    }
+    .error {
+      color: #d9534f;
+      background-color: #f9f2f2;
+      padding: 10px;
+      border-radius: 4px;
+      margin-top: 10px;
+    }
+    .success {
+      color: #5cb85c;
+      background-color: #f2f9f2;
+      padding: 10px;
+      border-radius: 4px;
+      margin-top: 10px;
+    }
+    .log {
+      background-color: #f8f9fa;
+      padding: 15px;
+      border-radius: 4px;
+      margin-top: 20px;
+      max-height: 300px;
+      overflow-y: auto;
+      font-family: monospace;
+      white-space: pre-wrap;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 20px;
+    }
+    th, td {
+      border: 1px solid #ddd;
+      padding: 8px;
+      text-align: left;
+    }
+    th {
+      background-color: #f2f2f2;
+    }
+    tr:nth-child(even) {
+      background-color: #f9f9f9;
+    }
+  </style>
+</head>
+<body>
+  <h1>Wallet Authentication Test Tool</h1>
+  
+  <div class="card">
+    <h2>Test Configuration</h2>
+    <p>This tool helps test the wallet authentication flow across different wallet providers.</p>
+    
+    <div>
+      <label for="walletType">Select wallet provider:</label>
+      <select id="walletType">
+        <option value="metamask">MetaMask</option>
+        <option value="trustwallet">Trust Wallet</option>
+        <option value="phantom">Phantom Wallet</option>
+        <option value="walletconnect">WalletConnect</option>
+        <option value="coinbase">Coinbase Wallet</option>
+      </select>
+    </div>
+    
+    <div style="margin-top: 20px;">
+      <button id="testButton">Run Test</button>
+      <button id="clearLogButton">Clear Log</button>
+      <button id="resetButton">Reset Connection</button>
+    </div>
+  </div>
+  
+  <div class="card">
+    <h2>Test Results</h2>
+    <div id="resultsContainer"></div>
+    <div id="walletInfo"></div>
+  </div>
+  
+  <div class="card">
+    <h2>Test Log</h2>
+    <div id="logOutput" class="log"></div>
+  </div>
+
+  <!-- Self-contained wallet test implementation -->
+  <script>
+    // Wallet types and detection methods
+    const walletProviders = {
+      metamask: {
+        name: 'MetaMask',
+        detect: () => window.ethereum && window.ethereum.isMetaMask && !window.ethereum.isTrust, // Added !isTrust to avoid conflict
+        connect: async () => {
+          if (!window.ethereum || !window.ethereum.isMetaMask || window.ethereum.isTrust) {
+            throw new Error('MetaMask not detected. Please install MetaMask extension.');
+          }
+          return await window.ethereum.request({ method: 'eth_requestAccounts' });
+        }
+      },
+      trustwallet: {
+        name: 'Trust Wallet',
+        // Improved Trust Wallet detection - checks for isTrust property or specific patterns
+        detect: () => {
+          if (window.ethereum && window.ethereum.isTrust) {
+            return true;
+          }
+          // Additional check for Trust Wallet that might not have isTrust property
+          if (window.ethereum && 
+              window.ethereum.isTrustWallet) {
+            return true;
+          }
+          // Last resort check looking at provider info
+          if (window.ethereum && 
+              window.ethereum.provider && 
+              window.ethereum.provider.isTrust) {
+            return true;
+          }
+          // Check if Trust is in the user agent (mobile browser wallet)
+          if (navigator.userAgent.indexOf("Trust") !== -1) {
+            return true;
+          }
+          return false;
+        },
+        connect: async () => {
+          if (!walletProviders.trustwallet.detect()) {
+            throw new Error('Trust Wallet not detected. Please install Trust Wallet extension or open in Trust Wallet browser.');
+          }
+          try {
+            // First try using standard ethereum provider
+            log('Connecting to Trust Wallet with ethereum.request method');
+            return await window.ethereum.request({ method: 'eth_requestAccounts' });
+          } catch (err) {
+            if (window.trustwallet && window.trustwallet.ethereum) {
+              log('Trying Trust Wallet specific ethereum provider');
+              return await window.trustwallet.ethereum.request({ method: 'eth_requestAccounts' });
+            }
+            throw err;
+          }
+        }
+      },
+      phantom: {
+        name: 'Phantom',
+        detect: () => window.phantom && window.phantom.solana,
+        connect: async () => {
+          if (!window.phantom || !window.phantom.solana) {
+            throw new Error('Phantom wallet not detected. Please install Phantom wallet extension.');
+          }
+          return await window.phantom.solana.connect();
+        }
+      },
+      walletconnect: {
+        name: 'WalletConnect',
+        detect: () => false, // WalletConnect usually needs initialization
+        connect: async () => {
+          log('WalletConnect requires integration with their provider. This is a simplified test.');
+          throw new Error('WalletConnect requires specific provider setup. Not fully implemented in this test page.');
+        }
+      },
+      coinbase: {
+        name: 'Coinbase Wallet',
+        detect: () => window.ethereum && window.ethereum.isCoinbaseWallet,
+        connect: async () => {
+          if (!window.ethereum || !window.ethereum.isCoinbaseWallet) {
+            throw new Error('Coinbase Wallet not detected. Please install Coinbase Wallet extension.');
+          }
+          return await window.ethereum.request({ method: 'eth_requestAccounts' });
+        }
+      }
+    };
+
+    // Mock wallet auth service
+    const walletAuthService = {
+      async requestChallenge(walletAddress, walletType) {
+        log(`Mock: Requesting challenge for ${walletAddress} using ${walletType}`);
+        // Simulate API call delay
+        await new Promise(resolve => setTimeout(resolve, 500));
+        
+        return {
+          id: 'mock-challenge-id',
+          message: `Sign this message to verify ownership of ${walletAddress} at timestamp ${Date.now()}`
+        };
+      },
+      
+      async authenticate(request) {
+        log('Mock: Authenticating with signature');
+        // Simulate API call delay
+        await new Promise(resolve => setTimeout(resolve, 700));
+        
+        return {
+          accessToken: 'mock-access-token',
+          refreshToken: 'mock-refresh-token',
+          user: { id: 'mock-user-id', address: request.address },
+          success: true
+        };
+      }
+    };
+
+    // Main test function
+    async function testWalletAuth(walletType) {
+      log(`🧪 Testing wallet authentication for ${walletProviders[walletType].name}`);
+      
+      const startTime = Date.now();
+      const result = {
+        walletType: walletProviders[walletType].name,
+        detected: false,
+        connected: false,
+        address: '',
+        chainId: '',
+        challengeReceived: false,
+        signatureCreated: false,
+        authenticated: false,
+        errors: [],
+        durationMs: 0
+      };
+      
+      try {
+        // Step 1: Detect wallet provider
+        log('- Detecting wallet provider...');
+        const isDetected = walletProviders[walletType].detect();
+        result.detected = isDetected;
+        
+        if (!isDetected) {
+          throw new Error(`${walletProviders[walletType].name} not detected. Please install the wallet extension.`);
+        }
+        
+        log(`✅ ${walletProviders[walletType].name} detected`);
+        
+        // Step 2: Connect to wallet
+        log('- Connecting to wallet...');
+        const connectionResult = await walletProviders[walletType].connect();
+        
+        // Handle different wallet response formats
+        let address;
+        if (walletType === 'phantom') {
+          address = connectionResult.publicKey.toString();
+        } else {
+          // Ethereum-based wallets
+          address = Array.isArray(connectionResult) ? connectionResult[0] : connectionResult;
+        }
+        
+        if (!address) {
+          throw new Error('Failed to get wallet address');
+        }
+        
+        result.connected = true;
+        result.address = address;
+        log(`✅ Connected to wallet: ${address}`);
+        
+        // Step 3: Get chain ID (for EVM wallets)
+        if (walletType !== 'phantom') {
+          try {
+            const chainId = await window.ethereum.request({ method: 'eth_chainId' });
+            result.chainId = chainId;
+            log(`✅ Chain ID: ${chainId}`);
+          } catch (error) {
+            log(`⚠️ Could not get chain ID: ${error.message}`);
+          }
+        }
+        
+        // Step 4: Request challenge
+        log('- Requesting auth challenge...');
+        const challenge = await walletAuthService.requestChallenge(address, walletProviders[walletType].name);
+        
+        if (!challenge || !challenge.message) {
+          throw new Error('Failed to get challenge message');
+        }
+        
+        result.challengeReceived = true;
+        log(`✅ Challenge received: ${challenge.message.substring(0, 20)}...`);
+        
+        // Step 5: Sign challenge
+        log('- Signing challenge message...');
+        
+        let signature;
+        try {
+          if (walletType === 'phantom') {
+            // Phantom uses a different signing method
+            const encodedMessage = new TextEncoder().encode(challenge.message);
+            signature = await window.phantom.solana.signMessage(encodedMessage, 'utf8');
+          } else if (walletType === 'trustwallet') {
+            // Specific Trust Wallet signing flow with fallbacks
+            log('Using Trust Wallet signing flow with fallbacks');
+            try {
+              // Try personal_sign first
+              signature = await window.ethereum.request({
+                method: 'personal_sign',
+                params: [challenge.message, address]
+              });
+            } catch (signErr) {
+              log(`Trust Wallet personal_sign failed: ${signErr.message}, trying eth_sign`);
+              try {
+                // Fall back to eth_sign if personal_sign fails
+                signature = await window.ethereum.request({
+                  method: 'eth_sign',
+                  params: [address, challenge.message]
+                });
+              } catch (ethSignErr) {
+                log(`Trust Wallet eth_sign failed: ${ethSignErr.message}, trying signTypedData`);
+                // Last resort, try signTypedData (less common)
+                signature = await window.ethereum.request({
+                  method: 'eth_signTypedData',
+                  params: [address, {
+                    types: {
+                      EIP712Domain: [],
+                      Message: [{ name: 'message', type: 'string' }]
+                    },
+                    domain: {},
+                    primaryType: 'Message',
+                    message: { message: challenge.message }
+                  }]
+                });
+              }
+            }
+          } else {
+            // Standard Ethereum-compatible wallets
+            signature = await window.ethereum.request({
+              method: 'personal_sign',
+              params: [challenge.message, address]
+            });
+          }
+          
+          result.signatureCreated = true;
+          log('✅ Message signed successfully');
+          
+          // Step 6: Authenticate with signature
+          log('- Authenticating with signature...');
+          
+          const authResponse = await walletAuthService.authenticate({
+            address: address,
+            walletAddress: address,
+            signature: walletType === 'phantom' ? signature.signature : signature,
+            message: challenge.message
+          });
+          
+          if (!authResponse || !authResponse.accessToken) {
+            throw new Error('Authentication response invalid - no access token returned');
+          }
+          
+          result.authenticated = true;
+          log('✅ Authentication successful!');
+        } catch (error) {
+          if (error.code === 4001) { // User rejected request
+            throw new Error('User denied signature request');
+          }
+          throw error;
+        }
+        
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+        result.errors.push(errorMessage);
+        log(`❌ Test failed: ${errorMessage}`);
+      } finally {
+        result.durationMs = Date.now() - startTime;
+        return result;
+      }
+    }
+
+    // Logging function
+    const logOutput = document.getElementById('logOutput');
+    
+    function log(message) {
+      console.log(message);
+      
+      if (logOutput) {
+        let formattedMessage = message;
+        if (message.includes('✅')) {
+          formattedMessage = `<span style="color:green">${message}</span>`;
+        } else if (message.includes('❌')) {
+        log(`Test execution failed: ${error.message}`);
+      }
+    });
+    
+    document.getElementById('clearLogButton').addEventListener('click', () => {
+      if (logOutput) {
+        logOutput.innerHTML = '';
+      }
+    });
+    
+    document.getElementById('resetButton').addEventListener('click', () => {
+      log('🔄 Resetting wallet connection...');
+      document.getElementById('resultsContainer').innerHTML = '';
+      displayWalletInfo();
+    });
+    
+    // Function to display test results in a table
+    function displayResults(results) {
+      const container = document.getElementById('resultsContainer');
+      
+      if (!container) return;
+      
+      // Create table
+      let tableHtml = `
+        <table>
+          <tr>
+            <th>Wallet Type</th>
+            <th>Detected</th>
+            <th>Connected</th>
+            <th>Address</th>
+            <th>Challenge</th>
+            <th>Signature</th>
+            <th>Authenticated</th>
+            <th>Status</th>
+          </tr>
+      `;
+      
+      // Add result rows
+      for (const result of results) {
+        tableHtml += `
+          <tr>
+            <td>${result.walletType}</td>
+            <td>${result.detected ? '✅' : '❌'}</td>
+            <td>${result.connected ? '✅' : '❌'}</td>
+            <td>${result.address ? result.address.substring(0, 6) + '...' + result.address.slice(-4) : 'N/A'}</td>
+            <td>${result.challengeReceived ? '✅' : '❌'}</td>
+            <td>${result.signatureCreated ? '✅' : '❌'}</td>
+            <td>${result.authenticated ? '✅' : '❌'}</td>
+            <td>${result.errors.length === 0 ? '✅ Success' : '❌ Failed'}</td>
+          </tr>
+        `;
+      }
+      
+      tableHtml += `</table>`;
+      
+      // Add error details if any
+      const hasErrors = results.some(r => r.errors.length > 0);
+      if (hasErrors) {
+        tableHtml += `<h3>Errors</h3>`;
+        
+        for (const result of results) {
+          if (result.errors.length > 0) {
+            tableHtml += `<p><strong>${result.walletType}</strong></p><ul>`;
+            
+            for (const error of result.errors) {
+              tableHtml += `<li class="error">${error}</li>`;
+            }
+            
+            tableHtml += `</ul>`;
+          }
+        }
+      }
+      
+      container.innerHTML = tableHtml;
+    }
+    
+    // Run on page load
+    document.addEventListener('DOMContentLoaded', () => {
+      log('✨ Wallet Authentication Test Runner loaded');
+      log('Select a wallet provider and click "Run Test" to begin testing');
+      displayWalletInfo();
+    });
+  </script>
+</body>
+</html>

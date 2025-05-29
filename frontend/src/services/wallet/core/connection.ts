@@ -4,7 +4,7 @@ import {
   WalletEventEmitter, 
   WalletInfo, 
   WalletProvider 
-} from './wallet-base';
+} from "./walletBase";
 
 export class WalletConnection implements WalletEventEmitter {
   private provider: WalletProvider | null = null;

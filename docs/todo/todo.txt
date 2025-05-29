@@ -1,0 +1,18 @@
+we should DO 
+
+profile
+Diary
+Referral 
+Shahi smart contract
+admin game panel
+backend game complete , reward and testing
+frontend game 
+
+
+START THE PROJECT
+
+a good marketing plan 
+
+
+
+window.authDebugger.diagnoseWalletAuth()

@@ -1,0 +1,54 @@
+            tgname            |                       pg_get_functiondef                        
+------------------------------+-----------------------------------------------------------------
+ sync_user_id_trigger         | CREATE OR REPLACE FUNCTION public.sync_user_sessions_fields()  +
+                              |  RETURNS trigger                                               +
+                              |  LANGUAGE plpgsql                                              +
+                              | AS $function$                                                  +
+                              | BEGIN                                                          +
+                              |     IF NEW."userId" IS NOT NULL AND NEW.user_id IS NULL THEN   +
+                              |         NEW.user_id := NEW."userId";                           +
+                              |     ELSIF NEW.user_id IS NOT NULL AND NEW."userId" IS NULL THEN+
+                              |         NEW."userId" := NEW.user_id;                           +
+                              |     END IF;                                                    +
+                              |     RETURN NEW;                                                +
+                              | END;                                                           +
+                              | $function$                                                     +
+                              | 
+ RI_ConstraintTrigger_c_16662 | CREATE OR REPLACE FUNCTION pg_catalog."RI_FKey_check_ins"()    +
+                              |  RETURNS trigger                                               +
+                              |  LANGUAGE internal                                             +
+                              |  PARALLEL SAFE STRICT                                          +
+                              | AS $function$RI_FKey_check_ins$function$                       +
+                              | 
+ RI_ConstraintTrigger_c_16663 | CREATE OR REPLACE FUNCTION pg_catalog."RI_FKey_check_upd"()    +
+                              |  RETURNS trigger                                               +
+                              |  LANGUAGE internal                                             +
+                              |  PARALLEL SAFE STRICT                                          +
+                              | AS $function$RI_FKey_check_upd$function$                       +
+                              | 
+ RI_ConstraintTrigger_c_16712 | CREATE OR REPLACE FUNCTION pg_catalog."RI_FKey_check_ins"()    +
+                              |  RETURNS trigger                                               +
+                              |  LANGUAGE internal                                             +
+                              |  PARALLEL SAFE STRICT                                          +
+                              | AS $function$RI_FKey_check_ins$function$                       +
+                              | 
+ RI_ConstraintTrigger_c_17670 | CREATE OR REPLACE FUNCTION pg_catalog."RI_FKey_check_ins"()    +
+                              |  RETURNS trigger                                               +
+                              |  LANGUAGE internal                                             +
+                              |  PARALLEL SAFE STRICT                                          +
+                              | AS $function$RI_FKey_check_ins$function$                       +
+                              | 
+ RI_ConstraintTrigger_c_17671 | CREATE OR REPLACE FUNCTION pg_catalog."RI_FKey_check_upd"()    +
+                              |  RETURNS trigger                                               +
+                              |  LANGUAGE internal                                             +
+                              |  PARALLEL SAFE STRICT                                          +
+                              | AS $function$RI_FKey_check_upd$function$                       +
+                              | 
+ RI_ConstraintTrigger_c_16713 | CREATE OR REPLACE FUNCTION pg_catalog."RI_FKey_check_upd"()    +
+                              |  RETURNS trigger                                               +
+                              |  LANGUAGE internal                                             +
+                              |  PARALLEL SAFE STRICT                                          +
+                              | AS $function$RI_FKey_check_upd$function$                       +
+                              | 
+(7 rows)
+

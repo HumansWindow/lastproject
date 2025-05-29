@@ -1,17 +1,17 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { NextPage } from 'next';
-import { Diary } from '../../types/diary';
-import { diaryService } from '../../services/api/modules/diary';
-import DiaryCard from '../../components/diary/DiaryCard';
-import Layout from '../../components/layout/Layout';
-import { DiaryLocationLabels, FeelingOptions, DiaryLocationEnum, ExtendedDiary } from "../../types/diary-extended";
+import { Diary } from "../../types/diary";
+import { diaryService } from "../../services/api/modules/diary";
+import DiaryCard from "../../components/diary/DiaryCard";
+import Layout from "../../components/layout/Layout";
+import { DiaryLocationLabels, FeelingOptions, DiaryLocationEnum, ExtendedDiary } from "../../types/diaryExtended";
 import Link from 'next/link';
 import { useRouter } from 'next/router';
-import { useAuth } from '@/contexts/auth';
+import { useAuth } from "@/contexts/AuthProvider";
 import { useTranslation } from 'next-i18next';
 import { serverSideTranslations } from 'next-i18next/serverSideTranslations';
 // Add import for CSS styles
-import styles from '../../styles/DiaryList.module.css';
+import styles from "../../styles/DiaryList.module.css";
 
 const DiaryListPage: NextPage = () => {
   const { t } = useTranslation('common');
@@ -31,7 +31,16 @@ const DiaryListPage: NextPage = () => {
     try {
       setLoading(true);
       const response = await diaryService.getDiaryEntries();
-      setDiaries(response.data);
+      
+      // Convert DiaryEntry[] to ExtendedDiary[] by ensuring location properties are compatible
+      const extendedDiaries: ExtendedDiary[] = response.data.map(diary => ({
+        ...diary,
+        location: typeof diary.location === 'string' 
+          ? diary.location
+          : (diary.location || { name: 'Unknown', latitude: 0, longitude: 0 })
+      }));
+      
+      setDiaries(extendedDiaries);
     } catch (error) {
       console.error('Error fetching diaries:', error);
       setError('Failed to load diaries');

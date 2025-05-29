@@ -4,7 +4,7 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { ReferralService } from './referral.service';
 import { CreateReferralDto } from './dto/create-referral.dto';
 import { ToggleReferralCodeDto } from './dto/toggle-referral-code.dto';
-import { RequestWithUser } from '../auth/interfaces/request-with-user.interface';
+import { RequestWithUser } from '../shared/interfaces/request-with-user.interface';
 
 @ApiTags('referral')
 @Controller('referral')

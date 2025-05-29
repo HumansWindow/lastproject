@@ -15,16 +15,13 @@ export class NFT {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Column()
-  @Index()
+  @Column({ name: 'token_id' })
   tokenId: string;
-
-  @Column()
-  @Index()
+  
+  @Column({ name: 'contract_address' })
   contractAddress: string;
 
-  @Column()
-  chainId: number;
+  @Column({ name: 'chain_id' }) chainId: number;
 
   @Column({ name: 'owner_id' })
   @Index()
@@ -48,11 +45,12 @@ export class NFT {
   owner: User;
 
   @Column({ default: true })
+  @Column({ name: 'is_active' })
   isActive: boolean;
 
-  @CreateDateColumn()
+  @CreateDateColumn({ name: "created_at" })
   createdAt: Date;
 
-  @UpdateDateColumn()
+  @UpdateDateColumn({ name: "updated_at" })
   updatedAt: Date;
 }

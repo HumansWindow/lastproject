@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { realtimeService, BalanceUpdateEvent } from '../services/realtime';
-import { BalanceChangeEvent } from '../types/api-types';
-import WebSocketStatus from './WebSocketStatus';
+import { realtimeService, BalanceUpdateEvent } from "../services/realtime/index";
+import { BalanceChangeEvent } from "../types/apiTypes";
+import WebSocketStatus from "./WebSocketStatus";
 
 interface Props {
   walletAddress: string;
@@ -31,29 +31,28 @@ export const WalletBalanceMonitor: React.FC<Props> = ({ walletAddress, networkNa
             true;
 
           // Update balance changes history
-          setBalanceChanges((prev: BalanceChangeEvent[]) => {
-            return [
-              {
-                address: event.address,
-                previousBalance: String(event.previousBalance || '0'),
-                newBalance: String(event.newBalance),
-                formattedNewBalance: event.formattedNewBalance || `${event.newBalance} ETH`,
-                txHash: event.txHash || '',
-                blockNumber: event.blockNumber,
-                timestamp: event.timestamp,
-                chainId: event.chainId,
-                networkName: event.networkName,
-                type: isCredit ? 'credit' : 'debit'
-              },
-              ...prev.slice(0, 9) // Keep last 10 changes
-            ];
+          setBalanceChanges(prev => {
+            const newEvent: BalanceChangeEvent = {
+              address: walletAddress, // Use the prop directly to ensure it's a string
+              previousBalance: String(event.previousBalance || '0'),
+              newBalance: String(event.newBalance),
+              formattedNewBalance: event.formattedNewBalance || `${event.newBalance} ETH`,
+              txHash: event.txHash || '',
+              blockNumber: event.blockNumber || 0,
+              timestamp: event.timestamp,
+              chainId: typeof event.chainId === 'number' ? event.chainId : 1, // Default to mainnet if undefined
+              networkName: event.networkName || networkName,
+              type: isCredit ? 'credit' : 'debit'
+            };
+            
+            return [newEvent, ...prev.slice(0, 9)]; // Keep last 10 changes
           });
         }
       );
 
       return unsubscribe;
     }
-  }, [walletAddress]);
+  }, [walletAddress, networkName]);
 
   const formatAddress = (address: string): string => {
     return `${address.substring(0, 6)}...${address.substring(address.length - 4)}`;

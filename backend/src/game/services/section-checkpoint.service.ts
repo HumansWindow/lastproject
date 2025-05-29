@@ -10,7 +10,7 @@ import {
   SectionCompletionResultDto,
   UserSectionProgressDto
 } from '../dto/progress.dto';
-import { ProgressStatus } from '../interfaces/progress-status.interface';
+import { ProgressStatus, ModuleProgressStatus, CompatibleProgressStatus } from '../interfaces/progress-status.interface';
 
 @Injectable()
 export class SectionCheckpointService {

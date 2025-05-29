@@ -13,6 +13,7 @@ import { MerkleService } from './services/merkle.service';
 import { User } from '../users/entities/user.entity';
 import { EventEmitterModule } from '@nestjs/event-emitter';
 import { TokenEventsGateway } from './gateways/token-events.gateway';
+import { BlockchainWebSocketGateway } from './gateways/websocket.gateway';
 import { WsJwtAuthGuard } from '../auth/guards/ws-auth.guard';
 import { JwtSharedModule } from '../auth/jwt.module';
 import { AuthModule } from '../auth/auth.module';
@@ -111,6 +112,7 @@ if (fs.existsSync(contractsEnvPath)) {
     TokenExpiryTask,
     MerkleService,
     TokenEventsGateway,
+    BlockchainWebSocketGateway,
     WsJwtAuthGuard,
     StakingService,
     UserMintingQueueService,
@@ -131,10 +133,13 @@ if (fs.existsSync(contractsEnvPath)) {
     UserMintingQueueService,
     // Export the RPC provider service so other modules can use it
     RpcProviderService,
+    // Export the WebSocket Gateway so it can be used in GameModule
+    TokenEventsGateway,
+    BlockchainWebSocketGateway,
   ],
 })
 export class BlockchainModule {
-  constructor(private configService: ConfigService) {
+  constructor(private readonly configService: ConfigService) {
     // Initialize global blockchain config on module creation
     const configFromEnv = {
       ETH_RPC_URL: configService.get<string>('ETH_MAINNET_RPC') || configService.get<string>('ETH_RPC_URL'),

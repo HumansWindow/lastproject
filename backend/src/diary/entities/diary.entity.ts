@@ -24,8 +24,7 @@ export class Diary {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Column()
-  title: string;
+  @Column({ name: 'title' })title: string;
 
   @Column({ type: 'int' })
   gameLevel: number;

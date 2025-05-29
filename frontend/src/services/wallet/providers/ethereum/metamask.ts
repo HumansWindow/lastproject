@@ -6,7 +6,7 @@ import {
   WalletInfo,
   WalletProvider,
   WalletProviderType
-} from '../../core/wallet-base';
+} from "../../core/walletBase";
 
 // Add window ethereum type declaration at the top
 declare global {

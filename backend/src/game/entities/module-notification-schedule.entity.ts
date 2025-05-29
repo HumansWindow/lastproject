@@ -16,8 +16,10 @@ export class ModuleNotificationSchedule {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Column()
-  moduleId: string;
+  @Column({ name: 'notification_template_id' })
+  templateId: string;
+
+  @Column({ name: 'module_id' })moduleId: string;
 
   @ManyToOne(() => GameModule, module => module.notificationSchedules)
   @JoinColumn({ name: 'module_id' })
@@ -45,6 +47,8 @@ export class ModuleNotificationSchedule {
   isRecurring: boolean;
 
   @Column({ default: true })
+  @Column({ name: 'is_active' })
+
   isActive: boolean;
 
   @Column({ type: 'json', nullable: true })
@@ -57,12 +61,8 @@ export class ModuleNotificationSchedule {
   @JoinColumn({ name: 'notification_template_id' })
   notificationTemplate: GameNotificationTemplate;
 
-  @Column()
-  templateId: string;
+  @Column({ name: 'created_at' }) createdAt: Date;
 
-  @CreateDateColumn()
-  createdAt: Date;
-
-  @UpdateDateColumn()
+  @UpdateDateColumn({ name: "updated_at" })
   updatedAt: Date;
 }

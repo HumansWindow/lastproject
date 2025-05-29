@@ -1,3 +1,3 @@
 // NFT module exports
-export * from './nft-service';
-export * from './token-service';
+export * from "./nftService";
+export * from "./tokenService";
